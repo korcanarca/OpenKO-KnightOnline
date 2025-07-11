@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <string>
-#include <assert.h>
 
 #include "SqlBuilder.h"
 #include <nanodbc/nanodbc.h>
@@ -81,29 +80,31 @@ namespace db
 		template <typename T>
 		static void BindResult(const nanodbc::result& result, T& model, const BindingIndex<T>& bindingIndex)
 		{
-			// This is managed externally so we shouldn't really have to verify in release builds.
-			// But we should still ensure that it's setup appropriately in debug builds.
-			assert(result.columns() == bindingIndex.size());
-
-			for (short i = 0; i < result.columns(); i++)
+			short i = 0;
+			for (const auto bind : bindingIndex)
 			{
-				auto bind = bindingIndex[i];
 				if (bind != nullptr)
 					bind(model, result, i);
+
+				++i;
 			}
 		}
 
 		template <typename T>
-		static void IndexColumnNameBindings(const nanodbc::result& result, BindingIndex<T>& bindingsIndex)
+		static void IndexColumnNameBindings(
+			const nanodbc::result& result,
+			BindingIndex<T>& bindingsIndex)
 		{
 			using BinderType = typename T::BinderType;
 
 			const auto& columnBindingsMap = BinderType::GetColumnBindings();
 			std::string columnName;
 
-			bindingsIndex.reserve(result.columns());
+			const short columnCount = result.columns();
 
-			for (short i = 0; i < result.columns(); i++)
+			bindingsIndex.reserve(columnCount);
+
+			for (short i = 0; i < columnCount; i++)
 			{
 				columnName = result.column_name(i);
 
