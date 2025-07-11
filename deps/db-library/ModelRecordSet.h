@@ -25,8 +25,7 @@ namespace db
 		/// \see next(), get()
 		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
-		ModelRecordSet(DatabaseConnManager& mgr, SqlBuilder<T>& filterObj) noexcept(false)
-			: _mgr(mgr)
+		ModelRecordSet(SqlBuilder<T>& filterObj) noexcept(false)
 		{
 			open(filterObj);
 		}
@@ -39,8 +38,7 @@ namespace db
 		/// \see next(), get()
 		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
-		ModelRecordSet(DatabaseConnManager& mgr) noexcept(false)
-			: _mgr(mgr)
+		ModelRecordSet() noexcept(false)
 		{
 			SqlBuilder<T> filterObj {};
 			open(filterObj);
@@ -91,7 +89,7 @@ namespace db
 		/// \throws nanodbc::database_error
 		void open(SqlBuilder<T>& filterObj) noexcept(false)
 		{
-			_conn = _mgr.GetConnectionTo(T::DbType());
+			_conn = DatabaseConnManager::GetConnectionTo(T::DbType());
 
 			std::string query = filterObj.SelectString();
 			_stmt = std::make_unique<nanodbc::statement>(*_conn, query);
@@ -103,7 +101,6 @@ namespace db
 		}
 
 	private:
-		DatabaseConnManager& _mgr;
 		std::shared_ptr<nanodbc::connection> _conn;
 		std::unique_ptr<nanodbc::statement> _stmt;
 		nanodbc::result _result;

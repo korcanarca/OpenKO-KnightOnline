@@ -26,8 +26,7 @@ namespace db
 		template <typename T>
 		static std::vector<T> BatchSelect(SqlBuilder<T>& sql) noexcept(false)
 		{
-			nanodbc::connection conn;
-			DatabaseConnManager::GetConnectionTo(T::DbType(), &conn);
+			auto conn = DatabaseConnManager::GetConnectionTo(T::DbType());
 
 			std::string query = sql.SelectCountString();
 			nanodbc::statement stmt = nanodbc::statement(conn, query);

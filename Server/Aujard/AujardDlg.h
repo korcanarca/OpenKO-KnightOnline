@@ -15,8 +15,6 @@
 
 #include <shared/STLMap.h>
 
-#include <db-library/DatabaseConnManager.h>
-
 using ItemtableArray = CSTLMap<model::Item>;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -57,6 +55,7 @@ public:
 	void ReportTableLoadError(const std::exception& ex, const char* source);
 	BOOL LoadItemTable();
 	void UserLogOut(char* pBuf);
+	~CAujardDlg();
 	CAujardDlg(CWnd* pParent = nullptr);	// standard constructor
 
 	BOOL InitializeMMF();
@@ -75,8 +74,6 @@ public:
 
 	int					m_nServerNo;
 	int					m_nZoneNo;
-
-	db::DatabaseConnManager	m_dbConnManager;
 
 	TCHAR m_strGameDSN[24], m_strAccountDSN[24];
 	TCHAR m_strGameUID[24], m_strAccountUID[24];

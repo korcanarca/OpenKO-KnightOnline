@@ -27,6 +27,8 @@ static char THIS_FILE[] = __FILE__;
 import FullBinder;
 // namespace binder = aujard_binder; // TODO: when this is Aujard-specific
 
+using namespace db;
+
 WORD g_increase_serial = 50001;
 
 CRITICAL_SECTION g_LogFileWrite;
@@ -139,6 +141,13 @@ CAujardDlg::CAujardDlg(CWnd* pParent /*=nullptr*/)
 	m_iSendPacketCount = 0;
 	m_iPacketCount = 0;
 	m_iRecvPacketCount = 0;
+
+	DatabaseConnManager::Create();
+}
+
+CAujardDlg::~CAujardDlg()
+{
+	DatabaseConnManager::Destroy();
 }
 
 void CAujardDlg::DoDataExchange(CDataExchange* pDX)
@@ -218,7 +227,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourceUser = ini.GetString("ODBC", "ACCOUNT_UID", "knight");
 	datasourcePass = ini.GetString("ODBC", "ACCOUNT_PWD", "knight");
 
-	m_dbConnManager.SetDatasourceConfig(
+	DatabaseConnManager::SetDatasourceConfig(
 		"ACCOUNT",
 		datasourceName,
 		datasourceUser,
@@ -228,7 +237,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourceUser = ini.GetString("ODBC", "GAME_UID", "knight");
 	datasourcePass = ini.GetString("ODBC", "GAME_PWD", "knight");
 
-	m_dbConnManager.SetDatasourceConfig(
+	DatabaseConnManager::SetDatasourceConfig(
 		"GAME",
 		datasourceName,
 		datasourceUser,
@@ -366,7 +375,7 @@ BOOL CAujardDlg::LoadItemTable()
 
 	try
 	{
-		db::ModelRecordSet<model::Item> recordset(m_dbConnManager);
+		ModelRecordSet<model::Item> recordset;
 
 		while (recordset.next())
 		{
@@ -389,7 +398,7 @@ BOOL CAujardDlg::LoadItemTable()
 		m_ItemtableArray.Swap(localMap);
 		return TRUE;
 	}
-	catch (const db::DatasourceConfigNotFoundException& ex)
+	catch (const DatasourceConfigNotFoundException& ex)
 	{
 		ReportTableLoadError(ex, __func__);
 	}

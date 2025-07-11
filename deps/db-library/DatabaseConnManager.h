@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <assert.h>
 
 namespace nanodbc
 {
@@ -35,22 +36,45 @@ namespace db
 		};
 
 	public:
-		DatabaseConnManager();
+		static void Create();
+		static void Destroy();
 
 		/// \brief fetch the associated previously stored database config using the code-generated databaseType string
-		void SetDatasourceConfig(const std::string& databaseType, const std::string_view datasourceName, const std::string_view datasourceUserName, const std::string_view datasourcePassword);
+		static void SetDatasourceConfig(const std::string& databaseType, const std::string_view datasourceName, const std::string_view datasourceUserName, const std::string_view datasourcePassword);
 
 		/// \brief fetch the associated previously stored database config using the code-generated databaseType string
-		std::shared_ptr<const DatasourceConfig> GetDatasourceConfig(const std::string& databaseType) const;
+		static std::shared_ptr<const DatasourceConfig> GetDatasourceConfig(const std::string& databaseType);
 
 		/// \brief attempt a connection to the database using the code-generated databaseType string
 		/// \throws DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
-		std::shared_ptr<nanodbc::connection> GetConnectionTo(const std::string& databaseType) noexcept(false);
+		static std::shared_ptr<nanodbc::connection> GetConnectionTo(const std::string& databaseType) noexcept(false);
+
+	protected:
+		static inline DatabaseConnManager& GetInstance()
+		{
+			assert(s_instance != nullptr);
+			return *s_instance;
+		}
+
+		DatabaseConnManager();
+
+		/// \brief fetch the associated previously stored database config using the code-generated databaseType string
+		void SetDatasourceConfigImpl(const std::string& databaseType, const std::string_view datasourceName, const std::string_view datasourceUserName, const std::string_view datasourcePassword);
+
+		/// \brief fetch the associated previously stored database config using the code-generated databaseType string
+		std::shared_ptr<const DatasourceConfig> GetDatasourceConfigImpl(const std::string& databaseType) const;
+
+		/// \brief attempt a connection to the database using the code-generated databaseType string
+		/// \throws DatasourceConfigNotFoundException
+		/// \throws nanodbc::database_error
+		std::shared_ptr<nanodbc::connection> GetConnectionToImpl(const std::string& databaseType) noexcept(false);
 
 		~DatabaseConnManager();
 
 	protected:
+		static DatabaseConnManager* s_instance;
+
 		std::unordered_map<std::string, std::shared_ptr<const DatasourceConfig>> _configMap;
 		mutable std::mutex _configLock;
 	};
