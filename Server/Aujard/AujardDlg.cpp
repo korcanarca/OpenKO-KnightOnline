@@ -9,9 +9,8 @@
 
 #include <shared/Ini.h>
 
-#include <db-library/Exceptions.h>
-#include <db-library/ModelRecordSet.h>
-#include <db-library/Model.h>
+#include <db-library/DatabaseConnManager.h>
+#include <db-library/STLMapRecordSetLoader.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -24,8 +23,7 @@ static char THIS_FILE[] = __FILE__;
 #define SERIAL_TIME			300
 #define PACKET_CHECK		400
 
-import FullBinder;
-// namespace binder = aujard_binder; // TODO: when this is Aujard-specific
+import AujardBinder;
 
 using namespace db;
 
@@ -371,49 +369,20 @@ BOOL CAujardDlg::InitializeMMF()
 
 BOOL CAujardDlg::LoadItemTable()
 {
-	ItemtableArray localMap;
-
-	try
+	STLMapRecordSetLoader::Error err = {};
+	if (!STLMapRecordSetLoader::LoadForbidEmpty(m_ItemtableArray, err))
 	{
-		ModelRecordSet<model::Item> recordset;
-
-		while (recordset.next())
-		{
-			model::Item* pModel = new model::Item;
-			recordset.get_ref(*pModel);
-
-			if (!localMap.PutData(pModel->Number, pModel))
-			{
-				TRACE(_T("ItemTable PutData Fail - %d\n"), pModel->Number);
-				delete pModel;
-			}
-		}
-
-		if (localMap.IsEmpty())
-		{
-			AfxMessageBox(_T("ItemTable Empty!"));
-			return FALSE;
-		}
-
-		m_ItemtableArray.Swap(localMap);
-		return TRUE;
-	}
-	catch (const DatasourceConfigNotFoundException& ex)
-	{
-		ReportTableLoadError(ex, __func__);
-	}
-	catch (const nanodbc::database_error& ex)
-	{
-		ReportTableLoadError(ex, __func__);
+		ReportTableLoadError(err, __func__);
+		return FALSE;
 	}
 
-	return FALSE;
+	return TRUE;
 }
 
-void CAujardDlg::ReportTableLoadError(const std::exception& ex, const char* source)
+void CAujardDlg::ReportTableLoadError(const STLMapRecordSetLoader::Error& err, const char* source)
 {
 	CString msg;
-	msg.Format(_T("%hs failed: %hs"), source, ex.what());
+	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
 	AfxMessageBox(msg);
 }
 

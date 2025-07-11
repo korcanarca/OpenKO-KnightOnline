@@ -17,6 +17,11 @@
 
 using ItemtableArray = CSTLMap<model::Item>;
 
+namespace STLMapRecordSetLoader
+{
+	struct Error;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CAujardDlg dialog
 
@@ -52,7 +57,7 @@ public:
 	void DeleteChar(char* pBuf);
 	void CreateNewChar(char* pBuf);
 	void SelectNation(char* pBuf);
-	void ReportTableLoadError(const std::exception& ex, const char* source);
+	void ReportTableLoadError(const STLMapRecordSetLoader::Error& err, const char* source);
 	BOOL LoadItemTable();
 	void UserLogOut(char* pBuf);
 	~CAujardDlg();

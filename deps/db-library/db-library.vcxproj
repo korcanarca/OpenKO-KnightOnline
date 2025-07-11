@@ -24,6 +24,7 @@
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelRecordSet.h" />
     <ClInclude Include="SqlBuilder.h" />
+    <ClInclude Include="STLMapRecordSetLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DatabaseConnManager.cpp" />

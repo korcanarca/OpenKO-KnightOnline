@@ -3,11 +3,13 @@
 #include <map>
 
 template <
-	class ValueType,
-	class KeyType = int>
+	class ValueType_,
+	class KeyType_ = int>
 class CSTLMap
 {
 public:
+	using KeyType = KeyType_;
+	using ValueType = ValueType_;
 	using SelfType = CSTLMap<ValueType, KeyType>;
 	using MapType = std::map<KeyType, ValueType*>;
 
