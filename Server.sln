@@ -59,6 +59,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fetch-db-modules", "deps\fe
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fetch-nanodbc", "deps\fetch-and-build-wrappers\fetch-nanodbc.vcxproj", "{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "db-modules", "deps\db-modules-msvc\db-modules.vcxproj", "{17EF3A49-55B8-4FB6-883F-D1D02E20C11D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{057C1ABC-6137-37A9-9935-8CF811D7CEDA} = {057C1ABC-6137-37A9-9935-8CF811D7CEDA}
+		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC} = {3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -109,6 +115,8 @@ Global
 		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC}.Debug|Win32.Build.0 = Debug|Win32
 		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC}.Release|Win32.ActiveCfg = Release|Win32
 		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC}.Release|Win32.Build.0 = Release|Win32
+		{17EF3A49-55B8-4FB6-883F-D1D02E20C11D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{17EF3A49-55B8-4FB6-883F-D1D02E20C11D}.Release|Win32.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -121,6 +129,7 @@ Global
 		{50D2B40A-5AE4-F5FB-4D79-AC6CC3C75274} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{057C1ABC-6137-37A9-9935-8CF811D7CEDA} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{17EF3A49-55B8-4FB6-883F-D1D02E20C11D} = {9D5EEECB-6F40-493E-9D35-58BE18DF0690}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {023E6273-2767-4477-85B6-B02DF66FB3DB}

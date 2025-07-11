@@ -159,6 +159,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fetch-db-modules", "deps\fe
 		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC} = {3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "db-modules", "deps\db-modules-msvc\db-modules.vcxproj", "{17EF3A49-55B8-4FB6-883F-D1D02E20C11D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{057C1ABC-6137-37A9-9935-8CF811D7CEDA} = {057C1ABC-6137-37A9-9935-8CF811D7CEDA}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -283,6 +288,8 @@ Global
 		{057C1ABC-6137-37A9-9935-8CF811D7CEDA}.Debug|Win32.Build.0 = Debug|Win32
 		{057C1ABC-6137-37A9-9935-8CF811D7CEDA}.Release|Win32.ActiveCfg = Release|Win32
 		{057C1ABC-6137-37A9-9935-8CF811D7CEDA}.Release|Win32.Build.0 = Release|Win32
+		{17EF3A49-55B8-4FB6-883F-D1D02E20C11D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{17EF3A49-55B8-4FB6-883F-D1D02E20C11D}.Release|Win32.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -320,6 +327,7 @@ Global
 		{3FEFBF4A-B12C-4E32-BE93-4EA51FD09F63} = {D754A6DF-7CD9-4A54-82AA-B31C5AF65C23}
 		{3F38FD98-5C7E-97C7-70A9-FDA7E34A0CFC} = {6EEB718D-CCE4-446E-A0BE-172669B7BC98}
 		{057C1ABC-6137-37A9-9935-8CF811D7CEDA} = {6EEB718D-CCE4-446E-A0BE-172669B7BC98}
+		{17EF3A49-55B8-4FB6-883F-D1D02E20C11D} = {657121FA-968C-4276-9AA6-EC6692DC6465}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D9937074-3E07-4102-9EF1-BE6E87CF35E4}

@@ -24,6 +24,7 @@
     <ProjectGuid>{17ef3a49-55b8-4fb6-883f-d1d02e20c11d}</ProjectGuid>
     <RootNamespace>dbmodules</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ReadOnlyProject>true</ReadOnlyProject>
   </PropertyGroup>
   <Import Project="..\..\props\platform_root.props" />
   <PropertyGroup Label="Configuration">
@@ -99,14 +100,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="..\db-modules\**\*.ixx">
-      <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-  </ItemGroup>
-  <PropertyGroup>
-      <ReadOnlyProject>true</ReadOnlyProject>
-  </PropertyGroup>  
+  <Target Name="GenerateFileList" BeforeTargets="PrepareForBuild">
+    <Exec Command="GenerateFileList.bat" />
+  </Target>
+  <Import Project="GeneratedFileList.props" Condition="Exists('GeneratedFileList.props')" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
