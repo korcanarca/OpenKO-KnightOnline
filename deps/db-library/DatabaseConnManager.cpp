@@ -1,0 +1,69 @@
+﻿#include "DatabaseConnManager.h"
+#include <nanodbc/nanodbc.h>
+
+namespace db
+{
+	DatabaseConnManager::DatabaseConnManager()
+	{
+	}
+
+	void DatabaseConnManager::SetDatasourceConfig(
+		const std::string& databaseType,
+		const std::string_view datasourceName,
+		const std::string_view datasourceUserName,
+		const std::string_view datasourcePassword)
+	{
+		std::lock_guard<std::mutex> lock(_configLock);
+
+		auto itr = _configMap.find(databaseType);
+		if (itr == _configMap.end())
+		{
+			auto config = std::make_shared<const DatasourceConfig>(
+				datasourceName,
+				datasourceUserName,
+				datasourcePassword);
+
+			_configMap.insert({ databaseType, config });
+		}
+		else
+		{
+			auto config = std::const_pointer_cast<DatasourceConfig>(itr->second);
+
+			config->DatasourceName = datasourceName,
+			config->DatasourceUsername = datasourceUserName,
+			config->DatasourcePassword = datasourcePassword;
+		}
+	}
+
+	/// \brief fetch the associated previously stored database config using the code-generated databaseType string
+	std::shared_ptr<const DatabaseConnManager::DatasourceConfig>
+	DatabaseConnManager::GetDatasourceConfig(const std::string& databaseType) const
+	{
+		std::lock_guard<std::mutex> lock(_configLock);
+
+		auto itr = _configMap.find(databaseType);
+		if (itr == _configMap.end())
+			return nullptr;
+
+		return itr->second;
+	}
+
+	/// \brief attempt a connection to the database using the code-generated databaseType string
+	/// \throws std::runtime_error
+	/// \throws nanodbc::database_error
+	std::shared_ptr<nanodbc::connection> DatabaseConnManager::GetConnectionTo(const std::string& databaseType) noexcept(false)
+	{
+		auto config = GetDatasourceConfig(databaseType);
+		if (config == nullptr)
+			throw std::runtime_error("Invalid database type");
+
+		return std::make_shared<nanodbc::connection>(
+			config->DatasourceName,
+			config->DatasourceUsername,
+			config->DatasourcePassword);
+	}
+
+	DatabaseConnManager::~DatabaseConnManager()
+	{
+	}
+}
