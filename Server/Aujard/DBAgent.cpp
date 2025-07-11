@@ -345,7 +345,7 @@ BOOL CDBAgent::LoadUserData(const char* accountid, const char* userid, int uid)
 	DWORD itemid = 0;
 	short count = 0, duration = 0;
 	int64_t serial = 0;
-	_ITEM_TABLE* pTable = nullptr;
+	model::Item* pTable = nullptr;
 
 	// 착용갯수 + 소유갯수(14+28=42)
 	for (int i = 0; i < HAVE_MAX + SLOT_MAX; i++)
@@ -370,7 +370,7 @@ BOOL CDBAgent::LoadUserData(const char* accountid, const char* userid, int uid)
 			{
 				pUser->m_sItemArray[i].sCount = ITEMCOUNT_MAX;
 			}
-			else if (pTable->m_bCountable && count <= 0)
+			else if (pTable->Countable && count <= 0)
 			{
 				pUser->m_sItemArray[i].nNum = 0;
 				pUser->m_sItemArray[i].sDuration = 0;
@@ -1336,7 +1336,7 @@ BOOL CDBAgent::LoadWarehouseData(const char* accountid, int uid)
 	TCHAR			szSQL[1024] = {};
 
 	_USER_DATA* pUser = nullptr;
-	_ITEM_TABLE* pTable = nullptr;
+	model::Item* pTable = nullptr;
 	SQLINTEGER	Money = 0, dwTime = 0;
 	char strItem[1600] = {}, strSerial[1600] = {};
 	SQLINTEGER Indexind = SQL_NTS;

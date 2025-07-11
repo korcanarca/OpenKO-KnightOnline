@@ -23,6 +23,7 @@ namespace db
 		/// with get()
 		///
 		/// \see next(), get()
+		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
 		ModelRecordSet(DatabaseConnManager& mgr, SqlBuilder<T>& filterObj) noexcept(false)
 			: _mgr(mgr)
@@ -36,6 +37,7 @@ namespace db
 		/// with get()
 		///
 		/// \see next(), get()
+		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
 		ModelRecordSet(DatabaseConnManager& mgr) noexcept(false)
 			: _mgr(mgr)
@@ -85,6 +87,7 @@ namespace db
 		/// with get()
 		///
 		/// \see next(), get()
+		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
 		void open(SqlBuilder<T>& filterObj) noexcept(false)
 		{

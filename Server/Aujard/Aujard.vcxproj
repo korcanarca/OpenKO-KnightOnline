@@ -135,7 +135,6 @@
     <ClCompile Include="Aujard.cpp" />
     <ClCompile Include="AujardDlg.cpp" />
     <ClCompile Include="DBAgent.cpp" />
-    <ClCompile Include="ItemTableSet.cpp" />
     <ClCompile Include="SharedMem.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -150,7 +149,6 @@
     <ClInclude Include="AujardDlg.h" />
     <ClInclude Include="DBAgent.h" />
     <ClInclude Include="Define.h" />
-    <ClInclude Include="ItemTableSet.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SharedMem.h" />
     <ClInclude Include="StdAfx.h" />

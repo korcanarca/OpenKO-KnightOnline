@@ -8,7 +8,9 @@ template <
 class CSTLMap
 {
 public:
+	using SelfType = CSTLMap<ValueType, KeyType>;
 	using MapType = std::map<KeyType, ValueType*>;
+
 	MapType m_UserTypeMap;
 
 	int GetSize() const {
@@ -69,6 +71,12 @@ public:
 			delete itr->second;
 
 		m_UserTypeMap.clear();
+	}
+
+	void Swap(
+		SelfType& rhs)
+	{
+		m_UserTypeMap.swap(rhs.m_UserTypeMap);
 	}
 
 	~CSTLMap()

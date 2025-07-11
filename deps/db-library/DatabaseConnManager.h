@@ -44,7 +44,7 @@ namespace db
 		std::shared_ptr<const DatasourceConfig> GetDatasourceConfig(const std::string& databaseType) const;
 
 		/// \brief attempt a connection to the database using the code-generated databaseType string
-		/// \throws std::runtime_error
+		/// \throws DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
 		std::shared_ptr<nanodbc::connection> GetConnectionTo(const std::string& databaseType) noexcept(false);
 

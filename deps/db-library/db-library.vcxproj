@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DatabaseConnManager.h" />
+    <ClInclude Include="Exceptions.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelRecordSet.h" />
     <ClInclude Include="SqlBuilder.h" />

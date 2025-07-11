@@ -4,10 +4,14 @@
 #include "stdafx.h"
 #include "Aujard.h"
 #include "AujardDlg.h"
-#include "ItemTableset.h"
+
 #include <process.h>
 
 #include <shared/Ini.h>
+
+#include <db-library/Exceptions.h>
+#include <db-library/ModelRecordSet.h>
+#include <db-library/Model.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -19,6 +23,9 @@ static char THIS_FILE[] = __FILE__;
 #define CONCURRENT_CHECK	200
 #define SERIAL_TIME			300
 #define PACKET_CHECK		400
+
+import FullBinder;
+// namespace binder = aujard_binder; // TODO: when this is Aujard-specific
 
 WORD g_increase_serial = 50001;
 
@@ -202,6 +209,31 @@ BOOL CAujardDlg::OnInitDialog()
 	ini.GetString(_T("ODBC"), _T("GAME_UID"), _T("knight"), m_strGameUID, _countof(m_strGameUID));
 	ini.GetString(_T("ODBC"), _T("GAME_PWD"), _T("knight"), m_strGamePWD, _countof(m_strGamePWD));
 
+	// TODO: This should only fetch the once.
+	// The above won't be necessary after stored procedures are replaced, so it can be replaced then.
+	std::string datasourceName, datasourceUser, datasourcePass;
+
+	// TODO: This should be Knight_Account
+	datasourceName = ini.GetString("ODBC", "ACCOUNT_DSN", "KN_online");
+	datasourceUser = ini.GetString("ODBC", "ACCOUNT_UID", "knight");
+	datasourcePass = ini.GetString("ODBC", "ACCOUNT_PWD", "knight");
+
+	m_dbConnManager.SetDatasourceConfig(
+		"ACCOUNT",
+		datasourceName,
+		datasourceUser,
+		datasourcePass);
+
+	datasourceName = ini.GetString("ODBC", "GAME_DSN", "KN_online");
+	datasourceUser = ini.GetString("ODBC", "GAME_UID", "knight");
+	datasourcePass = ini.GetString("ODBC", "GAME_PWD", "knight");
+
+	m_dbConnManager.SetDatasourceConfig(
+		"GAME",
+		datasourceName,
+		datasourceUser,
+		datasourcePass);
+
 	m_nServerNo = ini.GetInt(_T("ZONE_INFO"), _T("GROUP_INFO"), 1);
 	m_nZoneNo = ini.GetInt(_T("ZONE_INFO"), _T("ZONE_INFO"), 1);
 
@@ -330,96 +362,50 @@ BOOL CAujardDlg::InitializeMMF()
 
 BOOL CAujardDlg::LoadItemTable()
 {
-	CItemTableSet ItemTableSet;
+	ItemtableArray localMap;
 
-	if (!ItemTableSet.Open())
+	try
 	{
-		AfxMessageBox(_T("ItemTable Open Fail!"));
-		return FALSE;
-	}
+		db::ModelRecordSet<model::Item> recordset(m_dbConnManager);
 
-	if (ItemTableSet.IsBOF()
-		|| ItemTableSet.IsEOF())
-	{
-		AfxMessageBox(_T("ItemTable Empty!"));
-		return FALSE;
-	}
-
-	ItemTableSet.MoveFirst();
-
-	while (!ItemTableSet.IsEOF())
-	{
-		_ITEM_TABLE* pTableItem = new _ITEM_TABLE;
-
-		pTableItem->m_iNum = ItemTableSet.m_Num;
-		strcpy(pTableItem->m_strName, CT2A(ItemTableSet.m_strName));
-		pTableItem->m_bKind = ItemTableSet.m_Kind;
-		pTableItem->m_bSlot = ItemTableSet.m_Slot;
-		pTableItem->m_bRace = ItemTableSet.m_Race;
-		pTableItem->m_bClass = ItemTableSet.m_Class;
-		pTableItem->m_sDamage = ItemTableSet.m_Damage;
-		pTableItem->m_sDelay = ItemTableSet.m_Delay;
-		pTableItem->m_sRange = ItemTableSet.m_Range;
-		pTableItem->m_sWeight = ItemTableSet.m_Weight;
-		pTableItem->m_sDuration = ItemTableSet.m_Duration;
-		pTableItem->m_iBuyPrice = ItemTableSet.m_BuyPrice;
-		pTableItem->m_iSellPrice = ItemTableSet.m_SellPrice;
-		pTableItem->m_sAc = ItemTableSet.m_Ac;
-		pTableItem->m_bCountable = ItemTableSet.m_Countable;
-		pTableItem->m_iEffect1 = ItemTableSet.m_Effect1;
-		pTableItem->m_iEffect2 = ItemTableSet.m_Effect2;
-		pTableItem->m_bReqLevel = ItemTableSet.m_ReqLevel;
-		pTableItem->m_bReqRank = ItemTableSet.m_ReqRank;
-		pTableItem->m_bReqTitle = ItemTableSet.m_ReqTitle;
-		pTableItem->m_bReqStr = ItemTableSet.m_ReqStr;
-		pTableItem->m_bReqSta = ItemTableSet.m_ReqSta;
-		pTableItem->m_bReqDex = ItemTableSet.m_ReqDex;
-		pTableItem->m_bReqIntel = ItemTableSet.m_ReqIntel;
-		pTableItem->m_bReqCha = ItemTableSet.m_ReqCha;
-		pTableItem->m_bSellingGroup = ItemTableSet.m_SellingGroup;
-		pTableItem->m_ItemType = ItemTableSet.m_ItemType;
-		pTableItem->m_sHitrate = ItemTableSet.m_Hitrate;
-		pTableItem->m_sEvarate = ItemTableSet.m_Evasionrate;
-		pTableItem->m_sDaggerAc = ItemTableSet.m_DaggerAc;
-		pTableItem->m_sSwordAc = ItemTableSet.m_SwordAc;
-		pTableItem->m_sMaceAc = ItemTableSet.m_MaceAc;
-		pTableItem->m_sAxeAc = ItemTableSet.m_AxeAc;
-		pTableItem->m_sSpearAc = ItemTableSet.m_SpearAc;
-		pTableItem->m_sBowAc = ItemTableSet.m_BowAc;
-		pTableItem->m_bFireDamage = ItemTableSet.m_FireDamage;
-		pTableItem->m_bIceDamage = ItemTableSet.m_IceDamage;
-		pTableItem->m_bLightningDamage = ItemTableSet.m_LightningDamage;
-		pTableItem->m_bPoisonDamage = ItemTableSet.m_PoisonDamage;
-		pTableItem->m_bHPDrain = ItemTableSet.m_HPDrain;
-		pTableItem->m_bMPDamage = ItemTableSet.m_MPDamage;
-		pTableItem->m_bMPDrain = ItemTableSet.m_MPDrain;
-		pTableItem->m_bMirrorDamage = ItemTableSet.m_MirrorDamage;
-		pTableItem->m_bDroprate = ItemTableSet.m_Droprate;
-		pTableItem->m_bStrB = ItemTableSet.m_StrB;
-		pTableItem->m_bStaB = ItemTableSet.m_StaB;
-		pTableItem->m_bDexB = ItemTableSet.m_DexB;
-		pTableItem->m_bIntelB = ItemTableSet.m_IntelB;
-		pTableItem->m_bChaB = ItemTableSet.m_ChaB;
-		pTableItem->m_MaxHpB = ItemTableSet.m_MaxHpB;
-		pTableItem->m_MaxMpB = ItemTableSet.m_MaxMpB;
-		pTableItem->m_bFireR = ItemTableSet.m_FireR;
-		pTableItem->m_bColdR = ItemTableSet.m_ColdR;
-		pTableItem->m_bLightningR = ItemTableSet.m_LightningR;
-		pTableItem->m_bMagicR = ItemTableSet.m_MagicR;
-		pTableItem->m_bPoisonR = ItemTableSet.m_PoisonR;
-		pTableItem->m_bCurseR = ItemTableSet.m_CurseR;
-
-		if (!m_ItemtableArray.PutData(pTableItem->m_iNum, pTableItem))
+		while (recordset.next())
 		{
-			TRACE(_T("ItemTable PutData Fail - %d\n"), pTableItem->m_iNum);
-			delete pTableItem;
-			pTableItem = nullptr;
+			model::Item* pModel = new model::Item;
+			recordset.get_ref(*pModel);
+
+			if (!localMap.PutData(pModel->Number, pModel))
+			{
+				TRACE(_T("ItemTable PutData Fail - %d\n"), pModel->Number);
+				delete pModel;
+			}
 		}
 
-		ItemTableSet.MoveNext();
+		if (localMap.IsEmpty())
+		{
+			AfxMessageBox(_T("ItemTable Empty!"));
+			return FALSE;
+		}
+
+		m_ItemtableArray.Swap(localMap);
+		return TRUE;
+	}
+	catch (const db::DatasourceConfigNotFoundException& ex)
+	{
+		ReportTableLoadError(ex, __func__);
+	}
+	catch (const nanodbc::database_error& ex)
+	{
+		ReportTableLoadError(ex, __func__);
 	}
 
-	return TRUE;
+	return FALSE;
+}
+
+void CAujardDlg::ReportTableLoadError(const std::exception& ex, const char* source)
+{
+	CString msg;
+	msg.Format(_T("%hs failed: %hs"), source, ex.what());
+	AfxMessageBox(msg);
 }
 
 void CAujardDlg::SelectCharacter(char* pBuf)
@@ -1647,15 +1633,4 @@ void CAujardDlg::CouponEvent(char* pData)
 
 		nResult = m_DBAgent.UpdateCouponEvent(strAccountName, strCharName, strCouponID, nItemID, nItemCount);
 	}
-}
-
-CString CAujardDlg::GetGameDBConnectionString()
-{
-	CString strConnection;
-	strConnection.Format(
-		_T("ODBC;DSN=%s;UID=%s;PWD=%s"),
-		m_strGameDSN,
-		m_strGameUID,
-		m_strGamePWD);
-	return strConnection;	
 }

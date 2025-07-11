@@ -1,4 +1,6 @@
 ﻿#include "DatabaseConnManager.h"
+#include "Exceptions.h"
+
 #include <nanodbc/nanodbc.h>
 
 namespace db
@@ -55,7 +57,7 @@ namespace db
 	{
 		auto config = GetDatasourceConfig(databaseType);
 		if (config == nullptr)
-			throw std::runtime_error("Invalid database type");
+			throw DatasourceConfigNotFoundException("Invalid database type: " + databaseType);
 
 		return std::make_shared<nanodbc::connection>(
 			config->DatasourceName,

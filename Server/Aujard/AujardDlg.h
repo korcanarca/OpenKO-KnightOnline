@@ -15,7 +15,10 @@
 
 #include <shared/STLMap.h>
 
-typedef CSTLMap <_ITEM_TABLE>		ItemtableArray;
+#include <db-library/DatabaseConnManager.h>
+
+using ItemtableArray = CSTLMap<model::Item>;
+
 /////////////////////////////////////////////////////////////////////////////
 // CAujardDlg dialog
 
@@ -27,7 +30,6 @@ public:
 		return s_pInstance;
 	}
 
-	CString GetGameDBConnectionString();
 	void CouponEvent(char* pData);
 	void BattleEventResult(char* pData);
 	void WriteLogFile(char* pData);
@@ -52,6 +54,7 @@ public:
 	void DeleteChar(char* pBuf);
 	void CreateNewChar(char* pBuf);
 	void SelectNation(char* pBuf);
+	void ReportTableLoadError(const std::exception& ex, const char* source);
 	BOOL LoadItemTable();
 	void UserLogOut(char* pBuf);
 	CAujardDlg(CWnd* pParent = nullptr);	// standard constructor
@@ -70,7 +73,11 @@ public:
 
 	ItemtableArray		m_ItemtableArray;
 
-	int	m_nServerNo, m_nZoneNo;
+	int					m_nServerNo;
+	int					m_nZoneNo;
+
+	db::DatabaseConnManager	m_dbConnManager;
+
 	TCHAR m_strGameDSN[24], m_strAccountDSN[24];
 	TCHAR m_strGameUID[24], m_strAccountUID[24];
 	TCHAR m_strGamePWD[24], m_strAccountPWD[24];
