@@ -7,15 +7,17 @@
 namespace recordset_loader
 {
 
-	template <typename ModelType>
-	class Vector : public Base<ModelType>
+	template <
+		typename ModelType,
+		typename BoundModelType = ModelType>
+	class Vector : public Base<ModelType, BoundModelType>
 	{
 	public:
-		using ContainerType = std::vector<ModelType*>;
-		using RecordSetType = Base<ModelType>::RecordSetType;
+		using ContainerType = std::vector<BoundModelType*>;
+		using RecordSetType = Base<ModelType, BoundModelType>::RecordSetType;
 
-		Vector(ContainerType& targetContainer, size_t capacity = 0)
-			: _targetContainer(targetContainer), _capacity(capacity)
+		Vector(ContainerType& targetContainer)
+			: _targetContainer(targetContainer)
 		{
 			this->SetProcessFetchCallback(
 				std::bind(&Vector::ProcessFetch, this, std::placeholders::_1));
@@ -25,12 +27,14 @@ namespace recordset_loader
 		void ProcessFetch(RecordSetType& recordset)
 		{
 			ContainerType localContainer;
-			if (_capacity != 0)
-				localContainer.reserve(_capacity);
+
+			const auto& rowCount = recordset.rowCount();
+			if (rowCount.has_value())
+				localContainer.reserve(static_cast<size_t>(*rowCount));
 
 			do
 			{
-				ModelType* model = new ModelType();
+				BoundModelType* model = new BoundModelType();
 				recordset.get_ref(*model);
 				localContainer.push_back(model);
 			}
@@ -41,7 +45,6 @@ namespace recordset_loader
 
 	protected:
 		ContainerType& _targetContainer;
-		size_t _capacity;
 	};
 
 }

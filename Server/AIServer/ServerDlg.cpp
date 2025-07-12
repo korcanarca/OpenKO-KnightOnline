@@ -5,17 +5,7 @@
 #include "Server.h"
 #include "ServerDlg.h"
 #include "GameSocket.h"
-#include "math.h"
-#include "MagicTableSet.h"
-#include "MagicType1Set.h"
-#include "MagicType2Set.h"
-#include "MagicType3Set.h"
-#include "MagicType4Set.h"
 #include "NpcPosSet.h"
-#include "ZoneInfoSet.h"
-#include "NpcItemSet.h"
-#include "NpcTableSet.h"
-#include "MonTableSet.h"
 #include "MakeWeaponTableSet.h"
 #include "MakeDefensiveTableSet.h"
 #include "MakeGradeItemTableSet.h"
@@ -28,15 +18,18 @@
 #include <shared/Ini.h>
 
 #include <db-library/DatabaseConnManager.h>
-#include <db-library/RecordSetLoader_STLMap.h>
 
-//#include "extern.h"			// 전역 객체
+#include <math.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
+
+// NOTE: Explicitly handled under DEBUG_NEW override
+#include <db-library/RecordSetLoader_STLMap.h>
+#include <db-library/RecordsetLoader_Vector.h>
 
 BOOL g_bNpcExit = FALSE;
 ZoneArray g_arZone;
@@ -47,7 +40,6 @@ CRITICAL_SECTION g_LogFileWrite;
 
 #define CHECK_ALIVE 	100		//  게임서버와 통신이 끊김여부 판단, 타이머 변수
 #define REHP_TIME		200
-#define MONSTER_SPEED	1500
 
 import AIServerBinder;
 
@@ -490,51 +482,11 @@ void CServerDlg::ReportTableLoadError(const recordset_loader::Error& err, const 
 //	Magic Table 을 읽는다.
 BOOL CServerDlg::GetMagicTableData()
 {
-	CMagicTableSet MagicTableSet;
-
-	if (!MagicTableSet.Open())
+	recordset_loader::STLMap loader(m_MagictableArray);
+	if (!loader.Load_ForbidEmpty())
 	{
-		AfxMessageBox(_T("MagicTable Open Fail!"));
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
-	}
-
-	if (MagicTableSet.IsBOF()
-		|| MagicTableSet.IsEOF())
-	{
-		AfxMessageBox(_T("MagicTable Empty!"));
-		return FALSE;
-	}
-
-	MagicTableSet.MoveFirst();
-
-	while (!MagicTableSet.IsEOF())
-	{
-		_MAGIC_TABLE* pTableMagic = new _MAGIC_TABLE;
-
-		pTableMagic->iNum = MagicTableSet.m_MagicNum;
-		pTableMagic->bMoral = MagicTableSet.m_Moral;
-		pTableMagic->bSkillLevel = MagicTableSet.m_SkillLevel;
-		pTableMagic->sSkill = MagicTableSet.m_Skill;
-		pTableMagic->sMsp = MagicTableSet.m_Msp;
-		pTableMagic->sHP = MagicTableSet.m_HP;
-		pTableMagic->bItemGroup = MagicTableSet.m_ItemGroup;
-		pTableMagic->iUseItem = MagicTableSet.m_UseItem;
-		pTableMagic->bCastTime = MagicTableSet.m_CastTime;
-		pTableMagic->bReCastTime = MagicTableSet.m_ReCastTime;
-		pTableMagic->bSuccessRate = MagicTableSet.m_SuccessRate;
-		pTableMagic->bType1 = MagicTableSet.m_Type1;
-		pTableMagic->bType2 = MagicTableSet.m_Type2;
-		pTableMagic->sRange = MagicTableSet.m_Range;
-		pTableMagic->bEtc = MagicTableSet.m_Etc;
-
-		if (!m_MagictableArray.PutData(pTableMagic->iNum, pTableMagic))
-		{
-			TRACE(_T("MagicTable PutData Fail - %d\n"), pTableMagic->iNum);
-			delete pTableMagic;
-			pTableMagic = nullptr;
-		}
-
-		MagicTableSet.MoveNext();
 	}
 
 	return TRUE;
@@ -728,81 +680,47 @@ BOOL CServerDlg::GetMakeLareItemTableData()
 //
 BOOL CServerDlg::GetNpcItemTable()
 {
-	CNpcItemSet NpcItemSet;
-	int nRowCount = 0;
-	int i;
-	int nItem = 0;
+	using ModelType = model::MonsterItem;
 
-	try
+	std::vector<ModelType*> rows;
+
+	recordset_loader::Vector<ModelType> loader(rows);
+	if (!loader.Load_ForbidEmpty(true))
 	{
-		if (NpcItemSet.IsOpen())
-			NpcItemSet.Close();
-
-		NpcItemSet.m_strSort = _T("sIndex");
-
-		if (!NpcItemSet.Open())
-		{
-			AfxMessageBox(_T("MONSTER ITEM DB Open Fail!"));
-			return FALSE;
-		}
-
-		if (NpcItemSet.IsBOF())
-		{
-			AfxMessageBox(_T("MONSTER ITEM DB Empty!"));
-			return FALSE;
-		}
-
-		while (!NpcItemSet.IsEOF())
-		{
-			nRowCount++;
-			NpcItemSet.MoveNext();
-		}
-
-		m_NpcItem.m_nField = NpcItemSet.m_nFields;
-		m_NpcItem.m_nRow = nRowCount;
-
-		if (nRowCount == 0)
-			return FALSE;
-
-		m_NpcItem.m_ppItem = new int* [m_NpcItem.m_nRow];
-		for (i = 0; i < m_NpcItem.m_nRow; i++)
-			m_NpcItem.m_ppItem[i] = new int[m_NpcItem.m_nField];
-
-		NpcItemSet.MoveFirst();
-
-		i = 0;
-		while (!NpcItemSet.IsEOF())
-		{
-			m_NpcItem.m_ppItem[i][0] = NpcItemSet.m_sIndex;
-			m_NpcItem.m_ppItem[i][1] = NpcItemSet.m_iItem01;
-			m_NpcItem.m_ppItem[i][2] = NpcItemSet.m_sPersent01;
-			m_NpcItem.m_ppItem[i][3] = NpcItemSet.m_iItem02;
-			m_NpcItem.m_ppItem[i][4] = NpcItemSet.m_sPersent02;
-			m_NpcItem.m_ppItem[i][5] = NpcItemSet.m_iItem03;
-			m_NpcItem.m_ppItem[i][6] = NpcItemSet.m_sPersent03;
-			m_NpcItem.m_ppItem[i][7] = NpcItemSet.m_iItem04;
-			m_NpcItem.m_ppItem[i][8] = NpcItemSet.m_sPersent04;
-			m_NpcItem.m_ppItem[i][9] = NpcItemSet.m_iItem05;
-			m_NpcItem.m_ppItem[i][10] = NpcItemSet.m_sPersent05;
-
-			i++;
-			NpcItemSet.MoveNext();
-		}
-	}
-	catch (CMemoryException* e)
-	{
-		e->ReportError();
-		e->Delete();
-
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
-	catch (CDBException* e)
-	{
-		e->ReportError();
-		e->Delete();
 
+	m_NpcItem.m_nField = loader.GetColumnCount();
+	m_NpcItem.m_nRow = static_cast<int>(rows.size());
+
+	if (rows.empty())
 		return FALSE;
+
+	m_NpcItem.m_ppItem = new int* [m_NpcItem.m_nRow];
+	for (int i = 0; i < m_NpcItem.m_nRow; i++)
+		m_NpcItem.m_ppItem[i] = new int[m_NpcItem.m_nField];
+
+	for (size_t i = 0; i < rows.size(); i++)
+	{
+		ModelType* row = rows[i];
+
+		m_NpcItem.m_ppItem[i][0] = row->MonsterId;
+		m_NpcItem.m_ppItem[i][1] = row->ItemId1;
+		m_NpcItem.m_ppItem[i][2] = row->DropChance1;
+		m_NpcItem.m_ppItem[i][3] = row->ItemId2;
+		m_NpcItem.m_ppItem[i][4] = row->DropChance2;
+		m_NpcItem.m_ppItem[i][5] = row->ItemId3;
+		m_NpcItem.m_ppItem[i][6] = row->DropChance3;
+		m_NpcItem.m_ppItem[i][7] = row->ItemId4;
+		m_NpcItem.m_ppItem[i][8] = row->DropChance4;
+		m_NpcItem.m_ppItem[i][9] = row->ItemId5;
+		m_NpcItem.m_ppItem[i][10] = row->DropChance5;
+
+		delete row;
 	}
+
+	rows.clear();
 
 	return TRUE;
 }
@@ -810,117 +728,12 @@ BOOL CServerDlg::GetNpcItemTable()
 //	Monster Table Data 를 읽는다.
 BOOL CServerDlg::GetMonsterTableData()
 {
-	CMonTableSet NpcTableSet;
-
-	try
+	recordset_loader::STLMap<
+		NpcTableArray,
+		model::Monster> loader(m_arMonTable);
+	if (!loader.Load_ForbidEmpty())
 	{
-		//if(m_arMonTable.GetSize()) return FALSE;
-
-		if (NpcTableSet.IsOpen())
-			NpcTableSet.Close();
-
-		if (!NpcTableSet.Open())
-		{
-			AfxMessageBox(_T("MONSTER DB Open Fail!"));
-			return FALSE;
-		}
-
-		if (NpcTableSet.IsBOF())
-		{
-			AfxMessageBox(_T("MONSTER DB Empty!"));
-			return FALSE;
-		}
-
-		while (!NpcTableSet.IsEOF())
-		{
-			CNpcTable* Npc = new CNpcTable;
-			CString tmpNpcName;
-			Npc->Initialize();
-
-			Npc->m_sSid = NpcTableSet.m_sSid;						// MONSTER(NPC) Serial ID
-
-			if (NpcTableSet.m_strName.GetLength() <= MAX_NPC_NAME_SIZE)
-				strcpy(Npc->m_strName, CT2A(NpcTableSet.m_strName)); // MONSTER(NPC) Name
-			else
-				strncpy(Npc->m_strName, CT2A(NpcTableSet.m_strName), MAX_NPC_NAME_SIZE);
-
-			Npc->m_sPid = NpcTableSet.m_sPid;						// MONSTER(NPC) Picture ID
-			Npc->m_sSize = NpcTableSet.m_sSize;						// MONSTER(NPC) 캐릭 크기 비율
-			Npc->m_iWeapon_1 = NpcTableSet.m_iWeapon1;				// 착용무기
-			Npc->m_iWeapon_2 = NpcTableSet.m_iWeapon2;				// 착용무기
-			Npc->m_byGroup = NpcTableSet.m_byGroup;					// 소속집단
-			Npc->m_byActType = NpcTableSet.m_byActType;				// 행동패턴
-			Npc->m_byRank = NpcTableSet.m_byRank;					// 작위
-			Npc->m_byTitle = NpcTableSet.m_byTitle;					// 지위
-			Npc->m_iSellingGroup = NpcTableSet.m_iSellingGroup;		// item group
-			Npc->m_sLevel = NpcTableSet.m_sLevel;					// level
-			Npc->m_iExp = NpcTableSet.m_iExp;						// 경험치
-			Npc->m_iLoyalty = NpcTableSet.m_iLoyalty;				// loyalty
-			Npc->m_iMaxHP = NpcTableSet.m_iHpPoint;					// 최대 HP
-			Npc->m_sMaxMP = NpcTableSet.m_sMpPoint;					// 최대 MP
-			Npc->m_sAttack = NpcTableSet.m_sAtk;					// 공격값
-			Npc->m_sDefense = NpcTableSet.m_sAc;					// 방어값
-			Npc->m_sHitRate = NpcTableSet.m_sHitRate;				// 타격성공률
-			Npc->m_sEvadeRate = NpcTableSet.m_sEvadeRate;			// 회피성공률
-			Npc->m_sDamage = NpcTableSet.m_sDamage;					// 기본 데미지
-			Npc->m_sAttackDelay = NpcTableSet.m_sAttackDelay;		// 공격딜레이
-			Npc->m_bySpeed_1 = NpcTableSet.m_bySpeed1;				// 이동속도	(걷기)
-			Npc->m_bySpeed_2 = NpcTableSet.m_bySpeed2;				// 이동속도	(뛰기)
-			Npc->m_sSpeed = MONSTER_SPEED;							// 이동속도	
-			Npc->m_sStandTime = NpcTableSet.m_sStandtime;			// 서있는 시간
-			Npc->m_iMagic1 = NpcTableSet.m_iMagic1;					// 사용마법 1
-			Npc->m_iMagic2 = NpcTableSet.m_iMagic2;					// 사용마법 2
-			Npc->m_iMagic3 = NpcTableSet.m_iMagic3;					// 사용마법 3	
-			Npc->m_sFireR = NpcTableSet.m_sFireR;					// 화염 저항력
-			Npc->m_sColdR = NpcTableSet.m_sColdR;					// 냉기 저항력
-			Npc->m_sLightningR = NpcTableSet.m_sLightningR;			// 전기 저항력
-			Npc->m_sMagicR = NpcTableSet.m_sMagicR;					// 마법 저항력
-			Npc->m_sDiseaseR = NpcTableSet.m_sDiseaseR;				// 저주 저항력
-			Npc->m_sPoisonR = NpcTableSet.m_sPoisonR;				// 독 저항력
-			Npc->m_sLightR = NpcTableSet.m_sLightR;					// 빛 저항력
-			Npc->m_sBulk = NpcTableSet.m_sBulk;
-			Npc->m_bySearchRange = NpcTableSet.m_bySearchRange;		// 적 탐지 범위
-			Npc->m_byAttackRange = NpcTableSet.m_byAttackRange;		// 사정거리
-			Npc->m_byTracingRange = NpcTableSet.m_byTracingRange;	// 추격거리
-			//Npc->m_sAI = NpcTableSet.m_sAI;						// 인공지능 인덱스
-			Npc->m_tNpcType = NpcTableSet.m_byType;					// NPC Type
-																	// 0 : Monster
-																	// 1 : Normal NPC
-
-			Npc->m_byFamilyType = NpcTableSet.m_byFamily;			// 몹들사이에서 가족관계를 결정한다.
-			//Npc->m_tItemPer;										// 아이템이 떨어질 확률
-			//Npc->m_tDnPer;										// 돈이 떨어질확률
-
-			Npc->m_iMoney = NpcTableSet.m_iMoney;					// 떨어지는 돈
-			Npc->m_iItem = NpcTableSet.m_sItem;						// 떨어지는 아이템
-			Npc->m_byDirectAttack = NpcTableSet.m_byDirectAttack;
-			Npc->m_byMagicAttack = NpcTableSet.m_byMagicAttack;
-
-			if (!m_arMonTable.PutData(Npc->m_sSid, Npc))
-			{
-				TRACE(_T("GetMonsterTableData - PutData Fail - %d\n"), Npc->m_sSid);
-				delete Npc;
-				Npc = nullptr;
-			}
-			//m_arMonTable.Add(Npc);
-
-			NpcTableSet.MoveNext();
-		}
-
-		NpcTableSet.Close();
-	}
-	catch (CMemoryException* e)
-	{
-		e->ReportError();
-		e->Delete();
-
-		return FALSE;
-	}
-	catch (CDBException* e)
-	{
-		e->ReportError();
-		e->Delete();
-
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -930,117 +743,10 @@ BOOL CServerDlg::GetMonsterTableData()
 //	NPC Table Data 를 읽는다. (경비병 & NPC)
 BOOL CServerDlg::GetNpcTableData()
 {
-	CNpcTableSet NpcTableSet;
-
-	try
+	recordset_loader::STLMap loader(m_arNpcTable);
+	if (!loader.Load_ForbidEmpty())
 	{
-		//if(m_arNpcTable.GetSize()) return FALSE;
-
-		if (NpcTableSet.IsOpen())
-			NpcTableSet.Close();
-
-		if (!NpcTableSet.Open())
-		{
-			AfxMessageBox(_T("NPC DB Open Fail!"));
-			return FALSE;
-		}
-
-		if (NpcTableSet.IsBOF())
-		{
-			AfxMessageBox(_T("NPC DB Empty!"));
-			return FALSE;
-		}
-
-		while (!NpcTableSet.IsEOF())
-		{
-			CNpcTable* Npc = new CNpcTable;
-			CString tmpNpcName;
-			Npc->Initialize();
-
-			Npc->m_sSid = NpcTableSet.m_sSid;						// MONSTER(NPC) Serial ID
-
-			if (NpcTableSet.m_strName.GetLength() <= MAX_NPC_NAME_SIZE)
-				strcpy(Npc->m_strName, CT2A(NpcTableSet.m_strName)); // MONSTER(NPC) Name
-			else
-				strncpy(Npc->m_strName, CT2A(NpcTableSet.m_strName), MAX_NPC_NAME_SIZE);
-
-			Npc->m_sPid = NpcTableSet.m_sPid;						// MONSTER(NPC) Picture ID
-			Npc->m_sSize = NpcTableSet.m_sSize;						// MONSTER(NPC) 캐릭 크기 비율
-			Npc->m_iWeapon_1 = NpcTableSet.m_iWeapon1;				// 착용무기
-			Npc->m_iWeapon_2 = NpcTableSet.m_iWeapon2;				// 착용무기
-			Npc->m_byGroup = NpcTableSet.m_byGroup;					// 소속집단
-			Npc->m_byActType = NpcTableSet.m_byActType;				// 행동패턴
-			Npc->m_byRank = NpcTableSet.m_byRank;					// 작위
-			Npc->m_byTitle = NpcTableSet.m_byTitle;					// 지위
-			Npc->m_iSellingGroup = NpcTableSet.m_iSellingGroup;		// item group
-			Npc->m_sLevel = NpcTableSet.m_sLevel;					// level
-			Npc->m_iExp = NpcTableSet.m_iExp;						// 경험치
-			Npc->m_iLoyalty = NpcTableSet.m_iLoyalty;				// loyalty
-			Npc->m_iMaxHP = NpcTableSet.m_iHpPoint;					// 최대 HP
-			Npc->m_sMaxMP = NpcTableSet.m_sMpPoint;					// 최대 MP
-			Npc->m_sAttack = NpcTableSet.m_sAtk;					// 공격값
-			Npc->m_sDefense = NpcTableSet.m_sAc;					// 방어값
-			Npc->m_sHitRate = NpcTableSet.m_sHitRate;				// 타격성공률
-			Npc->m_sEvadeRate = NpcTableSet.m_sEvadeRate;			// 회피성공률
-			Npc->m_sDamage = NpcTableSet.m_sDamage;					// 기본 데미지
-			Npc->m_sAttackDelay = NpcTableSet.m_sAttackDelay;		// 공격딜레이
-			Npc->m_bySpeed_1 = NpcTableSet.m_bySpeed1;				// 이동속도	(걷기)
-			Npc->m_bySpeed_2 = NpcTableSet.m_bySpeed2;				// 이동속도	(뛰기)
-			Npc->m_sSpeed = MONSTER_SPEED;							// 이동속도	
-			Npc->m_sStandTime = NpcTableSet.m_sStandtime;			// 서있는 시간
-			Npc->m_iMagic1 = NpcTableSet.m_iMagic1;					// 사용마법 1
-			Npc->m_iMagic2 = NpcTableSet.m_iMagic2;					// 사용마법 2
-			Npc->m_iMagic3 = NpcTableSet.m_iMagic3;					// 사용마법 3	
-			Npc->m_sFireR = NpcTableSet.m_sFireR;					// 화염 저항력
-			Npc->m_sColdR = NpcTableSet.m_sColdR;					// 냉기 저항력
-			Npc->m_sLightningR = NpcTableSet.m_sLightningR;			// 전기 저항력
-			Npc->m_sMagicR = NpcTableSet.m_sMagicR;					// 마법 저항력
-			Npc->m_sDiseaseR = NpcTableSet.m_sDiseaseR;				// 저주 저항력
-			Npc->m_sPoisonR = NpcTableSet.m_sPoisonR;				// 독 저항력
-			Npc->m_sLightR = NpcTableSet.m_sLightR;					// 빛 저항력
-			Npc->m_sBulk = NpcTableSet.m_sBulk;
-			Npc->m_bySearchRange = NpcTableSet.m_bySearchRange;		// 적 탐지 범위
-			Npc->m_byAttackRange = NpcTableSet.m_byAttackRange;		// 사정거리
-			Npc->m_byTracingRange = NpcTableSet.m_byTracingRange;	// 추격거리
-			//Npc->m_sAI = NpcTableSet.m_sAI;						// 인공지능 인덱스
-			Npc->m_tNpcType = NpcTableSet.m_byType;					// NPC Type
-																	// 0 : Monster
-																	// 1 : Normal NPC
-
-			Npc->m_byFamilyType = NpcTableSet.m_byFamily;			// 몹들사이에서 가족관계를 결정한다.
-			//Npc->m_tItemPer;										// 아이템이 떨어질 확률
-			//Npc->m_tDnPer;										// 돈이 떨어질확률
-
-			Npc->m_iMoney = NpcTableSet.m_iMoney;					// 떨어지는 돈
-			Npc->m_iItem = NpcTableSet.m_sItem;						// 떨어지는 아이템
-			Npc->m_byDirectAttack = NpcTableSet.m_byDirectAttack;
-			Npc->m_byMagicAttack = NpcTableSet.m_byMagicAttack;
-
-			if (!m_arNpcTable.PutData(Npc->m_sSid, Npc))
-			{
-				TRACE(_T("GetNpcTableData - PutData Fail - %d\n"), Npc->m_sSid);
-				delete Npc;
-				Npc = nullptr;
-			}
-			//m_arNpcTable.Add(Npc);
-
-			NpcTableSet.MoveNext();
-		}
-
-		NpcTableSet.Close();
-	}
-	catch (CMemoryException* e)
-	{
-		e->ReportError();
-		e->Delete();
-
-		return FALSE;
-	}
-	catch (CDBException* e)
-	{
-		e->ReportError();
-		e->Delete();
-
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1056,13 +762,12 @@ BOOL CServerDlg::CreateNpcThread()
 	int		nNpcCount = 0;
 	int		j = 0;
 	int		nRandom = 0, nServerNum = 0;
-	double  dbSpeed = 0;
 
 	m_TotalNPC = 0;			// DB에 있는 수
 	m_CurrentNPC = 0;
 	m_CurrentNPCError = 0;
 
-	CNpcTable* pNpcTable = nullptr;
+	model::Npc* pNpcTable = nullptr;
 	CRoomEvent* pRoom = nullptr;
 
 	CNpcPosSet NpcPosSet;
@@ -1161,59 +866,7 @@ BOOL CServerDlg::CreateNpcThread()
 						nNpcCount = NpcPosSet.m_NumNPC;
 					}
 
-					strcpy(pNpc->m_strName, pNpcTable->m_strName);			// MONSTER(NPC) Name
-
-					pNpc->m_sPid = pNpcTable->m_sPid;						// MONSTER(NPC) Picture ID
-					pNpc->m_sSize = pNpcTable->m_sSize;						// 캐릭터의 비율(100 퍼센트 기준)
-					pNpc->m_iWeapon_1 = pNpcTable->m_iWeapon_1;				// 착용무기
-					pNpc->m_iWeapon_2 = pNpcTable->m_iWeapon_2;				// 착용무기
-					pNpc->m_byGroup = pNpcTable->m_byGroup;					// 소속집단
-					pNpc->m_byActType = pNpcTable->m_byActType;				// 행동패턴
-					pNpc->m_byRank = pNpcTable->m_byRank;					// 작위
-					pNpc->m_byTitle = pNpcTable->m_byTitle;					// 지위
-					pNpc->m_iSellingGroup = pNpcTable->m_iSellingGroup;
-					pNpc->m_sLevel = pNpcTable->m_sLevel;					// level
-					pNpc->m_iExp = pNpcTable->m_iExp;						// 경험치
-					pNpc->m_iLoyalty = pNpcTable->m_iLoyalty;				// loyalty
-					pNpc->m_iHP = pNpcTable->m_iMaxHP;						// 최대 HP
-					pNpc->m_iMaxHP = pNpcTable->m_iMaxHP;					// 현재 HP
-					pNpc->m_sMP = pNpcTable->m_sMaxMP;						// 최대 MP
-					pNpc->m_sMaxMP = pNpcTable->m_sMaxMP;					// 현재 MP
-					pNpc->m_sAttack = pNpcTable->m_sAttack;					// 공격값
-					pNpc->m_sDefense = pNpcTable->m_sDefense;				// 방어값
-					pNpc->m_sHitRate = pNpcTable->m_sHitRate;				// 타격성공률
-					pNpc->m_sEvadeRate = pNpcTable->m_sEvadeRate;			// 회피성공률
-					pNpc->m_sDamage = pNpcTable->m_sDamage;					// 기본 데미지
-					pNpc->m_sAttackDelay = pNpcTable->m_sAttackDelay;		// 공격딜레이
-					pNpc->m_sSpeed = pNpcTable->m_sSpeed;					// 이동속도
-					dbSpeed = pNpcTable->m_sSpeed;
-					pNpc->m_fSpeed_1 = (float) pNpcTable->m_bySpeed_1 * (dbSpeed / 1000);		// 기본 이동 타입
-					pNpc->m_fSpeed_2 = (float) pNpcTable->m_bySpeed_2 * (dbSpeed / 1000);		// 뛰는 이동 타입..
-					pNpc->m_fOldSpeed_1 = (float) pNpcTable->m_bySpeed_1 * (dbSpeed / 1000);	// 기본 이동 타입
-					pNpc->m_fOldSpeed_2 = (float) pNpcTable->m_bySpeed_2 * (dbSpeed / 1000);	// 뛰는 이동 타입..
-					pNpc->m_fSecForMetor = 4.0f;							// 초당 갈 수 있는 거리..
-					pNpc->m_sStandTime = pNpcTable->m_sStandTime;			// 서있는 시간
-					pNpc->m_iMagic1 = pNpcTable->m_iMagic1;					// 사용마법 1
-					pNpc->m_iMagic2 = pNpcTable->m_iMagic2;					// 사용마법 2
-					pNpc->m_iMagic3 = pNpcTable->m_iMagic3;					// 사용마법 3
-					pNpc->m_sFireR = pNpcTable->m_sFireR;					// 화염 저항력
-					pNpc->m_sColdR = pNpcTable->m_sColdR;					// 냉기 저항력
-					pNpc->m_sLightningR = pNpcTable->m_sLightningR;			// 전기 저항력
-					pNpc->m_sMagicR = pNpcTable->m_sMagicR;					// 마법 저항력
-					pNpc->m_sDiseaseR = pNpcTable->m_sDiseaseR;				// 저주 저항력
-					pNpc->m_sPoisonR = pNpcTable->m_sPoisonR;				// 독 저항력
-					pNpc->m_sLightR = pNpcTable->m_sLightR;					// 빛 저항력
-					pNpc->m_fBulk = (float) (((double) pNpcTable->m_sBulk / 100) * ((double) pNpcTable->m_sSize / 100));
-					pNpc->m_bySearchRange = pNpcTable->m_bySearchRange;		// 적 탐지 범위
-					pNpc->m_byAttackRange = pNpcTable->m_byAttackRange;		// 사정거리
-					pNpc->m_byTracingRange = pNpcTable->m_byTracingRange;	// 추격거리
-					pNpc->m_sAI = pNpcTable->m_sAI;							// 인공지능 인덱스
-					pNpc->m_tNpcType = pNpcTable->m_tNpcType;				// NPC Type
-					pNpc->m_byFamilyType = pNpcTable->m_byFamilyType;		// 몹들사이에서 가족관계를 결정한다.
-					pNpc->m_iMoney = pNpcTable->m_iMoney;					// 떨어지는 돈
-					pNpc->m_iItem = pNpcTable->m_iItem;						// 떨어지는 아이템
-					pNpc->m_tNpcLongType = pNpcTable->m_byDirectAttack;
-					pNpc->m_byWhatAttackType = pNpcTable->m_byMagicAttack;
+					pNpc->Load(pNpcTable, true);
 
 					//////// MONSTER POS ////////////////////////////////////////
 					pNpc->m_sCurZone = NpcPosSet.m_ZoneID;
@@ -1288,9 +941,6 @@ BOOL CServerDlg::CreateNpcThread()
 					}
 
 					//pNpc->m_byType			= NpcPosSet.m_byType;
-
-					pNpc->m_tItemPer = pNpcTable->m_tItemPer;	// NPC Type
-					pNpc->m_tDnPer = pNpcTable->m_tDnPer;	// NPC Type
 
 					pNpc->m_nInitMinX = pNpc->m_nLimitMinX = NpcPosSet.m_LeftX;
 					pNpc->m_nInitMinY = pNpc->m_nLimitMinZ = NpcPosSet.m_TopZ;
@@ -1644,90 +1294,88 @@ void CServerDlg::DeleteUserList(int uid)
 
 BOOL CServerDlg::MapFileLoad()
 {
-	CFile file;
-	CString szFullPath, errormsg, sZoneName;
-	MAP* pMap = nullptr;
+	using ModelType = model::ZoneInfo;
+
+	BOOL loaded = FALSE;
+
 	m_sTotalMap = 0;
 
-	CZoneInfoSet ZoneInfoSet;
-
-	if (!ZoneInfoSet.Open())
+	recordset_loader::Base<ModelType> loader;
+	loader.SetProcessFetchCallback([&](db::ModelRecordSet<ModelType>& recordset)
 	{
-		AfxMessageBox(_T("ZoneInfoTable Open Fail!"));
-		return FALSE;
-	}
+		CString szFullPath, errormsg;
 
-	if (ZoneInfoSet.IsBOF()
-		|| ZoneInfoSet.IsEOF())
-	{
-		AfxMessageBox(_T("ZoneInfoTable Empty!"));
-		return FALSE;
-	}
+		// Build the base MAP directory
+		std::filesystem::path mapDir(GetProgPath().GetString());
+		mapDir /= MAP_DIR;
 
-	// Build the base MAP directory
-	std::filesystem::path mapDir(GetProgPath().GetString());
-	mapDir /= MAP_DIR;
+		// Resolve it to strip the relative references to be nice.
+		if (std::filesystem::exists(mapDir))
+			mapDir = std::filesystem::canonical(mapDir);
 
-	// Resolve it to strip the relative references to be nice.
-	if (std::filesystem::exists(mapDir))
-		mapDir = std::filesystem::canonical(mapDir);
-
-	ZoneInfoSet.MoveFirst();
-
-	while (!ZoneInfoSet.IsEOF())
-	{
-		sZoneName = ZoneInfoSet.m_strZoneName;
-
-		std::filesystem::path mapPath
-			= mapDir / sZoneName.GetString();
-
-		szFullPath.Format(
-			_T("%ls"),
-			mapPath.c_str());
-
-		if (!file.Open(szFullPath, CFile::modeRead))
+		do
 		{
-			errormsg.Format(_T("파일 Open 실패 - %s\n"), szFullPath.GetString());
-			AfxMessageBox(errormsg);
-			return FALSE;
-		}
+			ModelType row = {};
+			recordset.get_ref(row);
 
-		pMap = new MAP;
-		pMap->m_nServerNo = ZoneInfoSet.m_ServerNo;
-		pMap->m_nZoneNumber = ZoneInfoSet.m_ZoneNo;
-		strcpy(pMap->m_MapName, CT2A(sZoneName));
+			std::filesystem::path mapPath
+				= mapDir / row.Name;
 
-		if (!pMap->LoadMap(file.m_hFile))
-		{
-			errormsg.Format(_T("Map Load 실패 - %s\n"), szFullPath.GetString());
-			AfxMessageBox(errormsg);
-			delete pMap;
-			return FALSE;
-		}
+			szFullPath.Format(
+				_T("%ls"),
+				mapPath.c_str());
 
-		// dungeon work
-		if (ZoneInfoSet.m_RoomEvent > 0)
-		{
-			if (!pMap->LoadRoomEvent(ZoneInfoSet.m_RoomEvent))
+			CFile file;
+			if (!file.Open(szFullPath, CFile::modeRead))
 			{
-				errormsg.Format(_T("Map Room Event Load 실패 - %s\n"), szFullPath.GetString());
+				errormsg.Format(_T("파일 Open 실패 - %s\n"), szFullPath.GetString());
 				AfxMessageBox(errormsg);
-				delete pMap;
-				return FALSE;
+				return;
 			}
 
-			pMap->m_byRoomEvent = 1;
+			MAP* pMap = new MAP();
+			pMap->m_nServerNo = row.ServerId;
+			pMap->m_nZoneNumber = row.ZoneId;
+
+			if (!pMap->LoadMap(file.m_hFile))
+			{
+				errormsg.Format(_T("Map Load 실패 - %s\n"), szFullPath.GetString());
+				AfxMessageBox(errormsg);
+				delete pMap;
+				return;
+			}
+
+			file.Close();
+
+			// dungeon work
+			if (row.RoomEvent > 0)
+			{
+				if (!pMap->LoadRoomEvent(row.RoomEvent))
+				{
+					errormsg.Format(_T("Map Room Event Load 실패 - %s\n"), szFullPath.GetString());
+					AfxMessageBox(errormsg);
+					delete pMap;
+					return;
+				}
+
+				pMap->m_byRoomEvent = 1;
+			}
+
+			g_arZone.push_back(pMap);
+			++m_sTotalMap;
 		}
+		while (recordset.next());
 
-		g_arZone.push_back(pMap);
+		loaded = TRUE;
+	});
 
-		ZoneInfoSet.MoveNext();
-
-		file.Close();
-		m_sTotalMap++;
+	if (!loader.Load_ForbidEmpty())
+	{
+		ReportTableLoadError(loader.GetError(), __func__);
+		return FALSE;
 	}
 
-	return TRUE;
+	return loaded;
 }
 
 // sungyong 2002.05.23
@@ -2214,7 +1862,7 @@ CNpc* CServerDlg::GetNpcPtr(const char* pNpcName)
 	for (const auto& [_, pNpc] : m_arNpc)
 	{
 		if (pNpc != nullptr
-			&& strcmp(pNpc->m_strName, pNpcName) == 0)
+			&& strcmp(pNpc->m_strName.c_str(), pNpcName) == 0)
 			return pNpc;
 	}
 
@@ -2274,13 +1922,11 @@ BOOL CServerDlg::SetSummonNpcData(CNpc* pNpc, int zone_id, float fx, float fz)
 		return FALSE;
 	}
 
-	CString strMsg;
-
 	pEventNpc->m_sSid = pNpc->m_sSid;						// MONSTER(NPC) Serial ID
 	pEventNpc->m_byMoveType = 1;
 	pEventNpc->m_byInitMoveType = 1;
 	pEventNpc->m_byBattlePos = 0;
-	strcpy(pEventNpc->m_strName, pNpc->m_strName);			// MONSTER(NPC) Name
+	pEventNpc->m_strName = pNpc->m_strName;					// MONSTER(NPC) Name
 	pEventNpc->m_sPid = pNpc->m_sPid;						// MONSTER(NPC) Picture ID
 	pEventNpc->m_sSize = pNpc->m_sSize;						// 캐릭터의 비율(100 퍼센트 기준)
 	pEventNpc->m_iWeapon_1 = pNpc->m_iWeapon_1;				// 착용무기
@@ -2324,7 +1970,6 @@ BOOL CServerDlg::SetSummonNpcData(CNpc* pNpc, int zone_id, float fx, float fz)
 	pEventNpc->m_bySearchRange = pNpc->m_bySearchRange;		// 적 탐지 범위
 	pEventNpc->m_byAttackRange = pNpc->m_byAttackRange;		// 사정거리
 	pEventNpc->m_byTracingRange = pNpc->m_byTracingRange;	// 추격거리
-	pEventNpc->m_sAI = pNpc->m_sAI;							// 인공지능 인덱스
 	pEventNpc->m_tNpcType = pNpc->m_tNpcType;				// NPC Type
 	pEventNpc->m_byFamilyType = pNpc->m_byFamilyType;		// 몹들사이에서 가족관계를 결정한다.
 	pEventNpc->m_iMoney = pNpc->m_iMoney;					// 떨어지는 돈
@@ -2342,8 +1987,6 @@ BOOL CServerDlg::SetSummonNpcData(CNpc* pNpc, int zone_id, float fx, float fz)
 	pEventNpc->m_nInitMaxX = pNpc->m_nInitMaxX;
 	pEventNpc->m_nInitMaxY = pNpc->m_nInitMaxY;
 	pEventNpc->m_sRegenTime = pNpc->m_sRegenTime;			// 초(DB)단위-> 밀리세컨드로
-	pEventNpc->m_tItemPer = pNpc->m_tItemPer;				// NPC Type
-	pEventNpc->m_tDnPer = pNpc->m_tDnPer;					// NPC Type
 
 	pEventNpc->m_ZoneIndex = -1;
 
@@ -2420,45 +2063,11 @@ void CServerDlg::TestCode()
 
 BOOL CServerDlg::GetMagicType1Data()
 {
-	CMagicType1Set MagicType1Set;
-
-	if (!MagicType1Set.Open())
+	recordset_loader::STLMap loader(m_Magictype1Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		AfxMessageBox(_T("MagicType1 Open Fail!"));
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
-	}
-
-	if (MagicType1Set.IsBOF()
-		|| MagicType1Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType1 Empty!"));
-		return FALSE;
-	}
-
-	MagicType1Set.MoveFirst();
-
-	while (!MagicType1Set.IsEOF())
-	{
-		_MAGIC_TYPE1* pType1Magic = new _MAGIC_TYPE1;
-
-		pType1Magic->iNum = MagicType1Set.m_iNum;
-		pType1Magic->bHitType = MagicType1Set.m_Type;
-		pType1Magic->bDelay = MagicType1Set.m_Delay;
-		pType1Magic->bComboCount = MagicType1Set.m_ComboCount;
-		pType1Magic->bComboType = MagicType1Set.m_ComboType;
-		pType1Magic->sComboDamage = MagicType1Set.m_ComboDamage;
-		pType1Magic->sHit = MagicType1Set.m_Hit;
-		pType1Magic->sHitRate = MagicType1Set.m_HitRate;
-		pType1Magic->sRange = MagicType1Set.m_Range;
-
-		if (!m_Magictype1Array.PutData(pType1Magic->iNum, pType1Magic))
-		{
-			TRACE(_T("MagicType1 PutData Fail - %d\n"), pType1Magic->iNum);
-			delete pType1Magic;
-			pType1Magic = nullptr;
-		}
-
-		MagicType1Set.MoveNext();
 	}
 
 	return TRUE;
@@ -2466,42 +2075,11 @@ BOOL CServerDlg::GetMagicType1Data()
 
 BOOL CServerDlg::GetMagicType2Data()
 {
-	CMagicType2Set MagicType2Set;
-
-	if (!MagicType2Set.Open())
+	recordset_loader::STLMap loader(m_Magictype2Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		AfxMessageBox(_T("MagicType1 Open Fail!"));
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
-	}
-
-	if (MagicType2Set.IsBOF()
-		|| MagicType2Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType1 Empty!"));
-		return FALSE;
-	}
-
-	MagicType2Set.MoveFirst();
-
-	while (!MagicType2Set.IsEOF())
-	{
-		_MAGIC_TYPE2* pType2Magic = new _MAGIC_TYPE2;
-
-		pType2Magic->iNum = MagicType2Set.m_iNum;
-		pType2Magic->bHitType = MagicType2Set.m_HitType;
-		pType2Magic->sHitRate = MagicType2Set.m_HitRate;
-		pType2Magic->sAddDamage = MagicType2Set.m_AddDamage;
-		pType2Magic->sAddRange = MagicType2Set.m_AddRange;
-		pType2Magic->bNeedArrow = MagicType2Set.m_NeedArrow;
-
-		if (!m_Magictype2Array.PutData(pType2Magic->iNum, pType2Magic))
-		{
-			TRACE(_T("MagicType2 PutData Fail - %d\n"), pType2Magic->iNum);
-			delete pType2Magic;
-			pType2Magic = nullptr;
-		}
-
-		MagicType2Set.MoveNext();
 	}
 
 	return TRUE;
@@ -2509,46 +2087,11 @@ BOOL CServerDlg::GetMagicType2Data()
 
 BOOL CServerDlg::GetMagicType3Data()
 {
-	CMagicType3Set MagicType3Set;
-
-	if (!MagicType3Set.Open())
+	recordset_loader::STLMap loader(m_Magictype3Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		AfxMessageBox(_T("MagicType3 Open Fail!"));
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
-	}
-
-	if (MagicType3Set.IsBOF()
-		|| MagicType3Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType3 Empty!"));
-		return FALSE;
-	}
-
-	MagicType3Set.MoveFirst();
-
-	while (!MagicType3Set.IsEOF())
-	{
-		_MAGIC_TYPE3* pType3Magic = new _MAGIC_TYPE3;
-
-		pType3Magic->iNum = MagicType3Set.m_iNum;
-		pType3Magic->bAttribute = MagicType3Set.m_Attribute;
-		pType3Magic->bDirectType = MagicType3Set.m_DirectType;
-		//pType3Magic->bDistance = MagicType3Set.m_Distance;
-		pType3Magic->bRadius = MagicType3Set.m_Radius;
-		pType3Magic->sAngle = MagicType3Set.m_Angle;
-		pType3Magic->sDuration = MagicType3Set.m_Duration;
-		pType3Magic->sEndDamage = MagicType3Set.m_EndDamage;
-		pType3Magic->sFirstDamage = MagicType3Set.m_FirstDamage;
-		pType3Magic->sTimeDamage = MagicType3Set.m_TimeDamage;
-
-		if (!m_Magictype3Array.PutData(pType3Magic->iNum, pType3Magic))
-		{
-			TRACE(_T("MagicType3 PutData Fail - %d\n"), pType3Magic->iNum);
-			delete pType3Magic;
-			pType3Magic = nullptr;
-		}
-
-		MagicType3Set.MoveNext();
 	}
 
 	return TRUE;
@@ -2556,58 +2099,11 @@ BOOL CServerDlg::GetMagicType3Data()
 
 BOOL CServerDlg::GetMagicType4Data()
 {
-	CMagicType4Set MagicType4Set;
-
-	if (!MagicType4Set.Open())
+	recordset_loader::STLMap loader(m_Magictype4Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		AfxMessageBox(_T("MagicType4 Open Fail!"));
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
-	}
-
-	if (MagicType4Set.IsBOF()
-		|| MagicType4Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType4 Empty!"));
-		return FALSE;
-	}
-
-	MagicType4Set.MoveFirst();
-
-	while (!MagicType4Set.IsEOF())
-	{
-		_MAGIC_TYPE4* pType4Magic = new _MAGIC_TYPE4;
-
-		pType4Magic->iNum = MagicType4Set.m_iNum;
-		pType4Magic->bBuffType = MagicType4Set.m_BuffType;
-		pType4Magic->bRadius = MagicType4Set.m_Radius;
-		pType4Magic->sDuration = MagicType4Set.m_Duration;
-		pType4Magic->bAttackSpeed = MagicType4Set.m_AttackSpeed;
-		pType4Magic->bSpeed = MagicType4Set.m_Speed;
-		pType4Magic->sAC = MagicType4Set.m_AC;
-		pType4Magic->bAttack = MagicType4Set.m_Attack;
-		pType4Magic->sMaxHP = MagicType4Set.m_MaxHP;
-		pType4Magic->bHitRate = MagicType4Set.m_HitRate;
-		pType4Magic->sAvoidRate = MagicType4Set.m_AvoidRate;
-		pType4Magic->bStr = MagicType4Set.m_Str;
-		pType4Magic->bSta = MagicType4Set.m_Sta;
-		pType4Magic->bDex = MagicType4Set.m_Dex;
-		pType4Magic->bIntel = MagicType4Set.m_Intel;
-		pType4Magic->bCha = MagicType4Set.m_Cha;
-		pType4Magic->bFireR = MagicType4Set.m_FireR;
-		pType4Magic->bColdR = MagicType4Set.m_ColdR;
-		pType4Magic->bLightningR = MagicType4Set.m_LightningR;
-		pType4Magic->bMagicR = MagicType4Set.m_MagicR;
-		pType4Magic->bDiseaseR = MagicType4Set.m_DiseaseR;
-		pType4Magic->bPoisonR = MagicType4Set.m_PoisonR;
-
-		if (!m_Magictype4Array.PutData(pType4Magic->iNum, pType4Magic))
-		{
-			TRACE(_T("MagicType4 PutData Fail - %d\n"), pType4Magic->iNum);
-			delete pType4Magic;
-			pType4Magic = nullptr;
-		}
-
-		MagicType4Set.MoveNext();
 	}
 
 	return TRUE;
@@ -2639,7 +2135,7 @@ void CServerDlg::RegionCheck()
 BOOL CServerDlg::AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number)
 {
 	int i = 0, j = 0, objectid = 0;
-	CNpcTable* pNpcTable = nullptr;
+	model::Npc* pNpcTable = nullptr;
 	BOOL bFindNpcTable = FALSE;
 	int offset = 0;
 	int nServerNum = 0;
@@ -2660,8 +2156,7 @@ BOOL CServerDlg::AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number)
 
 	bFindNpcTable = TRUE;
 
-
-	CNpc* pNpc = new CNpc;
+	CNpc* pNpc = new CNpc();
 
 	pNpc->m_sNid = m_sMapEventNpc++;				// 서버 내에서의 고유 번호
 	pNpc->m_sSid = (short) pEvent->sIndex;			// MONSTER(NPC) Serial ID
@@ -2675,57 +2170,9 @@ BOOL CServerDlg::AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number)
 
 	pNpc->m_byBattlePos = 0;
 
-	strcpy(pNpc->m_strName, pNpcTable->m_strName);			// MONSTER(NPC) Name
-	pNpc->m_sPid = pNpcTable->m_sPid;						// MONSTER(NPC) Picture ID
-	pNpc->m_sSize = pNpcTable->m_sSize;						// 캐릭터의 비율(100 퍼센트 기준)
-	pNpc->m_iWeapon_1 = pNpcTable->m_iWeapon_1;				// 착용무기
-	pNpc->m_iWeapon_2 = pNpcTable->m_iWeapon_2;				// 착용무기
-	pNpc->m_byGroup = pNpcTable->m_byGroup;					// 소속집단
-	pNpc->m_byActType = pNpcTable->m_byActType;				// 행동패턴
-	pNpc->m_byRank = pNpcTable->m_byRank;					// 작위
-	pNpc->m_byTitle = pNpcTable->m_byTitle;					// 지위
-	pNpc->m_iSellingGroup = pNpcTable->m_iSellingGroup;
-	pNpc->m_sLevel = pNpcTable->m_sLevel;					// level
-	pNpc->m_iExp = pNpcTable->m_iExp;						// 경험치
-	pNpc->m_iLoyalty = pNpcTable->m_iLoyalty;				// loyalty
-	pNpc->m_iHP = pNpcTable->m_iMaxHP;						// 최대 HP
-	pNpc->m_iMaxHP = pNpcTable->m_iMaxHP;					// 현재 HP
-	pNpc->m_sMP = pNpcTable->m_sMaxMP;						// 최대 MP
-	pNpc->m_sMaxMP = pNpcTable->m_sMaxMP;					// 현재 MP
-	pNpc->m_sAttack = pNpcTable->m_sAttack;					// 공격값
-	pNpc->m_sDefense = pNpcTable->m_sDefense;				// 방어값
-	pNpc->m_sHitRate = pNpcTable->m_sHitRate;				// 타격성공률
-	pNpc->m_sEvadeRate = pNpcTable->m_sEvadeRate;			// 회피성공률
-	pNpc->m_sDamage = pNpcTable->m_sDamage;					// 기본 데미지
-	pNpc->m_sAttackDelay = pNpcTable->m_sAttackDelay;		// 공격딜레이
-	pNpc->m_sSpeed = pNpcTable->m_sSpeed;					// 이동속도
-	pNpc->m_fSpeed_1 = (float) pNpcTable->m_bySpeed_1;		// 기본 이동 타입
-	pNpc->m_fSpeed_2 = (float) pNpcTable->m_bySpeed_2;		// 뛰는 이동 타입..
-	pNpc->m_fOldSpeed_1 = (float) pNpcTable->m_bySpeed_1;	// 기본 이동 타입
-	pNpc->m_fOldSpeed_2 = (float) pNpcTable->m_bySpeed_2;	// 뛰는 이동 타입..
-	pNpc->m_fSecForMetor = 4.0f;							// 초당 갈 수 있는 거리..
-	pNpc->m_sStandTime = pNpcTable->m_sStandTime;			// 서있는 시간
-	pNpc->m_iMagic1 = pNpcTable->m_iMagic1;					// 사용마법 1
-	pNpc->m_iMagic2 = pNpcTable->m_iMagic2;					// 사용마법 2
-	pNpc->m_iMagic3 = pNpcTable->m_iMagic3;					// 사용마법 3
-	pNpc->m_sFireR = pNpcTable->m_sFireR;					// 화염 저항력
-	pNpc->m_sColdR = pNpcTable->m_sColdR;					// 냉기 저항력
-	pNpc->m_sLightningR = pNpcTable->m_sLightningR;			// 전기 저항력
-	pNpc->m_sMagicR = pNpcTable->m_sMagicR;					// 마법 저항력
-	pNpc->m_sDiseaseR = pNpcTable->m_sDiseaseR;				// 저주 저항력
-	pNpc->m_sPoisonR = pNpcTable->m_sPoisonR;				// 독 저항력
-	pNpc->m_sLightR = pNpcTable->m_sLightR;					// 빛 저항력
-	pNpc->m_fBulk = (float) (((double) pNpcTable->m_sBulk / 100) * ((double) pNpcTable->m_sSize / 100));
-	pNpc->m_bySearchRange = pNpcTable->m_bySearchRange;		// 적 탐지 범위
-	pNpc->m_byAttackRange = pNpcTable->m_byAttackRange;		// 사정거리
-	pNpc->m_byTracingRange = pNpcTable->m_byTracingRange;	// 추격거리
-	pNpc->m_sAI = pNpcTable->m_sAI;							// 인공지능 인덱스
-	pNpc->m_tNpcType = pNpcTable->m_tNpcType;				// NPC Type
-	pNpc->m_byFamilyType = pNpcTable->m_byFamilyType;		// 몹들사이에서 가족관계를 결정한다.
-	pNpc->m_iMoney = pNpcTable->m_iMoney;					// 떨어지는 돈
-	pNpc->m_iItem = pNpcTable->m_iItem;						// 떨어지는 아이템
-	pNpc->m_tNpcLongType = pNpcTable->m_byDirectAttack;
-	pNpc->m_byWhatAttackType = pNpcTable->m_byDirectAttack;
+	pNpc->m_fSecForMetor = 4.0f;					// 초당 갈 수 있는 거리..
+
+	pNpc->Load(pNpcTable, false);
 
 	//////// MONSTER POS ////////////////////////////////////////
 
@@ -2744,8 +2191,6 @@ BOOL CServerDlg::AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number)
 	pNpc->m_sRegenTime = 10000 * 1000;	// 초(DB)단위-> 밀리세컨드로
 	//pNpc->m_sRegenTime		= 30 * 1000;	// 초(DB)단위-> 밀리세컨드로
 	pNpc->m_sMaxPathCount = 0;
-	pNpc->m_tItemPer = pNpcTable->m_tItemPer;	// NPC Type
-	pNpc->m_tDnPer = pNpcTable->m_tDnPer;	// NPC Type
 
 	pNpc->m_ZoneIndex = -1;
 	pNpc->m_byObjectType = SPECIAL_OBJECT;

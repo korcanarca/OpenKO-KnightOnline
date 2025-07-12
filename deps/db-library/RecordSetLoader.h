@@ -25,12 +25,15 @@ namespace recordset_loader
 		std::string		Message;
 	};
 
-	template <typename ModelType_>
+	template <
+		typename ModelType_,
+		typename BoundModelType_ = ModelType_>
 	class Base
 	{
 	public:
 		using ModelType = ModelType_;
-		using RecordSetType = db::ModelRecordSet<ModelType>;
+		using BoundModelType = BoundModelType_;
+		using RecordSetType = db::ModelRecordSet<ModelType, BoundModelType>;
 
 		using ProcessFetchCallbackType = std::function<void(RecordSetType&)>;
 
@@ -41,31 +44,41 @@ namespace recordset_loader
 			return _error;
 		}
 
+		inline const short GetColumnCount() const
+		{
+			return _columnCount;
+		}
+
 		inline void SetProcessFetchCallback(
 			ProcessFetchCallbackType processFetchCallback)
 		{
 			_processFetchCallback = std::move(processFetchCallback);
 		}
 
-		inline bool Load_AllowEmpty()
+		inline bool Load_AllowEmpty(bool fetchRowCount = false)
 		{
-			return Load<true>();
+			return Load<true>(fetchRowCount);
 		}
 
-		inline bool Load_ForbidEmpty()
+		inline bool Load_ForbidEmpty(bool fetchRowCount = false)
 		{
-			return Load<false>();
+			return Load<false>(fetchRowCount);
 		}
 
 	protected:
 		template <bool AllowEmptyTable>
-		bool Load()
+		bool Load(bool fetchRowCount)
 		{
 			using EnumErrorType = Error::EnumErrorType;
 
+			_columnCount = 0;
+
 			try
 			{
-				RecordSetType recordset;
+				RecordSetType recordset(fetchRowCount);
+				recordset.open();
+
+				_columnCount = recordset.columnCount();
 
 				if constexpr (!AllowEmptyTable)
 				{
@@ -109,8 +122,9 @@ namespace recordset_loader
 		}
 
 	protected:
-		Error _error = {};
-		std::function<void(RecordSetType&)> _processFetchCallback = {};
+		Error _error {};
+		short _columnCount {};
+		std::function<void(RecordSetType&)> _processFetchCallback {};
 	};
 
 }

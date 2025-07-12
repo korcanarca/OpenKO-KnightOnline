@@ -10,13 +10,15 @@
 #include <shared/Ini.h>
 
 #include <db-library/DatabaseConnManager.h>
-#include <db-library/RecordSetLoader_STLMap.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
+
+// NOTE: Explicitly handled under DEBUG_NEW override
+#include <db-library/RecordSetLoader_STLMap.h>
 
 #define PROCESS_CHECK		100
 #define CONCURRENT_CHECK	200

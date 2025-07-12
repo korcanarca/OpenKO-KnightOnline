@@ -261,6 +261,80 @@ inline void CNpc::InitTarget()
 	m_Target.failCount = 0;
 }
 
+void CNpc::Load(const model::Npc* pNpcTable, bool transformSpeeds)
+{
+	constexpr short MONSTER_SPEED = 1500;
+
+	_ASSERT(pNpcTable != nullptr);
+
+	if (pNpcTable == nullptr)
+		return;
+
+	if (pNpcTable->Name.has_value())
+		m_strName = *pNpcTable->Name;				// MONSTER(NPC) Name
+
+	m_sPid = pNpcTable->PictureId;					// MONSTER(NPC) Picture ID
+	m_sSize = pNpcTable->Size;						// 캐릭터의 비율(100 퍼센트 기준)
+	m_iWeapon_1 = pNpcTable->Weapon1;				// 착용무기
+	m_iWeapon_2 = pNpcTable->Weapon2;				// 착용무기
+	m_byGroup = pNpcTable->Group;					// 소속집단
+	m_byActType = pNpcTable->ActType;				// 행동패턴
+	m_byRank = pNpcTable->Rank;						// 작위
+	m_byTitle = pNpcTable->Title;					// 지위
+	m_iSellingGroup = pNpcTable->SellingGroup;
+	m_sLevel = pNpcTable->Level;					// level
+	m_iExp = pNpcTable->Exp;						// 경험치
+	m_iLoyalty = pNpcTable->Loyalty;				// loyalty
+	m_iHP = pNpcTable->HitPoints;					// 최대 HP
+	m_iMaxHP = pNpcTable->HitPoints;				// 현재 HP
+	m_sMP = pNpcTable->ManaPoints;					// 최대 MP
+	m_sMaxMP = pNpcTable->ManaPoints;				// 현재 MP
+	m_sAttack = pNpcTable->Attack;					// 공격값
+	m_sDefense = pNpcTable->Armor;					// 방어값
+	m_sHitRate = pNpcTable->HitRate;				// 타격성공률
+	m_sEvadeRate = pNpcTable->EvadeRate;			// 회피성공률
+	m_sDamage = pNpcTable->Damage;					// 기본 데미지
+	m_sAttackDelay = pNpcTable->AttackDelay;		// 공격딜레이
+
+	m_sSpeed = MONSTER_SPEED;						// 이동속도
+
+	m_fSpeed_1 = (float) pNpcTable->WalkSpeed;		// 기본 이동 타입
+	m_fSpeed_2 = (float) pNpcTable->RunSpeed;		// 뛰는 이동 타입..
+	m_fOldSpeed_1 = (float) pNpcTable->WalkSpeed;	// 기본 이동 타입
+	m_fOldSpeed_2 = (float) pNpcTable->RunSpeed;	// 뛰는 이동 타입..
+
+	if (transformSpeeds)
+	{
+		constexpr float dbSpeed = MONSTER_SPEED;
+
+		m_fSpeed_1		*= (dbSpeed / 1000.0f);		// 기본 이동 타입
+		m_fSpeed_2		*= (dbSpeed / 1000.0f);		// 뛰는 이동 타입..
+		m_fOldSpeed_1	*= (dbSpeed / 1000.0f);		// 기본 이동 타입
+		m_fOldSpeed_2	*= (dbSpeed / 1000.0f);		// 뛰는 이동 타입..
+	}
+
+	m_sStandTime = pNpcTable->StandTime;			// 서있는 시간
+	m_iMagic1 = pNpcTable->Magic1;					// 사용마법 1
+	m_iMagic2 = pNpcTable->Magic2;					// 사용마법 2
+	m_iMagic3 = pNpcTable->Magic3;					// 사용마법 3
+	m_sFireR = pNpcTable->FireResist;				// 화염 저항력
+	m_sColdR = pNpcTable->ColdResist;				// 냉기 저항력
+	m_sLightningR = pNpcTable->LightningResist;		// 전기 저항력
+	m_sMagicR = pNpcTable->MagicResist;				// 마법 저항력
+	m_sDiseaseR = pNpcTable->DiseaseResist;			// 저주 저항력
+	m_sPoisonR = pNpcTable->PoisonResist;			// 독 저항력
+	m_sLightR = pNpcTable->LightResist;				// 빛 저항력
+	m_fBulk = (float) (((double) pNpcTable->Bulk / 100) * ((double) pNpcTable->Size / 100));
+	m_bySearchRange = pNpcTable->SearchRange;		// 적 탐지 범위
+	m_byAttackRange = pNpcTable->AttackRange;		// 사정거리
+	m_byTracingRange = pNpcTable->TracingRange;		// 추격거리
+	m_tNpcType = pNpcTable->Type;					// NPC Type
+	m_byFamilyType = pNpcTable->Family;				// 몹들사이에서 가족관계를 결정한다.
+	m_iMoney = pNpcTable->Money;					// 떨어지는 돈
+	m_iItem = pNpcTable->Item;						// 떨어지는 아이템
+	m_tNpcLongType = pNpcTable->DirectAttack;
+	m_byWhatAttackType = pNpcTable->DirectAttack;
+}
 
 //	NPC 기본정보 초기화
 void CNpc::Init()
@@ -3567,7 +3641,7 @@ int CNpc::Attack(CIOCPort* pIOCP)
 
 		if (nDamage > 0)
 		{
-			pNpc->SetDamage(0, nDamage, m_strName, m_sNid + NPC_BAND, pIOCP);
+			pNpc->SetDamage(0, nDamage, m_strName.c_str(), m_sNid + NPC_BAND, pIOCP);
 			//if(pNpc->m_iHP > 0)
 			SendAttackSuccess(pIOCP, ATTACK_SUCCESS, pNpc->m_sNid + NPC_BAND, nDamage, pNpc->m_iHP);
 		}
@@ -3815,7 +3889,7 @@ int CNpc::TracingAttack(CIOCPort* pIOCP)		// 0:attack fail, 1:attack success
 
 		if (nDamage > 0)
 		{
-			if (pNpc->SetDamage(0, nDamage, m_strName, m_sNid + NPC_BAND, pIOCP))
+			if (pNpc->SetDamage(0, nDamage, m_strName.c_str(), m_sNid + NPC_BAND, pIOCP))
 			{
 				SendAttackSuccess(pIOCP, ATTACK_SUCCESS, pNpc->m_sNid + NPC_BAND, nDamage, pNpc->m_iHP);
 			}
@@ -5465,7 +5539,7 @@ void CNpc::FillNpcInfo(char* temp_send, int& index, BYTE flag)
 	SetInt(temp_send, m_iWeapon_2, index);
 	SetShort(temp_send, m_sCurZone, index);
 	SetShort(temp_send, m_ZoneIndex, index);
-	SetVarString(temp_send, m_strName, strlen(m_strName), index);
+	SetVarString(temp_send, m_strName.c_str(), static_cast<int>(m_strName.length()), index);
 	SetByte(temp_send, m_byGroup, index);
 	SetByte(temp_send, (BYTE) m_sLevel, index);
 	Setfloat(temp_send, m_fCurX, index);
@@ -5503,7 +5577,7 @@ void CNpc::SendNpcInfoAll(char* temp_send, int& index, int count)
 	SetInt(temp_send, m_iWeapon_2, index);
 	SetShort(temp_send, m_sCurZone, index);
 	SetShort(temp_send, m_ZoneIndex, index);
-	SetVarString(temp_send, m_strName, strlen(m_strName), index);
+	SetVarString(temp_send, m_strName.c_str(), static_cast<int>(m_strName.length()), index);
 	SetByte(temp_send, m_byGroup, index);
 	SetByte(temp_send, (BYTE) m_sLevel, index);
 	Setfloat(temp_send, m_fCurX, index);
@@ -7146,7 +7220,7 @@ void CNpc::ChangeMonsterInfomation(int iChangeType)
 	if (m_NpcState != NPC_DEAD)
 		return;
 
-	CNpcTable* pNpcTable = nullptr;
+	model::Npc* pNpcTable = nullptr;
 	if (m_byInitMoveType >= 0
 		&& m_byInitMoveType < 100)
 	{
@@ -7178,56 +7252,7 @@ void CNpc::ChangeMonsterInfomation(int iChangeType)
 	}
 
 	// 정보수정......
-	strcpy(m_strName, pNpcTable->m_strName);		// MONSTER(NPC) Name
-	m_sPid = pNpcTable->m_sPid;						// MONSTER(NPC) Picture ID
-	m_sSize = pNpcTable->m_sSize;					// 캐릭터의 비율(100 퍼센트 기준)
-	m_iWeapon_1 = pNpcTable->m_iWeapon_1;			// 착용무기
-	m_iWeapon_2 = pNpcTable->m_iWeapon_2;			// 착용무기
-	m_byGroup = pNpcTable->m_byGroup;				// 소속집단
-	m_byActType = pNpcTable->m_byActType;			// 행동패턴
-	m_byRank = pNpcTable->m_byRank;					// 작위
-	m_byTitle = pNpcTable->m_byTitle;				// 지위
-	m_iSellingGroup = pNpcTable->m_iSellingGroup;
-	m_sLevel = pNpcTable->m_sLevel;					// level
-	m_iExp = pNpcTable->m_iExp;						// 경험치
-	m_iLoyalty = pNpcTable->m_iLoyalty;				// loyalty
-	m_iHP = pNpcTable->m_iMaxHP;					// 최대 HP
-	m_iMaxHP = pNpcTable->m_iMaxHP;					// 현재 HP
-	m_sMP = pNpcTable->m_sMaxMP;					// 최대 MP
-	m_sMaxMP = pNpcTable->m_sMaxMP;					// 현재 MP
-	m_sAttack = pNpcTable->m_sAttack;				// 공격값
-	m_sDefense = pNpcTable->m_sDefense;				// 방어값
-	m_sHitRate = pNpcTable->m_sHitRate;				// 타격성공률
-	m_sEvadeRate = pNpcTable->m_sEvadeRate;			// 회피성공률
-	m_sDamage = pNpcTable->m_sDamage;				// 기본 데미지
-	m_sAttackDelay = pNpcTable->m_sAttackDelay;		// 공격딜레이
-	m_sSpeed = pNpcTable->m_sSpeed;					// 이동속도
-	m_fSpeed_1 = (float) pNpcTable->m_bySpeed_1;	// 기본 이동 타입
-	m_fSpeed_2 = (float) pNpcTable->m_bySpeed_2;	// 뛰는 이동 타입..
-	m_fOldSpeed_1 = (float) pNpcTable->m_bySpeed_1;	// 기본 이동 타입
-	m_fOldSpeed_2 = (float) pNpcTable->m_bySpeed_2;	// 뛰는 이동 타입..
-	m_sStandTime = pNpcTable->m_sStandTime;			// 서있는 시간
-	m_iMagic1 = pNpcTable->m_iMagic1;				// 사용마법 1
-	m_iMagic2 = pNpcTable->m_iMagic2;				// 사용마법 2
-	m_iMagic3 = pNpcTable->m_iMagic3;				// 사용마법 3
-	m_sFireR = pNpcTable->m_sFireR;					// 화염 저항력
-	m_sColdR = pNpcTable->m_sColdR;					// 냉기 저항력
-	m_sLightningR = pNpcTable->m_sLightningR;		// 전기 저항력
-	m_sMagicR = pNpcTable->m_sMagicR;				// 마법 저항력
-	m_sDiseaseR = pNpcTable->m_sDiseaseR;			// 저주 저항력
-	m_sPoisonR = pNpcTable->m_sPoisonR;				// 독 저항력
-	m_sLightR = pNpcTable->m_sLightR;				// 빛 저항력
-	m_fBulk = (float) (((double) pNpcTable->m_sBulk / 100) * ((double) pNpcTable->m_sSize / 100));
-	m_bySearchRange = pNpcTable->m_bySearchRange;	// 적 탐지 범위
-	m_byAttackRange = pNpcTable->m_byAttackRange;	// 사정거리
-	m_byTracingRange = pNpcTable->m_byTracingRange;	// 추격거리
-	m_sAI = pNpcTable->m_sAI;						// 인공지능 인덱스
-	m_tNpcType = pNpcTable->m_tNpcType;				// NPC Type
-	m_byFamilyType = pNpcTable->m_byFamilyType;		// 몹들사이에서 가족관계를 결정한다.
-	m_iMoney = pNpcTable->m_iMoney;					// 떨어지는 돈
-	m_iItem = pNpcTable->m_iItem;					// 떨어지는 아이템
-	m_tNpcLongType = pNpcTable->m_byDirectAttack;
-	m_byWhatAttackType = pNpcTable->m_byMagicAttack;
+	Load(pNpcTable, false);
 }
 
 void CNpc::DurationMagic_3(CIOCPort* pIOCP, float currenttime)
@@ -7563,7 +7588,7 @@ void CNpc::ChangeAbility(int iChangeType)
 		return;
 
 	int nHP = 0, nAC = 0, nDamage = 0, nLightR = 0, nMagicR = 0, nDiseaseR = 0, nPoisonR = 0, nLightningR = 0, nFireR = 0, nColdR = 0;
-	CNpcTable* pNpcTable = nullptr;
+	model::Npc* pNpcTable = nullptr;
 	if (m_byInitMoveType >= 0
 		&& m_byInitMoveType < 100)
 	{
@@ -7584,16 +7609,16 @@ void CNpc::ChangeAbility(int iChangeType)
 	// 능력치 다운
 	if (iChangeType == BATTLEZONE_OPEN)
 	{
-		nHP			= static_cast<int>(pNpcTable->m_iMaxHP * 0.5);
-		nAC			= static_cast<int>(pNpcTable->m_sDefense * 0.2);
-		nDamage		= static_cast<int>(pNpcTable->m_sDamage * 0.3);
-		nLightR		= static_cast<int>(pNpcTable->m_sLightR * 0.5);
-		nMagicR		= static_cast<int>(pNpcTable->m_sMagicR * 0.5);
-		nDiseaseR	= static_cast<int>(pNpcTable->m_sDiseaseR * 0.5);
-		nPoisonR	= static_cast<int>(pNpcTable->m_sPoisonR * 0.5);
-		nLightningR	= static_cast<int>(pNpcTable->m_sLightningR * 0.5);
-		nFireR		= static_cast<int>(pNpcTable->m_sFireR * 0.5);
-		nColdR		= static_cast<int>(pNpcTable->m_sColdR * 0.5);
+		nHP			= static_cast<int>(pNpcTable->HitPoints * 0.5);
+		nAC			= static_cast<int>(pNpcTable->Armor * 0.2);
+		nDamage		= static_cast<int>(pNpcTable->Damage * 0.3);
+		nLightR		= static_cast<int>(pNpcTable->LightResist * 0.5);
+		nMagicR		= static_cast<int>(pNpcTable->MagicResist * 0.5);
+		nDiseaseR	= static_cast<int>(pNpcTable->DiseaseResist * 0.5);
+		nPoisonR	= static_cast<int>(pNpcTable->PoisonResist * 0.5);
+		nLightningR	= static_cast<int>(pNpcTable->LightningResist * 0.5);
+		nFireR		= static_cast<int>(pNpcTable->FireResist * 0.5);
+		nColdR		= static_cast<int>(pNpcTable->ColdResist * 0.5);
 
 		m_iMaxHP	= nHP;
 
@@ -7615,7 +7640,7 @@ void CNpc::ChangeAbility(int iChangeType)
 	// 능력치 회복
 	else if (iChangeType == BATTLEZONE_CLOSE)
 	{
-		m_iMaxHP = pNpcTable->m_iMaxHP;		// 현재 HP
+		m_iMaxHP = pNpcTable->HitPoints;			// 현재 HP
 		//TRACE(_T("++ ChangeAbility up : nid=%d, name=%hs, hp:%d->%d, damage=%d->%d\n"), m_sNid+NPC_BAND, m_strName, m_iHP, m_iMaxHP, pNpcTable->m_sDamage, nDamage); 
 
 		// HP도 바꿔야 겠군,,
@@ -7625,15 +7650,15 @@ void CNpc::ChangeAbility(int iChangeType)
 			HpChange(&m_pMain->m_Iocport);
 		}
 
-		m_sDamage = pNpcTable->m_sDamage;			// 기본 데미지
-		m_sDefense = pNpcTable->m_sDefense;			// 방어값
-		m_sFireR = pNpcTable->m_sFireR;				// 화염 저항력
-		m_sColdR = pNpcTable->m_sColdR;				// 냉기 저항력
-		m_sLightningR = pNpcTable->m_sLightningR;	// 전기 저항력
-		m_sMagicR = pNpcTable->m_sMagicR;			// 마법 저항력
-		m_sDiseaseR = pNpcTable->m_sDiseaseR;		// 저주 저항력
-		m_sPoisonR = pNpcTable->m_sPoisonR;			// 독 저항력
-		m_sLightR = pNpcTable->m_sLightR;			// 빛 저항력
+		m_sDamage = pNpcTable->Damage;				// 기본 데미지
+		m_sDefense = pNpcTable->Armor;				// 방어값
+		m_sFireR = pNpcTable->FireResist;			// 화염 저항력
+		m_sColdR = pNpcTable->ColdResist;			// 냉기 저항력
+		m_sLightningR = pNpcTable->LightningResist;	// 전기 저항력
+		m_sMagicR = pNpcTable->MagicResist;			// 마법 저항력
+		m_sDiseaseR = pNpcTable->DiseaseResist;		// 저주 저항력
+		m_sPoisonR = pNpcTable->PoisonResist;		// 독 저항력
+		m_sLightR = pNpcTable->LightResist;			// 빛 저항력
 	}
 }
 

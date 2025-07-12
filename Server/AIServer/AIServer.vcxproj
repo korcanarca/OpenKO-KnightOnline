@@ -142,24 +142,15 @@
     <ClCompile Include="IOCPort.cpp" />
     <ClCompile Include="IOCPSocket2.cpp" />
     <ClCompile Include="MagicProcess.cpp" />
-    <ClCompile Include="MagicTableSet.cpp" />
-    <ClCompile Include="MagicType1Set.cpp" />
-    <ClCompile Include="MagicType2Set.cpp" />
-    <ClCompile Include="MagicType3Set.cpp" />
-    <ClCompile Include="MagicType4Set.cpp" />
     <ClCompile Include="MakeDefensiveTableSet.cpp" />
     <ClCompile Include="MakeGradeItemTableSet.cpp" />
     <ClCompile Include="MakeLareItemTableSet.cpp" />
     <ClCompile Include="MakeWeaponTableSet.cpp" />
     <ClCompile Include="MAP.cpp" />
-    <ClCompile Include="MonTableSet.cpp" />
     <ClCompile Include="Npc.cpp" />
     <ClCompile Include="NpcItem.cpp" />
-    <ClCompile Include="NpcItemSet.cpp" />
     <ClCompile Include="NpcMagicProcess.cpp" />
     <ClCompile Include="NpcPosSet.cpp" />
-    <ClCompile Include="NpcTable.cpp" />
-    <ClCompile Include="NpcTableSet.cpp" />
     <ClCompile Include="NpcThread.cpp" />
     <ClCompile Include="Party.cpp" />
     <ClCompile Include="PartyUser.cpp" />
@@ -172,7 +163,6 @@
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="User.cpp" />
-    <ClCompile Include="ZoneInfoSet.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Client\N3Base\My_3DStruct.h" />
@@ -185,24 +175,15 @@
     <ClInclude Include="IOCPort.h" />
     <ClInclude Include="IOCPSocket2.h" />
     <ClInclude Include="MagicProcess.h" />
-    <ClInclude Include="MagicTableSet.h" />
-    <ClInclude Include="MagicType1Set.h" />
-    <ClInclude Include="MagicType2Set.h" />
-    <ClInclude Include="MagicType3Set.h" />
-    <ClInclude Include="MagicType4Set.h" />
     <ClInclude Include="MakeDefensiveTableSet.h" />
     <ClInclude Include="MakeGradeItemTableSet.h" />
     <ClInclude Include="MakeLareItemTableSet.h" />
     <ClInclude Include="MakeWeaponTableSet.h" />
     <ClInclude Include="MAP.h" />
-    <ClInclude Include="MonTableSet.h" />
     <ClInclude Include="Npc.h" />
     <ClInclude Include="NpcItem.h" />
-    <ClInclude Include="NpcItemSet.h" />
     <ClInclude Include="NpcMagicProcess.h" />
     <ClInclude Include="NpcPosSet.h" />
-    <ClInclude Include="NpcTable.h" />
-    <ClInclude Include="NpcTableSet.h" />
     <ClInclude Include="NpcThread.h" />
     <ClInclude Include="Packet.h" />
     <ClInclude Include="Party.h" />
@@ -215,7 +196,6 @@
     <ClInclude Include="ServerDlg.h" />
     <ClInclude Include="StdAfx.h" />
     <ClInclude Include="User.h" />
-    <ClInclude Include="ZoneInfoSet.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\Server.ico" />

@@ -9,11 +9,12 @@ namespace recordset_loader
 
 	template <
 		typename ContainerType,
-		typename ModelType = ContainerType::ValueType>
-	class STLMap : public Base<ModelType>
+		typename ModelType = ContainerType::ValueType,
+		typename BoundModelType = ContainerType::ValueType>
+	class STLMap : public Base<ModelType, BoundModelType>
 	{
 	public:
-		using RecordSetType = Base<ModelType>::RecordSetType;
+		using RecordSetType = Base<ModelType, BoundModelType>::RecordSetType;
 
 		STLMap(ContainerType& targetContainer)
 			: _targetContainer(targetContainer)
@@ -49,7 +50,7 @@ namespace recordset_loader
 
 			do
 			{
-				ModelType* model = new ModelType();
+				BoundModelType* model = new BoundModelType();
 				recordset.get_ref(*model);
 
 				ModelKeyType id = model->MapKey();

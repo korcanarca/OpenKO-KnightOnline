@@ -10,13 +10,14 @@
 #include "User.h"
 #include "EbenezerDlg.h"
 
-#include <db-library/RecordSetLoader.h>
-
 #ifdef _DEBUG
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
+
+// NOTE: Explicitly handled under DEBUG_NEW override
+#include <db-library/RecordSetLoader.h>
 
 import EbenezerBinder;
 
@@ -42,7 +43,6 @@ C3DMap::C3DMap()
 	m_bType = 0;
 	m_wBundle = 1;
 	m_sMaxUser = 150;	// Max user in Battlezone!!!
-	memset(m_MapName, 0, sizeof(m_MapName));
 	m_pMain = nullptr;
 }
 
@@ -576,22 +576,22 @@ BOOL C3DMap::LoadEvent()
 	{
 		do
 		{
-			ModelType obj = {};
-			recordset.get_ref(obj);
+			ModelType row = {};
+			recordset.get_ref(row);
 
-			if (obj.ZoneNumber != m_nZoneNumber)
+			if (row.ZoneNumber != m_nZoneNumber)
 				continue;
 
 			CGameEvent* pEvent = new CGameEvent();
 
-			pEvent->m_sIndex = obj.EventNumber;
-			pEvent->m_bType = obj.EventType;
+			pEvent->m_sIndex = row.EventNumber;
+			pEvent->m_bType = row.EventType;
 
-			pEvent->m_iExec[0] = atoi(obj.Execute1.c_str());
-			pEvent->m_iExec[1] = atoi(obj.Execute2.c_str());
-			pEvent->m_iExec[2] = atoi(obj.Execute3.c_str());
-			pEvent->m_iExec[3] = atoi(obj.Execute4.c_str());
-			pEvent->m_iExec[4] = atoi(obj.Execute5.c_str());
+			pEvent->m_iExec[0] = atoi(row.Execute1.c_str());
+			pEvent->m_iExec[1] = atoi(row.Execute2.c_str());
+			pEvent->m_iExec[2] = atoi(row.Execute3.c_str());
+			pEvent->m_iExec[3] = atoi(row.Execute4.c_str());
+			pEvent->m_iExec[4] = atoi(row.Execute5.c_str());
 
 			if (!m_EventArray.PutData(pEvent->m_sIndex, pEvent))
 			{

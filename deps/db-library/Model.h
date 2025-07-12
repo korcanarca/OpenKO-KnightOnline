@@ -45,8 +45,13 @@ namespace db
 			stmt = nanodbc::statement(conn, query);
 			result = nanodbc::execute(stmt);
 
+			short columnCount = result.columns();
+
 			BindingIndex<T> bindingsIndex;
-			IndexColumnNameBindings<T>(result, bindingsIndex);
+			IndexColumnNameBindings<T>(
+				result,
+				columnCount,
+				bindingsIndex);
 
 			std::vector<T> resultModels;
 			if (rowCount > 0)
@@ -93,14 +98,13 @@ namespace db
 		template <typename T>
 		static void IndexColumnNameBindings(
 			const nanodbc::result& result,
+			const short columnCount,
 			BindingIndex<T>& bindingsIndex)
 		{
 			using BinderType = typename T::BinderType;
 
 			const auto& columnBindingsMap = BinderType::GetColumnBindings();
 			std::string columnName;
-
-			const short columnCount = result.columns();
 
 			bindingsIndex.reserve(columnCount);
 

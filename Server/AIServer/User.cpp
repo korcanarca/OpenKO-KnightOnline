@@ -506,9 +506,9 @@ short CUser::GetDamage(int tid, int magicid)
 	int random = 0;
 	BYTE result = FAIL;
 
-	_MAGIC_TABLE* pTable = nullptr;
-	_MAGIC_TYPE1* pType1 = nullptr;
-	_MAGIC_TYPE2* pType2 = nullptr;
+	model::Magic* pTable = nullptr;
+	model::MagicType1* pType1 = nullptr;
+	model::MagicType2* pType2 = nullptr;
 
 	if (tid < NPC_BAND
 		|| tid > INVALID_BAND)
@@ -540,7 +540,7 @@ short CUser::GetDamage(int tid, int magicid)
 			return -1;
 
 		// SKILL HIT!
-		if (pTable->bType1 == 1)
+		if (pTable->Type1 == 1)
 		{
 			// Get magic skill table type 1.
 			pType1 = m_pMain->m_Magictype1Array.GetData(magicid);
@@ -548,10 +548,10 @@ short CUser::GetDamage(int tid, int magicid)
 				return -1;
 
 			// Non-relative hit.
-			if (pType1->bHitType)
+			if (pType1->Type)
 			{
 				random = myrand(0, 100);
-				if (pType1->sHitRate <= random)
+				if (pType1->HitRateMod <= random)
 					result = FAIL;
 				else
 					result = SUCCESS;
@@ -559,24 +559,24 @@ short CUser::GetDamage(int tid, int magicid)
 			// Relative hit.
 			else
 			{
-				result = GetHitRate((Attack / Avoid) * (pType1->sHitRate / 100.0f));
+				result = GetHitRate((Attack / Avoid) * (pType1->HitRateMod / 100.0f));
 			}
 /*
 			// Non-relative hit.
-			if (pType1->bHitType)
+			if (pType1->Type)
 			{
-				Hit = m_sHitDamage * (pType1->sHit / 100.0f);
+				Hit = m_sHitDamage * (pType1->DamageMod / 100.0f);
 			}
 			else
 			{
 //				Hit = (m_sHitDamage - pNpc->m_sDefense)
-				Hit = HitB * (pType1->sHit / 100.0f);
+				Hit = HitB * (pType1->DamageMod / 100.0f);
 			}
 */
-			Hit = HitB * (pType1->sHit / 100.0f);
+			Hit = HitB * (pType1->DamageMod / 100.0f);
 		}
 		// ARROW HIT!
-		else if (pTable->bType1 == 2)
+		else if (pTable->Type1 == 2)
 		{
 			// Get magic skill table type 2.
 			pType2 = m_pMain->m_Magictype2Array.GetData(magicid);
@@ -584,11 +584,11 @@ short CUser::GetDamage(int tid, int magicid)
 				return -1;
 
 			// Non-relative/Penetration hit.
-			if (pType2->bHitType == 1
-				|| pType2->bHitType == 2)
+			if (pType2->HitType == 1
+				|| pType2->HitType == 2)
 			{
 				random = myrand(0, 100);
-				if (pType2->sHitRate <= random)
+				if (pType2->HitRateMod <= random)
 					result = FAIL;
 				else
 					result = SUCCESS;
@@ -598,18 +598,18 @@ short CUser::GetDamage(int tid, int magicid)
 			// Relative hit/Arc hit.
 			else
 			{
-				result = GetHitRate((Attack / Avoid) * (pType2->sHitRate / 100.0f));
+				result = GetHitRate((Attack / Avoid) * (pType2->HitRateMod / 100.0f));
 			}
 
-			if (pType2->bHitType == 1
-				/*|| pType2->bHitType == 2*/)
+			if (pType2->HitType == 1
+				/*|| pType2->HitType == 2*/)
 			{
-				Hit = m_sHitDamage * (pType2->sAddDamage / 100.0f);
+				Hit = m_sHitDamage * (pType2->DamageMod / 100.0f);
 			}
 			else
 			{
-//				Hit = (m_sHitDamage - pNpc->m_sDefense) * (pType2->sAddDamage / 100.0f);
-				Hit = HitB * (pType2->sAddDamage / 100.0f);
+//				Hit = (m_sHitDamage - pNpc->m_sDefense) * (pType2->DamageMod / 100.0f);
+				Hit = HitB * (pType2->DamageMod / 100.0f);
 			}
 		}
 	}
@@ -630,7 +630,7 @@ short CUser::GetDamage(int tid, int magicid)
 				damage = (short) Hit;
 				random = myrand(0, damage);
 //				damage = (short) ((0.85f * (float) Hit) + 0.3f * (float) random);
-				if (pTable->bType1 == 1)
+				if (pTable->Type1 == 1)
 				{
 					damage = (short) ((float) Hit + 0.3f * (float) random + 0.99);
 				}

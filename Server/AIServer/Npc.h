@@ -41,8 +41,6 @@
 #define MAX_MAGIC_TYPE3			20
 #define MAX_MAGIC_TYPE4			9
 
-
-
 struct  _NpcSkillList
 {
 	short	sSid;
@@ -205,7 +203,7 @@ public:
 	//	MONSTER DB 쪽에 있는 변수들
 	//----------------------------------------------------------------
 	short	m_sSid;				// MONSTER(NPC) Serial ID
-	char	m_strName[MAX_NPC_NAME_SIZE + 1];	// MONSTER(NPC) Name
+	std::string	m_strName;		// MONSTER(NPC) Name
 	short	m_sPid;							// MONSTER(NPC) Picture ID
 	short   m_sSize;						// 캐릭터의 비율(100 퍼센트 기준)
 	int     m_iWeapon_1;			// 착용 무기
@@ -245,15 +243,11 @@ public:
 	BYTE	m_byAttackRange;	// 사정거리
 	BYTE	m_byTracingRange;	// 추격 거리
 
-	short	m_sAI;				// 인공지능 인덱스
-
 	BYTE	m_tNpcType;			// NPC Type
 								// 0 : Normal Monster
 								// 1 : NPC
 
 	short	m_byFamilyType;		// 몹들사이에서 가족관계를 결정한다.
-	BYTE	m_tItemPer;			// 아이템이 떨어질 확률
-	BYTE	m_tDnPer;			// 돈이 떨어질확률
 	BYTE    m_byMoneyType;		// Event몬스터일 경우 돈을 많이 주는 것, (0:루팅, 1:루팅을 하지 않고 바로 나눠갖는다)
 
 	int		m_iMoney;			// 떨어지는 돈
@@ -350,6 +344,7 @@ public:
 	CNpc();
 	virtual ~CNpc();
 
+	void Load(const model::Npc* pNpcTable, bool transformSpeeds);
 	void Init();	//	NPC 기본정보 초기화
 	void InitTarget(void);
 	void InitUserList();

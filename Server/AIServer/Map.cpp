@@ -48,7 +48,6 @@ MAP::MAP()
 	m_byRoomEvent = 0;
 	m_byRoomStatus = 1;
 	m_byInitRoomCount = 0;
-	memset(m_MapName, 0, sizeof(m_MapName));
 	m_sKarusRoom = 0;
 	m_sElmoradRoom = 0;
 //	for(int i=0; i<MAX_DUNGEON_BOSS_MONSTER; i++)

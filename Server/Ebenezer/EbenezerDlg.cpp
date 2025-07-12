@@ -11,8 +11,6 @@
 #include <shared/StringUtils.h>
 
 #include <db-library/DatabaseConnManager.h>
-#include <db-library/RecordSetLoader_STLMap.h>
-#include <db-library/RecordSetLoader_Vector.h>
 
 constexpr int GAME_TIME       	= 100;
 constexpr int SEND_TIME			= 200;
@@ -28,6 +26,10 @@ constexpr int AWARD_GOLD          = 5000;
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
+
+// NOTE: Explicitly handled under DEBUG_NEW override
+#include <db-library/RecordSetLoader_STLMap.h>
+#include <db-library/RecordSetLoader_Vector.h>
 
 import EbenezerBinder;
 
@@ -1159,11 +1161,11 @@ BOOL CEbenezerDlg::MapFileLoad()
 
 		do
 		{
-			ModelType obj = {};
-			recordset.get_ref(obj);
+			ModelType row = {};
+			recordset.get_ref(row);
 
 			std::filesystem::path mapPath
-				= mapDir / obj.Name;
+				= mapDir / row.Name;
 
 			szFullPath.Format(_T("%ls"), mapPath.c_str());
 
@@ -1177,20 +1179,19 @@ BOOL CEbenezerDlg::MapFileLoad()
 
 			C3DMap* pMap = new C3DMap();
 
-			pMap->m_nServerNo = obj.ServerId;
-			pMap->m_nZoneNumber = obj.ZoneId;
-			strcpy(pMap->m_MapName, obj.Name.c_str());
-			pMap->m_fInitX = (float) (obj.InitX / 100.0);
-			pMap->m_fInitZ = (float) (obj.InitZ / 100.0);
-			pMap->m_fInitY = (float) (obj.InitY / 100.0);
-			pMap->m_bType = obj.Type;
+			pMap->m_nServerNo = row.ServerId;
+			pMap->m_nZoneNumber = row.ZoneId;
+			pMap->m_fInitX = (float) (row.InitX / 100.0);
+			pMap->m_fInitZ = (float) (row.InitZ / 100.0);
+			pMap->m_fInitY = (float) (row.InitY / 100.0);
+			pMap->m_bType = row.Type;
 
 			if (!pMap->LoadMap(file.m_hFile))
 			{
 				errormsg.Format(_T("Map Load Fail - %s\n"), szFullPath);
 				AfxMessageBox(errormsg);
 				delete pMap;
-				break;
+				return;
 			}
 
 			file.Close();
@@ -1199,7 +1200,7 @@ BOOL CEbenezerDlg::MapFileLoad()
 
 			// 스트립트를 읽어 들인다.
 			EVENT* pEvent = new EVENT;
-			if (!pEvent->LoadEvent(obj.ZoneId))
+			if (!pEvent->LoadEvent(row.ZoneId))
 			{
 				delete pEvent;
 				continue;
@@ -1339,8 +1340,8 @@ BOOL CEbenezerDlg::LoadCoefficientTable()
 
 BOOL CEbenezerDlg::LoadLevelUpTable()
 {
-	recordset_loader::Vector loader(m_LevelUpArray, MAX_LEVEL);
-	if (!loader.Load_ForbidEmpty())
+	recordset_loader::Vector<model::LevelUp> loader(m_LevelUpArray);
+	if (!loader.Load_ForbidEmpty(true))
 	{
 		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
@@ -3096,49 +3097,49 @@ BOOL CEbenezerDlg::LoadAllKnights()
 	{
 		do
 		{
-			ModelType obj = {};
-			recordset.get_ref(obj);
+			ModelType row = {};
+			recordset.get_ref(row);
 
 			CKnights* pKnights = new CKnights();
 			pKnights->InitializeValue();
 
-			pKnights->m_sIndex = obj.ID;
-			pKnights->m_byFlag = obj.Flag;
-			pKnights->m_byNation = obj.Nation;
+			pKnights->m_sIndex = row.ID;
+			pKnights->m_byFlag = row.Flag;
+			pKnights->m_byNation = row.Nation;
 
-			rtrim(obj.Name);
-			strcpy(pKnights->m_strName, obj.Name.c_str());
+			rtrim(row.Name);
+			strcpy(pKnights->m_strName, row.Name.c_str());
 
-			rtrim(obj.Chief);
-			strcpy(pKnights->m_strChief, obj.Chief.c_str());
+			rtrim(row.Chief);
+			strcpy(pKnights->m_strChief, row.Chief.c_str());
 
-			if (obj.ViceChief1.has_value())
+			if (row.ViceChief1.has_value())
 			{
-				rtrim(*obj.ViceChief1);
-				strcpy(pKnights->m_strViceChief_1, obj.ViceChief1->c_str());
+				rtrim(*row.ViceChief1);
+				strcpy(pKnights->m_strViceChief_1, row.ViceChief1->c_str());
 			}
 
-			if (obj.ViceChief2.has_value())
+			if (row.ViceChief2.has_value())
 			{
-				rtrim(*obj.ViceChief2);
-				strcpy(pKnights->m_strViceChief_2, obj.ViceChief2->c_str());
+				rtrim(*row.ViceChief2);
+				strcpy(pKnights->m_strViceChief_2, row.ViceChief2->c_str());
 			}
 
-			if (obj.ViceChief3.has_value())
+			if (row.ViceChief3.has_value())
 			{
-				rtrim(*obj.ViceChief3);
-				strcpy(pKnights->m_strViceChief_3, obj.ViceChief3->c_str());
+				rtrim(*row.ViceChief3);
+				strcpy(pKnights->m_strViceChief_3, row.ViceChief3->c_str());
 			}
 
-			pKnights->m_sMembers = obj.Members;
-			pKnights->m_nMoney = obj.Gold;
-			pKnights->m_sAllianceKnights = obj.AllianceKnights;
-			pKnights->m_sMarkVersion = obj.MarkVersion;
-			pKnights->m_sCape = obj.Cape;
-			pKnights->m_sDomination = obj.Domination;
-			pKnights->m_nPoints = obj.Points;
-			pKnights->m_byGrade = GetKnightsGrade(obj.Points);
-			pKnights->m_byRanking = obj.Ranking;
+			pKnights->m_sMembers = row.Members;
+			pKnights->m_nMoney = row.Gold;
+			pKnights->m_sAllianceKnights = row.AllianceKnights;
+			pKnights->m_sMarkVersion = row.MarkVersion;
+			pKnights->m_sCape = row.Cape;
+			pKnights->m_sDomination = row.Domination;
+			pKnights->m_nPoints = row.Points;
+			pKnights->m_byGrade = GetKnightsGrade(row.Points);
+			pKnights->m_byRanking = row.Ranking;
 
 			for (int i = 0; i < MAX_CLAN; i++)
 			{
@@ -3173,11 +3174,11 @@ BOOL CEbenezerDlg::LoadAllKnightsUserData()
 	{
 		do
 		{
-			ModelType obj = {};
-			recordset.get_ref(obj);
+			ModelType row = {};
+			recordset.get_ref(row);
 
-			rtrim(obj.UserId);
-			m_KnightsManager.AddKnightsUser(obj.KnightsId, obj.UserId.c_str());
+			rtrim(row.UserId);
+			m_KnightsManager.AddKnightsUser(row.KnightsId, row.UserId.c_str());
 		}
 		while (recordset.next());
 	});
@@ -3510,10 +3511,10 @@ BOOL CEbenezerDlg::LoadBattleTable()
 	{
 		do
 		{
-			ModelType obj = {};
-			recordset.get_ref(obj);
+			ModelType row = {};
+			recordset.get_ref(row);
 
-			m_byOldVictory = obj.Nation;
+			m_byOldVictory = row.Nation;
 		}
 		while (recordset.next());
 	});
@@ -3561,12 +3562,12 @@ BOOL CEbenezerDlg::LoadKnightsRankTable()
 
 		do
 		{
-			ModelType obj = {};
-			recordset.get_ref(obj);
+			ModelType row = {};
+			recordset.get_ref(row);
 		
-			CKnights* pKnights = m_KnightsArray.GetData(obj.Index);
+			CKnights* pKnights = m_KnightsArray.GetData(row.Index);
 
-			rtrim(obj.Name);
+			rtrim(row.Name);
 
 			if (pKnights == nullptr)
 				continue;
@@ -3586,10 +3587,10 @@ BOOL CEbenezerDlg::LoadKnightsRankTable()
 				if (pUser->m_pUserData->m_bZone != ZONE_BATTLE)
 					continue;
 
-				if (pUser->m_pUserData->m_bKnights == obj.Index)
+				if (pUser->m_pUserData->m_bKnights == row.Index)
 				{
 					pUser->m_pUserData->m_bFame = COMMAND_CAPTAIN;
-					sprintf(strKarusCaptain[nKarusRank], "[%s][%s]", obj.Name.c_str(), pUser->m_pUserData->m_id);
+					sprintf(strKarusCaptain[nKarusRank], "[%s][%s]", row.Name.c_str(), pUser->m_pUserData->m_id);
 					nKarusRank++;
 
 					nFindKarus = 1;
@@ -3604,7 +3605,7 @@ BOOL CEbenezerDlg::LoadKnightsRankTable()
 
 					//strcpy( m_strKarusCaptain, pUser->m_pUserData->m_id );
 					//Announcement( KARUS_CAPTAIN_NOTIFY, KARUS );
-					//TRACE(_T("Karus Captain - %hs, rank=%d, index=%d\n"), pUser->m_pUserData->m_id, obj.Rank, obj.Index);
+					//TRACE(_T("Karus Captain - %hs, rank=%d, index=%d\n"), pUser->m_pUserData->m_id, row.Rank, row.Index);
 				}
 			}
 			else if (pKnights->m_byNation == ELMORAD)
@@ -3622,10 +3623,10 @@ BOOL CEbenezerDlg::LoadKnightsRankTable()
 				if (pUser->m_pUserData->m_bZone != ZONE_BATTLE)
 					continue;
 
-				if (pUser->m_pUserData->m_bKnights == obj.Index)
+				if (pUser->m_pUserData->m_bKnights == row.Index)
 				{
 					pUser->m_pUserData->m_bFame = COMMAND_CAPTAIN;
-					sprintf(strElmoCaptain[nElmoRank], "[%s][%s]", obj.Name.c_str(), pUser->m_pUserData->m_id);
+					sprintf(strElmoCaptain[nElmoRank], "[%s][%s]", row.Name.c_str(), pUser->m_pUserData->m_id);
 					nFindElmo = 1;
 					nElmoRank++;
 
@@ -3640,7 +3641,7 @@ BOOL CEbenezerDlg::LoadKnightsRankTable()
 
 					//strcpy( m_strElmoradCaptain, pUser->m_pUserData->m_id );
 					//Announcement( ELMORAD_CAPTAIN_NOTIFY, ELMORAD );
-					//TRACE(_T("Elmo Captain - %hs, rank=%d, index=%d\n"), pUser->m_pUserData->m_id, obj.Rank, obj.Index);
+					//TRACE(_T("Elmo Captain - %hs, rank=%d, index=%d\n"), pUser->m_pUserData->m_id, row.Rank, row.Index);
 				}
 			}
 		}
