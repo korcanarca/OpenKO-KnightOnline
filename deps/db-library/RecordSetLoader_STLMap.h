@@ -8,6 +8,8 @@
 
 #include <nanodbc/nanodbc.h> // nanodbc::database_error
 
+#include <type_traits>
+
 namespace recordset_loader
 {
 	namespace
@@ -18,14 +20,25 @@ namespace recordset_loader
 			using ModelType = ContainerType::ValueType;
 			using EnumErrorType = Error::EnumErrorType;
 
-			using ContainerKeyType = ContainerType::KeyType;
-			using ModelKeyType = decltype(std::declval<ModelType>().MapKey());
+			using ContainerKeyType = std::remove_const_t<
+				std::remove_reference_t<typename ContainerType::KeyType>>;
 
-			// Ensure the model's primary key matches our container's primary key.
-			static_assert(
-				std::is_same_v<
-					std::remove_const_t<std::remove_reference_t<ContainerKeyType>>,
-					std::remove_const_t<std::remove_reference_t<ModelKeyType>>>);
+			using ModelKeyType = std::remove_const_t<
+				std::remove_reference_t<decltype(std::declval<ModelType>().MapKey())>>;
+
+			// For integral key types (realistically should be all cases),
+			// ensure the container's key type covers it the model's key type.
+			// i.e. If the model's primary key is int16_t, and our container's type
+			// is int32_t (which is the default), we should allow it.
+			if constexpr (std::is_integral_v<ModelKeyType>)
+			{
+				static_assert(sizeof(ContainerKeyType) >= sizeof(ModelKeyType));
+			}
+			// For any other key types, ensure the model's primary key matches our container's primary key.
+			else
+			{
+				static_assert(std::is_same_v<ContainerKeyType, ModelKeyType>);
+			}
 
 			try
 			{
