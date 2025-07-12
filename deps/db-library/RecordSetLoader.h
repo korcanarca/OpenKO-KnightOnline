@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <string>
+#include <functional>
 
 #include "Model.h"
 #include "ModelRecordSet.h"
@@ -24,15 +25,26 @@ namespace recordset_loader
 		std::string		Message;
 	};
 
-	template <typename ModelType>
+	template <typename ModelType_>
 	class Base
 	{
 	public:
+		using ModelType = ModelType_;
+		using RecordSetType = db::ModelRecordSet<ModelType>;
+
+		using ProcessFetchCallbackType = std::function<void(RecordSetType&)>;
+
 		Base() = default;
 
 		inline const Error& GetError() const
 		{
 			return _error;
+		}
+
+		inline void SetProcessFetchCallback(
+			ProcessFetchCallbackType processFetchCallback)
+		{
+			_processFetchCallback = std::move(processFetchCallback);
 		}
 
 		inline bool Load_AllowEmpty()
@@ -46,9 +58,6 @@ namespace recordset_loader
 		}
 
 	protected:
-		virtual void ProcessRow(db::ModelRecordSet<ModelType>& recordset) = 0;
-		virtual void Finalize() = 0;
-
 		template <bool AllowEmptyTable>
 		bool Load()
 		{
@@ -56,22 +65,29 @@ namespace recordset_loader
 
 			try
 			{
-				db::ModelRecordSet<ModelType> recordset;
+				RecordSetType recordset;
 
 				if constexpr (!AllowEmptyTable)
 				{
-					if (recordset.at_end())
+					if (!recordset.next())
 					{
 						_error.Type = EnumErrorType::EmptyTable;
 						_error.Message = "Table empty!";
 						return false;
 					}
+
+					if (_processFetchCallback != nullptr)
+						_processFetchCallback(recordset);
 				}
-
-				while (recordset.next())
-					ProcessRow(recordset);
-
-				Finalize();
+				else /* constexpr branch */
+				{
+					// We have no reason to trigger the callback if it was empty.
+					if (recordset.next())
+					{
+						if (_processFetchCallback != nullptr)
+							_processFetchCallback(recordset);
+					}
+				}
 
 				_error.Type = EnumErrorType::None;
 				_error.Message.clear();
@@ -94,6 +110,7 @@ namespace recordset_loader
 
 	protected:
 		Error _error = {};
+		std::function<void(RecordSetType&)> _processFetchCallback = {};
 	};
 
 }

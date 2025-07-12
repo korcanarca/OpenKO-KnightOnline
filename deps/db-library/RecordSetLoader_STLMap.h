@@ -12,13 +12,17 @@ namespace recordset_loader
 	class STLMap : public Base<ModelType>
 	{
 	public:
+		using RecordSetType = Base<ModelType>::RecordSetType;
+
 		STLMap(ContainerType& targetContainer)
 			: _targetContainer(targetContainer)
 		{
+			this->SetProcessFetchCallback(
+				std::bind(&STLMap::ProcessFetch, this, std::placeholders::_1));
 		}
 
 	protected:
-		void ProcessRow(db::ModelRecordSet<ModelType>& recordset) override
+		void ProcessFetch(RecordSetType& recordset)
 		{
 			using ContainerKeyType = std::remove_const_t<
 				std::remove_reference_t<typename ContainerType::KeyType>>;
@@ -40,22 +44,24 @@ namespace recordset_loader
 				static_assert(std::is_same_v<ContainerKeyType, ModelKeyType>);
 			}
 
-			ModelType* model = new ModelType();
-			recordset.get_ref(*model);
+			ContainerType localContainer;
 
-			ModelKeyType id = model->MapKey();
-			if (!_localContainer.PutData(id, model))
-				delete model;
-		}
+			do
+			{
+				ModelType* model = new ModelType();
+				recordset.get_ref(*model);
 
-		void Finalize() override
-		{
-			_targetContainer.Swap(_localContainer);
+				ModelKeyType id = model->MapKey();
+				if (!localContainer.PutData(id, model))
+					delete model;
+			}
+			while (recordset.next());
+
+			_targetContainer.Swap(localContainer);
 		}
 
 	protected:
 		ContainerType& _targetContainer;
-		ContainerType _localContainer;
 	};
 
 }

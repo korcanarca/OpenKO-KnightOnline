@@ -78,15 +78,6 @@ namespace db
 			return _result.next();
 		}
 
-		/// \brief checks if the result iterator has reached the end of the current result set.
-		/// If there are no rows, this will return true immediately.
-		///
-		/// \return Boolean: true if it has reached the end of the current result set, false otherwise
-		bool at_end() const
-		{
-			return _result.at_end();
-		}
-
 	protected:
 		/// \brief opens a connection to the model's database and queries its table using 
 		/// a SqlBuilder.
