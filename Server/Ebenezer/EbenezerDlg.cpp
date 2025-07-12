@@ -5,21 +5,11 @@
 #include "EbenezerDlg.h"
 #include "User.h"
 
-#include "ItemTableSet.h"
-#include "MagicTableSet.h"
-#include "MagicType1Set.h"
-#include "MagicType2Set.h"
-#include "MagicType3Set.h"
-#include "MagicType4Set.h"
-#include "MagicType5Set.h"
-#include "MagicType8Set.h"
 #include "ZoneInfoSet.h"
-#include "CoefficientSet.h"
 #include "LevelUpTableSet.h"
 #include "KnightsSet.h"
 #include "KnightsUserSet.h"
 #include "KnightsRankSet.h"
-#include "HomeSet.h"
 #include "BattleSet.h"
 
 #include <shared/crc32.h>
@@ -1255,93 +1245,11 @@ void CEbenezerDlg::ReportTableLoadError(const recordset_loader::Error& err, cons
 
 BOOL CEbenezerDlg::LoadItemTable()
 {
-	CItemTableSet ItemTableSet;
-
-	if (!ItemTableSet.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_ItemtableArray, err))
 	{
-		AfxMessageBox(_T("ItemTable Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (ItemTableSet.IsBOF()
-		|| ItemTableSet.IsEOF())
-	{
-		AfxMessageBox(_T("ItemTable Empty!"));
-		return FALSE;
-	}
-
-	ItemTableSet.MoveFirst();
-
-	while (!ItemTableSet.IsEOF())
-	{
-		_ITEM_TABLE* pTableItem = new _ITEM_TABLE;
-
-		pTableItem->m_iNum = ItemTableSet.m_Num;
-		strcpy(pTableItem->m_strName, CT2A(ItemTableSet.m_strName));
-		pTableItem->m_bKind = ItemTableSet.m_Kind;
-		pTableItem->m_bSlot = ItemTableSet.m_Slot;
-		pTableItem->m_bRace = ItemTableSet.m_Race;
-		pTableItem->m_bClass = ItemTableSet.m_Class;
-		pTableItem->m_sDamage = ItemTableSet.m_Damage;
-		pTableItem->m_sDelay = ItemTableSet.m_Delay;
-		pTableItem->m_sRange = ItemTableSet.m_Range;
-		pTableItem->m_sWeight = ItemTableSet.m_Weight;
-		pTableItem->m_sDuration = ItemTableSet.m_Duration;
-		pTableItem->m_iBuyPrice = ItemTableSet.m_BuyPrice;
-		pTableItem->m_iSellPrice = ItemTableSet.m_SellPrice;
-		pTableItem->m_sAc = ItemTableSet.m_Ac;
-		pTableItem->m_bCountable = ItemTableSet.m_Countable;
-		pTableItem->m_iEffect1 = ItemTableSet.m_Effect1;
-		pTableItem->m_iEffect2 = ItemTableSet.m_Effect2;
-		pTableItem->m_bReqLevel = ItemTableSet.m_ReqLevel;
-		pTableItem->m_bReqRank = ItemTableSet.m_ReqRank;
-		pTableItem->m_bReqTitle = ItemTableSet.m_ReqTitle;
-		pTableItem->m_bReqStr = ItemTableSet.m_ReqStr;
-		pTableItem->m_bReqSta = ItemTableSet.m_ReqSta;
-		pTableItem->m_bReqDex = ItemTableSet.m_ReqDex;
-		pTableItem->m_bReqIntel = ItemTableSet.m_ReqIntel;
-		pTableItem->m_bReqCha = ItemTableSet.m_ReqCha;
-		pTableItem->m_bSellingGroup = ItemTableSet.m_SellingGroup;
-		pTableItem->m_ItemType = ItemTableSet.m_ItemType;
-		pTableItem->m_sHitrate = ItemTableSet.m_Hitrate;
-		pTableItem->m_sEvarate = ItemTableSet.m_Evasionrate;
-		pTableItem->m_sDaggerAc = ItemTableSet.m_DaggerAc;
-		pTableItem->m_sSwordAc = ItemTableSet.m_SwordAc;
-		pTableItem->m_sMaceAc = ItemTableSet.m_MaceAc;
-		pTableItem->m_sAxeAc = ItemTableSet.m_AxeAc;
-		pTableItem->m_sSpearAc = ItemTableSet.m_SpearAc;
-		pTableItem->m_sBowAc = ItemTableSet.m_BowAc;
-		pTableItem->m_bFireDamage = ItemTableSet.m_FireDamage;
-		pTableItem->m_bIceDamage = ItemTableSet.m_IceDamage;
-		pTableItem->m_bLightningDamage = ItemTableSet.m_LightningDamage;
-		pTableItem->m_bPoisonDamage = ItemTableSet.m_PoisonDamage;
-		pTableItem->m_bHPDrain = ItemTableSet.m_HPDrain;
-		pTableItem->m_bMPDamage = ItemTableSet.m_MPDamage;
-		pTableItem->m_bMPDrain = ItemTableSet.m_MPDrain;
-		pTableItem->m_bMirrorDamage = ItemTableSet.m_MirrorDamage;
-		pTableItem->m_bDroprate = ItemTableSet.m_Droprate;
-		pTableItem->m_bStrB = ItemTableSet.m_StrB;
-		pTableItem->m_bStaB = ItemTableSet.m_StaB;
-		pTableItem->m_bDexB = ItemTableSet.m_DexB;
-		pTableItem->m_bIntelB = ItemTableSet.m_IntelB;
-		pTableItem->m_bChaB = ItemTableSet.m_ChaB;
-		pTableItem->m_MaxHpB = ItemTableSet.m_MaxHpB;
-		pTableItem->m_MaxMpB = ItemTableSet.m_MaxMpB;
-		pTableItem->m_bFireR = ItemTableSet.m_FireR;
-		pTableItem->m_bColdR = ItemTableSet.m_ColdR;
-		pTableItem->m_bLightningR = ItemTableSet.m_LightningR;
-		pTableItem->m_bMagicR = ItemTableSet.m_MagicR;
-		pTableItem->m_bPoisonR = ItemTableSet.m_PoisonR;
-		pTableItem->m_bCurseR = ItemTableSet.m_CurseR;
-
-		if (!m_ItemtableArray.PutData(pTableItem->m_iNum, pTableItem))
-		{
-			TRACE(_T("ItemTable PutData Fail - %d\n"), pTableItem->m_iNum);
-			delete pTableItem;
-			pTableItem = nullptr;
-		}
-
-		ItemTableSet.MoveNext();
 	}
 
 	return TRUE;
@@ -1349,52 +1257,11 @@ BOOL CEbenezerDlg::LoadItemTable()
 
 BOOL CEbenezerDlg::LoadMagicTable()
 {
-	CMagicTableSet MagicTableSet;
-
-	if (!MagicTableSet.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_MagictableArray, err))
 	{
-		AfxMessageBox(_T("MagicTable Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (MagicTableSet.IsBOF()
-		|| MagicTableSet.IsEOF())
-	{
-		AfxMessageBox(_T("MagicTable Empty!"));
-		return FALSE;
-	}
-
-	MagicTableSet.MoveFirst();
-
-	while (!MagicTableSet.IsEOF())
-	{
-		_MAGIC_TABLE* pTableMagic = new _MAGIC_TABLE;
-
-		pTableMagic->iNum = MagicTableSet.m_MagicNum;
-		pTableMagic->sFlyingEffect = MagicTableSet.m_FlyingEffect;
-		pTableMagic->bMoral = MagicTableSet.m_Moral;
-		pTableMagic->bSkillLevel = MagicTableSet.m_SkillLevel;
-		pTableMagic->sSkill = MagicTableSet.m_Skill;
-		pTableMagic->sMsp = MagicTableSet.m_Msp;
-		pTableMagic->sHP = MagicTableSet.m_HP;
-		pTableMagic->bItemGroup = MagicTableSet.m_ItemGroup;
-		pTableMagic->iUseItem = MagicTableSet.m_UseItem;
-		pTableMagic->bCastTime = MagicTableSet.m_CastTime;
-		pTableMagic->bReCastTime = MagicTableSet.m_ReCastTime;
-		pTableMagic->bSuccessRate = MagicTableSet.m_SuccessRate;
-		pTableMagic->bType1 = MagicTableSet.m_Type1;
-		pTableMagic->bType2 = MagicTableSet.m_Type2;
-		pTableMagic->sRange = MagicTableSet.m_Range;
-		pTableMagic->bEtc = MagicTableSet.m_Etc;
-
-		if (!m_MagictableArray.PutData(pTableMagic->iNum, pTableMagic))
-		{
-			TRACE(_T("MagicTable PutData Fail - %d\n"), pTableMagic->iNum);
-			delete pTableMagic;
-			pTableMagic = nullptr;
-		}
-
-		MagicTableSet.MoveNext();
 	}
 
 	return TRUE;
@@ -1402,45 +1269,11 @@ BOOL CEbenezerDlg::LoadMagicTable()
 
 BOOL CEbenezerDlg::LoadMagicType1()
 {
-	CMagicType1Set MagicType1Set;
-
-	if (!MagicType1Set.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype1Array, err))
 	{
-		AfxMessageBox(_T("MagicType1 Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (MagicType1Set.IsBOF()
-		|| MagicType1Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType1 Empty!"));
-		return FALSE;
-	}
-
-	MagicType1Set.MoveFirst();
-
-	while (!MagicType1Set.IsEOF())
-	{
-		_MAGIC_TYPE1* pType1Magic = new _MAGIC_TYPE1;
-
-		pType1Magic->iNum = MagicType1Set.m_iNum;
-		pType1Magic->bHitType = MagicType1Set.m_Type;
-		pType1Magic->bDelay = MagicType1Set.m_Delay;
-		pType1Magic->bComboCount = MagicType1Set.m_ComboCount;
-		pType1Magic->bComboType = MagicType1Set.m_ComboType;
-		pType1Magic->sComboDamage = MagicType1Set.m_ComboDamage;
-		pType1Magic->sHit = MagicType1Set.m_Hit;
-		pType1Magic->sHitRate = MagicType1Set.m_HitRate;
-		pType1Magic->sRange = MagicType1Set.m_Range;
-
-		if (!m_Magictype1Array.PutData(pType1Magic->iNum, pType1Magic))
-		{
-			TRACE(_T("MagicType1 PutData Fail - %d\n"), pType1Magic->iNum);
-			delete pType1Magic;
-			pType1Magic = nullptr;
-		}
-
-		MagicType1Set.MoveNext();
 	}
 
 	return TRUE;
@@ -1448,41 +1281,11 @@ BOOL CEbenezerDlg::LoadMagicType1()
 
 BOOL CEbenezerDlg::LoadMagicType2()
 {
-	CMagicType2Set	MagicType2Set;
-
-	if (!MagicType2Set.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype2Array, err))
 	{
-		AfxMessageBox(_T("MagicType2 Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (MagicType2Set.IsBOF()
-		|| MagicType2Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType2 Empty!"));
-		return FALSE;
-	}
-
-	MagicType2Set.MoveFirst();
-
-	while (!MagicType2Set.IsEOF())
-	{
-		_MAGIC_TYPE2* pType2Magic = new _MAGIC_TYPE2;
-
-		pType2Magic->iNum = MagicType2Set.m_iNum;
-		pType2Magic->bHitType = MagicType2Set.m_HitType;
-		pType2Magic->sHitRate = MagicType2Set.m_HitRate;
-		pType2Magic->sAddDamage = MagicType2Set.m_AddDamage;
-		pType2Magic->sAddRange = MagicType2Set.m_AddRange;
-		pType2Magic->bNeedArrow = MagicType2Set.m_NeedArrow;
-
-		if (!m_Magictype2Array.PutData(pType2Magic->iNum, pType2Magic))
-		{
-			TRACE(_T("MagicType2 PutData Fail - %d\n"), pType2Magic->iNum);
-			delete pType2Magic;
-			pType2Magic = nullptr;
-		}
-		MagicType2Set.MoveNext();
 	}
 
 	return TRUE;
@@ -1490,142 +1293,36 @@ BOOL CEbenezerDlg::LoadMagicType2()
 
 BOOL CEbenezerDlg::LoadMagicType3()
 {
-	CMagicType3Set MagicType3Set;
-
-	if (!MagicType3Set.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype3Array, err))
 	{
-		AfxMessageBox(_T("MagicType3 Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (MagicType3Set.IsBOF()
-		|| MagicType3Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType3 Empty!"));
-		return FALSE;
-	}
-
-	MagicType3Set.MoveFirst();
-
-	while (!MagicType3Set.IsEOF())
-	{
-		_MAGIC_TYPE3* pType3Magic = new _MAGIC_TYPE3;
-
-		pType3Magic->iNum = MagicType3Set.m_iNum;
-		pType3Magic->bAttribute = MagicType3Set.m_Attribute;
-		pType3Magic->bDirectType = MagicType3Set.m_DirectType;
-		pType3Magic->bRadius = MagicType3Set.m_Radius;
-		pType3Magic->sAngle = MagicType3Set.m_Angle;
-		pType3Magic->sDuration = MagicType3Set.m_Duration;
-		pType3Magic->sEndDamage = MagicType3Set.m_EndDamage;
-		pType3Magic->sFirstDamage = MagicType3Set.m_FirstDamage;
-		pType3Magic->sTimeDamage = MagicType3Set.m_TimeDamage;
-
-		if (!m_Magictype3Array.PutData(pType3Magic->iNum, pType3Magic))
-		{
-			TRACE(_T("MagicType3 PutData Fail - %d\n"), pType3Magic->iNum);
-			delete pType3Magic;
-			pType3Magic = nullptr;
-		}
-
-		MagicType3Set.MoveNext();
 	}
 
 	return TRUE;
+
 }
 
 BOOL CEbenezerDlg::LoadMagicType4()
 {
-	CMagicType4Set MagicType4Set;
-
-	if (!MagicType4Set.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype4Array, err))
 	{
-		AfxMessageBox(_T("MagicType4 Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
 	}
 
-	if (MagicType4Set.IsBOF()
-		|| MagicType4Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType4 Empty!"));
-		return FALSE;
-	}
-
-	MagicType4Set.MoveFirst();
-
-	while (!MagicType4Set.IsEOF())
-	{
-		_MAGIC_TYPE4* pType4Magic = new _MAGIC_TYPE4;
-
-		pType4Magic->iNum = MagicType4Set.m_iNum;
-		pType4Magic->bBuffType = MagicType4Set.m_BuffType;
-		pType4Magic->bRadius = MagicType4Set.m_Radius;
-		pType4Magic->sDuration = MagicType4Set.m_Duration;
-		pType4Magic->bAttackSpeed = MagicType4Set.m_AttackSpeed;
-		pType4Magic->bSpeed = MagicType4Set.m_Speed;
-		pType4Magic->sAC = MagicType4Set.m_AC;
-		pType4Magic->bAttack = MagicType4Set.m_Attack;
-		pType4Magic->sMaxHP = MagicType4Set.m_MaxHP;
-		pType4Magic->bHitRate = MagicType4Set.m_HitRate;
-		pType4Magic->sAvoidRate = MagicType4Set.m_AvoidRate;
-		pType4Magic->bStr = MagicType4Set.m_Str;
-		pType4Magic->bSta = MagicType4Set.m_Sta;
-		pType4Magic->bDex = MagicType4Set.m_Dex;
-		pType4Magic->bIntel = MagicType4Set.m_Intel;
-		pType4Magic->bCha = MagicType4Set.m_Cha;
-		pType4Magic->bFireR = MagicType4Set.m_FireR;
-		pType4Magic->bColdR = MagicType4Set.m_ColdR;
-		pType4Magic->bLightningR = MagicType4Set.m_LightningR;
-		pType4Magic->bMagicR = MagicType4Set.m_MagicR;
-		pType4Magic->bDiseaseR = MagicType4Set.m_DiseaseR;
-		pType4Magic->bPoisonR = MagicType4Set.m_PoisonR;
-
-		if (!m_Magictype4Array.PutData(pType4Magic->iNum, pType4Magic))
-		{
-			TRACE(_T("MagicType4 PutData Fail - %d\n"), pType4Magic->iNum);
-			delete pType4Magic;
-			pType4Magic = nullptr;
-		}
-		MagicType4Set.MoveNext();
-	}
 	return TRUE;
 }
 
 BOOL CEbenezerDlg::LoadMagicType5()
 {
-	CMagicType5Set	MagicType5Set;
-
-	if (!MagicType5Set.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype5Array, err))
 	{
-		AfxMessageBox(_T("MagicType5 Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (MagicType5Set.IsBOF()
-		|| MagicType5Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType5 Empty!"));
-		return FALSE;
-	}
-
-	MagicType5Set.MoveFirst();
-
-	while (!MagicType5Set.IsEOF())
-	{
-		_MAGIC_TYPE5* pType5Magic = new _MAGIC_TYPE5;
-
-		pType5Magic->iNum = MagicType5Set.m_iNum;
-		pType5Magic->bType = MagicType5Set.m_Type;
-		pType5Magic->bExpRecover = MagicType5Set.m_ExpRecover;
-		pType5Magic->sNeedStone = MagicType5Set.m_NeedStone;
-
-		if (!m_Magictype5Array.PutData(pType5Magic->iNum, pType5Magic))
-		{
-			TRACE(_T("MagicType5 PutData Fail - %d\n"), pType5Magic->iNum);
-			delete pType5Magic;
-			pType5Magic = nullptr;
-		}
-		MagicType5Set.MoveNext();
 	}
 
 	return TRUE;
@@ -1633,41 +1330,11 @@ BOOL CEbenezerDlg::LoadMagicType5()
 
 BOOL CEbenezerDlg::LoadMagicType8()
 {
-	CMagicType8Set	MagicType8Set;
-
-	if (!MagicType8Set.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype8Array, err))
 	{
-		AfxMessageBox(_T("MagicType8 Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (MagicType8Set.IsBOF()
-		|| MagicType8Set.IsEOF())
-	{
-		AfxMessageBox(_T("MagicType8 Empty!"));
-		return FALSE;
-	}
-
-	MagicType8Set.MoveFirst();
-
-	while (!MagicType8Set.IsEOF())
-	{
-		_MAGIC_TYPE8* pType8Magic = new _MAGIC_TYPE8;
-
-		pType8Magic->iNum = MagicType8Set.m_iNum;
-		pType8Magic->bTarget = MagicType8Set.m_Target;
-		pType8Magic->sRadius = MagicType8Set.m_Radius;
-		pType8Magic->bWarpType = MagicType8Set.m_WarpType;
-		pType8Magic->sExpRecover = MagicType8Set.m_ExpRecover;
-
-		if (!m_Magictype8Array.PutData(pType8Magic->iNum, pType8Magic))
-		{
-			TRACE(_T("MagicType8 PutData Fail - %d\n"), pType8Magic->iNum);
-			delete pType8Magic;
-			pType8Magic = nullptr;
-		}
-
-		MagicType8Set.MoveNext();
 	}
 
 	return TRUE;
@@ -1675,51 +1342,11 @@ BOOL CEbenezerDlg::LoadMagicType8()
 
 BOOL CEbenezerDlg::LoadCoefficientTable()
 {
-	CCoefficientSet	CoefficientSet;
-
-	if (!CoefficientSet.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_CoefficientArray, err))
 	{
-		AfxMessageBox(_T("CharacterDataTable Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (CoefficientSet.IsBOF()
-		|| CoefficientSet.IsEOF())
-	{
-		AfxMessageBox(_T("CharaterDataTable Empty!"));
-		return FALSE;
-	}
-
-	CoefficientSet.MoveFirst();
-
-	while (!CoefficientSet.IsEOF())
-	{
-		_CLASS_COEFFICIENT* p_TableCoefficient = new _CLASS_COEFFICIENT;
-
-		p_TableCoefficient->sClassNum = (short) CoefficientSet.m_sClass;
-		p_TableCoefficient->ShortSword = (float) CoefficientSet.m_ShortSword;
-		p_TableCoefficient->Sword = (float) CoefficientSet.m_Sword;
-		p_TableCoefficient->Axe = (float) CoefficientSet.m_Axe;
-		p_TableCoefficient->Club = (float) CoefficientSet.m_Club;
-		p_TableCoefficient->Spear = (float) CoefficientSet.m_Spear;
-		p_TableCoefficient->Pole = (float) CoefficientSet.m_Pole;
-		p_TableCoefficient->Staff = (float) CoefficientSet.m_Staff;
-		p_TableCoefficient->Bow = (float) CoefficientSet.m_Bow;
-		p_TableCoefficient->HP = (float) CoefficientSet.m_Hp;
-		p_TableCoefficient->MP = (float) CoefficientSet.m_Mp;
-		p_TableCoefficient->SP = (float) CoefficientSet.m_Sp;
-		p_TableCoefficient->AC = (float) CoefficientSet.m_Ac;
-		p_TableCoefficient->Hitrate = (float) CoefficientSet.m_Hitrate;
-		p_TableCoefficient->Evasionrate = (float) CoefficientSet.m_Evasionrate;
-
-		if (!m_CoefficientArray.PutData(p_TableCoefficient->sClassNum, p_TableCoefficient))
-		{
-			TRACE(_T("Coefficient PutData Fail - %d\n"), p_TableCoefficient->sClassNum);
-			delete p_TableCoefficient;
-			p_TableCoefficient = nullptr;
-		}
-
-		CoefficientSet.MoveNext();
 	}
 
 	return TRUE;
@@ -3494,57 +3121,11 @@ void CEbenezerDlg::Announcement(BYTE type, int nation, int chat_type)
 
 BOOL CEbenezerDlg::LoadHomeTable()
 {
-	CHomeSet HomeSet;
-
-	if (!HomeSet.Open())
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_ForbidEmpty(m_HomeArray, err))
 	{
-		AfxMessageBox(_T("Home Data Open Fail!"));
+		ReportTableLoadError(err, __func__);
 		return FALSE;
-	}
-
-	if (HomeSet.IsBOF()
-		|| HomeSet.IsEOF())
-	{
-		AfxMessageBox(_T("Home Data Empty!"));
-		return FALSE;
-	}
-
-	HomeSet.MoveFirst();
-
-	while (!HomeSet.IsEOF())
-	{
-		_HOME_INFO* pHomeInfo = new _HOME_INFO;
-
-		pHomeInfo->bNation = HomeSet.m_Nation;
-
-		pHomeInfo->KarusZoneX = HomeSet.m_KarusZoneX;
-		pHomeInfo->KarusZoneZ = HomeSet.m_KarusZoneZ;
-		pHomeInfo->KarusZoneLX = HomeSet.m_KarusZoneLX;
-		pHomeInfo->KarusZoneLZ = HomeSet.m_KarusZoneLZ;
-
-		pHomeInfo->ElmoZoneX = HomeSet.m_ElmoZoneX;
-		pHomeInfo->ElmoZoneZ = HomeSet.m_ElmoZoneZ;
-		pHomeInfo->ElmoZoneLX = HomeSet.m_ElmoZoneLX;
-		pHomeInfo->ElmoZoneLZ = HomeSet.m_ElmoZoneLZ;
-
-		pHomeInfo->FreeZoneX = HomeSet.m_FreeZoneX;
-		pHomeInfo->FreeZoneZ = HomeSet.m_FreeZoneZ;
-		pHomeInfo->FreeZoneLX = HomeSet.m_FreeZoneLX;
-		pHomeInfo->FreeZoneLZ = HomeSet.m_FreeZoneLZ;
-//
-		pHomeInfo->BattleZoneX = HomeSet.m_BattleZoneX;
-		pHomeInfo->BattleZoneZ = HomeSet.m_BattleZoneZ;
-		pHomeInfo->BattleZoneLX = HomeSet.m_BattleZoneLX;
-		pHomeInfo->BattleZoneLZ = HomeSet.m_BattleZoneLZ;
-//
-		if (!m_HomeArray.PutData(pHomeInfo->bNation, pHomeInfo))
-		{
-			TRACE(_T("Home Info PutData Fail - %d\n"), pHomeInfo->bNation);
-			delete pHomeInfo;
-			pHomeInfo = nullptr;
-		}
-
-		HomeSet.MoveNext();
 	}
 
 	return TRUE;

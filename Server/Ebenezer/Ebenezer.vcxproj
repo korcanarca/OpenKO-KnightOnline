@@ -130,7 +130,6 @@
     </ClCompile>
     <ClCompile Include="AISocket.cpp" />
     <ClCompile Include="BattleSet.cpp" />
-    <ClCompile Include="CoefficientSet.cpp" />
     <ClCompile Include="Ebenezer.cpp" />
     <ClCompile Include="EbenezerDlg.cpp" />
     <ClCompile Include="EVENT.cpp" />
@@ -138,10 +137,8 @@
     <ClCompile Include="EVENT_DATA.cpp" />
     <ClCompile Include="EXEC.cpp" />
     <ClCompile Include="GameEvent.cpp" />
-    <ClCompile Include="HomeSet.cpp" />
     <ClCompile Include="IOCPort.cpp" />
     <ClCompile Include="IOCPSocket2.cpp" />
-    <ClCompile Include="ItemTableSet.cpp" />
     <ClCompile Include="Knights.cpp" />
     <ClCompile Include="KnightsManager.cpp" />
     <ClCompile Include="KnightsRankSet.cpp" />
@@ -150,13 +147,6 @@
     <ClCompile Include="LevelUpTableSet.cpp" />
     <ClCompile Include="LOGIC_ELSE.cpp" />
     <ClCompile Include="MagicProcess.cpp" />
-    <ClCompile Include="MagicTableSet.cpp" />
-    <ClCompile Include="MagicType1Set.cpp" />
-    <ClCompile Include="MagicType2Set.cpp" />
-    <ClCompile Include="MagicType3Set.cpp" />
-    <ClCompile Include="MagicType4Set.cpp" />
-    <ClCompile Include="MagicType5Set.cpp" />
-    <ClCompile Include="MagicType8Set.cpp" />
     <ClCompile Include="Map.cpp" />
     <ClCompile Include="Npc.cpp" />
     <ClCompile Include="Region.cpp" />
@@ -175,7 +165,6 @@
     <ClInclude Include="..\shared\_USER_DATA.h" />
     <ClInclude Include="AISocket.h" />
     <ClInclude Include="BattleSet.h" />
-    <ClInclude Include="CoefficientSet.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="Ebenezer.h" />
     <ClInclude Include="EbenezerDlg.h" />
@@ -185,10 +174,8 @@
     <ClInclude Include="EXEC.h" />
     <ClInclude Include="GameDefine.h" />
     <ClInclude Include="GameEvent.h" />
-    <ClInclude Include="HomeSet.h" />
     <ClInclude Include="IOCPort.h" />
     <ClInclude Include="IOCPSocket2.h" />
-    <ClInclude Include="ItemTableSet.h" />
     <ClInclude Include="Knights.h" />
     <ClInclude Include="KnightsManager.h" />
     <ClInclude Include="KnightsRankSet.h" />
@@ -197,13 +184,6 @@
     <ClInclude Include="LevelUpTableSet.h" />
     <ClInclude Include="LOGIC_ELSE.h" />
     <ClInclude Include="MagicProcess.h" />
-    <ClInclude Include="MagicTableSet.h" />
-    <ClInclude Include="MagicType1Set.h" />
-    <ClInclude Include="MagicType2Set.h" />
-    <ClInclude Include="MagicType3Set.h" />
-    <ClInclude Include="MagicType4Set.h" />
-    <ClInclude Include="MagicType5Set.h" />
-    <ClInclude Include="MagicType8Set.h" />
     <ClInclude Include="Map.h" />
     <ClInclude Include="Npc.h" />
     <ClInclude Include="Region.h" />

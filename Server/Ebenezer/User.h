@@ -303,7 +303,7 @@ public:
 	void CountConcurrentUser();
 	void SendUserInfo(char* temp_send, int& index);
 	void ChatTargetSelect(char* pBuf);
-	BOOL ItemEquipAvailable(_ITEM_TABLE* pTable);
+	BOOL ItemEquipAvailable(model::Item* pTable);
 	void ClassChange(char* pBuf);
 	void MSpChange(int amount);
 	void UpdateGameWeather(char* pBuf, BYTE type);
@@ -341,7 +341,7 @@ public:
 	void SendTargetHP(BYTE echo, int tid, int damage = 0);
 	void ItemTrade(char* pBuf);
 	void NpcEvent(char* pBuf);
-	BOOL IsValidSlotPos(_ITEM_TABLE* pTable, int destpos);
+	BOOL IsValidSlotPos(model::Item* pTable, int destpos);
 	void ItemMove(char* pBuf);
 	void Warp(char* pBuf);
 	void RequestNpcIn(char* pBuf);

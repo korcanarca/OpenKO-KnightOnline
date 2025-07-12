@@ -36,21 +36,21 @@ namespace recordset_loader
 
 typedef std::vector <C3DMap*>				ZoneArray;
 typedef std::vector <_LEVELUP*>				LevelUpArray;
-typedef CSTLMap <_CLASS_COEFFICIENT>		CoefficientArray;
-typedef CSTLMap <_ITEM_TABLE>				ItemtableArray;
-typedef CSTLMap <_MAGIC_TABLE>				MagictableArray;
-typedef CSTLMap <_MAGIC_TYPE1>				Magictype1Array;
-typedef CSTLMap <_MAGIC_TYPE2>				Magictype2Array;
-typedef CSTLMap <_MAGIC_TYPE3>				Magictype3Array;
-typedef CSTLMap	<_MAGIC_TYPE4>				Magictype4Array;
-typedef CSTLMap <_MAGIC_TYPE5>				Magictype5Array;
-typedef CSTLMap <_MAGIC_TYPE8>				Magictype8Array;
+typedef CSTLMap <model::Coefficient>		CoefficientArray;
+typedef CSTLMap <model::Item>				ItemtableArray;
+typedef CSTLMap <model::Magic>				MagictableArray;
+typedef CSTLMap <model::MagicType1>			Magictype1Array;
+typedef CSTLMap <model::MagicType2>			Magictype2Array;
+typedef CSTLMap <model::MagicType3>			Magictype3Array;
+typedef CSTLMap	<model::MagicType4>			Magictype4Array;
+typedef CSTLMap <model::MagicType5>			Magictype5Array;
+typedef CSTLMap <model::MagicType8>			Magictype8Array;
 typedef CSTLMap <CNpc>						NpcArray;
 typedef CSTLMap <CAISocket>					AISocketArray;
 typedef CSTLMap <_PARTY_GROUP>				PartyArray;
 typedef CSTLMap <CKnights>					KnightsArray;
 typedef CSTLMap <_ZONE_SERVERINFO>			ServerArray;
-typedef CSTLMap <_HOME_INFO>				HomeArray;
+typedef CSTLMap <model::Home>				HomeArray;
 typedef	CSTLMap	<EVENT>						QuestArray;
 
 enum class NameType
