@@ -27,42 +27,42 @@ namespace db
 	}
 
 	void DatabaseConnManager::SetDatasourceConfig(
-		const std::string& databaseType,
+		modelUtil::DbType dbType,
 		const std::string_view datasourceName,
 		const std::string_view datasourceUserName,
 		const std::string_view datasourcePassword)
 	{
 		GetInstance().SetDatasourceConfigImpl(
-			databaseType,
+			dbType,
 			datasourceName,
 			datasourceUserName,
 			datasourcePassword);
 	}
 
-	/// \brief fetch the associated previously stored database config using the code-generated databaseType string
+	/// \brief fetch the associated previously stored database config using the code-generated dbType
 	std::shared_ptr<const DatabaseConnManager::DatasourceConfig>
-		DatabaseConnManager::GetDatasourceConfig(const std::string& databaseType)
+		DatabaseConnManager::GetDatasourceConfig(modelUtil::DbType dbType)
 	{
-		return GetInstance().GetDatasourceConfigImpl(databaseType);
+		return GetInstance().GetDatasourceConfigImpl(dbType);
 	}
 
-	/// \brief attempt a connection to the database using the code-generated databaseType string
+	/// \brief attempt a connection to the database using the code-generated dbType
 	/// \throws std::runtime_error
 	/// \throws nanodbc::database_error
-	std::shared_ptr<nanodbc::connection> DatabaseConnManager::GetConnectionTo(const std::string& databaseType) noexcept(false)
+	std::shared_ptr<nanodbc::connection> DatabaseConnManager::GetConnectionTo(modelUtil::DbType dbType) noexcept(false)
 	{
-		return GetInstance().GetConnectionToImpl(databaseType);
+		return GetInstance().GetConnectionToImpl(dbType);
 	}
 
 	void DatabaseConnManager::SetDatasourceConfigImpl(
-		const std::string& databaseType,
+		modelUtil::DbType dbType,
 		const std::string_view datasourceName,
 		const std::string_view datasourceUserName,
 		const std::string_view datasourcePassword)
 	{
 		std::lock_guard<std::mutex> lock(_configLock);
 
-		auto itr = _configMap.find(databaseType);
+		auto itr = _configMap.find(dbType);
 		if (itr == _configMap.end())
 		{
 			auto config = std::make_shared<const DatasourceConfig>(
@@ -70,7 +70,7 @@ namespace db
 				datasourceUserName,
 				datasourcePassword);
 
-			_configMap.insert({ databaseType, config });
+			_configMap.insert({ dbType, config });
 		}
 		else
 		{
@@ -82,27 +82,27 @@ namespace db
 		}
 	}
 
-	/// \brief fetch the associated previously stored database config using the code-generated databaseType string
+	/// \brief fetch the associated previously stored database config using the code-generated dbType
 	std::shared_ptr<const DatabaseConnManager::DatasourceConfig>
-	DatabaseConnManager::GetDatasourceConfigImpl(const std::string& databaseType) const
+	DatabaseConnManager::GetDatasourceConfigImpl(modelUtil::DbType dbType) const
 	{
 		std::lock_guard<std::mutex> lock(_configLock);
 
-		auto itr = _configMap.find(databaseType);
+		auto itr = _configMap.find(dbType);
 		if (itr == _configMap.end())
 			return nullptr;
 
 		return itr->second;
 	}
 
-	/// \brief attempt a connection to the database using the code-generated databaseType string
+	/// \brief attempt a connection to the database using the code-generated dbType
 	/// \throws std::runtime_error
 	/// \throws nanodbc::database_error
-	std::shared_ptr<nanodbc::connection> DatabaseConnManager::GetConnectionToImpl(const std::string& databaseType) noexcept(false)
+	std::shared_ptr<nanodbc::connection> DatabaseConnManager::GetConnectionToImpl(modelUtil::DbType dbType) noexcept(false)
 	{
-		auto config = GetDatasourceConfig(databaseType);
+		auto config = GetDatasourceConfig(dbType);
 		if (config == nullptr)
-			throw DatasourceConfigNotFoundException("Invalid database type: " + databaseType);
+			throw DatasourceConfigNotFoundException("Invalid database type: " + modelUtil::DbTypeString(dbType));
 
 		return std::make_shared<nanodbc::connection>(
 			config->DatasourceName,

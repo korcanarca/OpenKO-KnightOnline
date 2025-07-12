@@ -226,20 +226,16 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourcePass = ini.GetString("ODBC", "ACCOUNT_PWD", "knight");
 
 	DatabaseConnManager::SetDatasourceConfig(
-		"ACCOUNT",
-		datasourceName,
-		datasourceUser,
-		datasourcePass);
+		modelUtil::ACCOUNT,
+		datasourceName, datasourceUser, datasourcePass);
 
 	datasourceName = ini.GetString("ODBC", "GAME_DSN", "KN_online");
 	datasourceUser = ini.GetString("ODBC", "GAME_UID", "knight");
 	datasourcePass = ini.GetString("ODBC", "GAME_PWD", "knight");
 
 	DatabaseConnManager::SetDatasourceConfig(
-		"GAME",
-		datasourceName,
-		datasourceUser,
-		datasourcePass);
+		modelUtil::GAME,
+		datasourceName, datasourceUser, datasourcePass);
 
 	m_nServerNo = ini.GetInt(_T("ZONE_INFO"), _T("GROUP_INFO"), 1);
 	m_nZoneNo = ini.GetInt(_T("ZONE_INFO"), _T("ZONE_INFO"), 1);
