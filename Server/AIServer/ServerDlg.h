@@ -29,6 +29,11 @@
 #include <vector>
 #include <list>
 
+namespace recordset_loader
+{
+	struct Error;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CServerDlg dialog
 
@@ -60,6 +65,7 @@ class CServerDlg : public CDialog
 private:
 	void ResumeAI();
 	BOOL CreateNpcThread();
+	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 	BOOL GetMagicTableData();
 	BOOL GetMagicType1Data();
 	BOOL GetMagicType2Data();
@@ -105,6 +111,7 @@ public:
 	CString GetGameDBConnectionString();
 
 	CServerDlg(CWnd* pParent = nullptr);	// standard constructor
+	~CServerDlg();
 
 	static inline CServerDlg* GetInstance() {
 		return s_pInstance;

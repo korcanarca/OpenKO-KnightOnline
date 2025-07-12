@@ -8,7 +8,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "define.h"
+#include "Define.h"
 #include "Iocport.h"
 #include "DBProcess.h"
 #include <vector>
@@ -29,6 +29,7 @@ public:
 	BOOL GetInfoFromIni();
 
 	CVersionManagerDlg(CWnd* pParent = nullptr);	// standard constructor
+	~CVersionManagerDlg();
 
 	static CIOCPort	m_Iocport;
 

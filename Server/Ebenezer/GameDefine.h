@@ -247,6 +247,9 @@ enum e_AbnormalStatusType
 #define ATTRIBUTE_ICE				2
 #define ATTRIBUTE_LIGHTNING			3
 
+import EbenezerModel;
+namespace model = ebenezer_model;
+
 struct _CLASS_COEFFICIENT
 {
 	short	sClassNum;

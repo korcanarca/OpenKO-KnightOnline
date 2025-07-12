@@ -27,6 +27,9 @@
 #include <shared/globals.h>
 #include <shared/Ini.h>
 
+#include <db-library/DatabaseConnManager.h>
+#include <db-library/RecordSetLoader_STLMap.h>
+
 //#include "extern.h"			// 전역 객체
 
 #ifdef _DEBUG
@@ -45,6 +48,10 @@ CRITICAL_SECTION g_LogFileWrite;
 #define CHECK_ALIVE 	100		//  게임서버와 통신이 끊김여부 판단, 타이머 변수
 #define REHP_TIME		200
 #define MONSTER_SPEED	1500
+
+import AIServerBinder;
+
+using namespace db;
 
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
@@ -138,6 +145,13 @@ CServerDlg::CServerDlg(CWnd* pParent /*=nullptr*/)
 	memset(m_strGameDSN, 0, sizeof(m_strGameDSN));
 	memset(m_strGameUID, 0, sizeof(m_strGameUID));
 	memset(m_strGamePWD, 0, sizeof(m_strGamePWD));
+
+	DatabaseConnManager::Create();
+}
+
+CServerDlg::~CServerDlg()
+{
+	DatabaseConnManager::Destroy();
 }
 
 void CServerDlg::DoDataExchange(CDataExchange* pDX)
@@ -464,6 +478,13 @@ void CServerDlg::DefaultInit()
 	//  when the application's main window is not a dialog
 	SetIcon(m_hIcon, TRUE);			// Set big icon
 	SetIcon(m_hIcon, FALSE);		// Set small icon
+}
+
+void CServerDlg::ReportTableLoadError(const recordset_loader::Error& err, const char* source)
+{
+	CString msg;
+	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
+	AfxMessageBox(msg);
 }
 
 //	Magic Table 을 읽는다.
@@ -2802,9 +2823,18 @@ void CServerDlg::GetServerInfoIni()
 	inifile.Load(iniPath);
 	m_byZone = inifile.GetInt(_T("SERVER"), _T("ZONE"), 1);
 
-	inifile.GetString(_T("ODBC"), _T("GAME_DSN"), _T("KN_Online"), m_strGameDSN, sizeof(m_strGameDSN));
-	inifile.GetString(_T("ODBC"), _T("GAME_UID"), _T("knight"), m_strGameUID, sizeof(m_strGameUID));
-	inifile.GetString(_T("ODBC"), _T("GAME_PWD"), _T("knight"), m_strGamePWD, sizeof(m_strGamePWD));
+	// TODO: This should be removed
+	inifile.GetString(_T("ODBC"), _T("GAME_DSN"), _T("KN_online"), m_strGameDSN, _countof(m_strGameDSN));
+	inifile.GetString(_T("ODBC"), _T("GAME_UID"), _T("knight"), m_strGameUID, _countof(m_strGameUID));
+	inifile.GetString(_T("ODBC"), _T("GAME_PWD"), _T("knight"), m_strGamePWD, _countof(m_strGamePWD));
+
+	std::string datasourceName = inifile.GetString("ODBC", "GAME_DSN", "KN_online");
+	std::string datasourceUser = inifile.GetString("ODBC", "GAME_UID", "knight");
+	std::string datasourcePass = inifile.GetString("ODBC", "GAME_PWD", "knight");
+
+	DatabaseConnManager::SetDatasourceConfig(
+		modelUtil::DbType::GAME,
+		datasourceName, datasourceUser, datasourcePass);
 
 	// Trigger a save to flush defaults to file.
 	inifile.Save();

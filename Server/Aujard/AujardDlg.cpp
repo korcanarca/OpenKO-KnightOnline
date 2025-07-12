@@ -226,7 +226,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourcePass = ini.GetString("ODBC", "ACCOUNT_PWD", "knight");
 
 	DatabaseConnManager::SetDatasourceConfig(
-		modelUtil::ACCOUNT,
+		modelUtil::DbType::ACCOUNT,
 		datasourceName, datasourceUser, datasourcePass);
 
 	datasourceName = ini.GetString("ODBC", "GAME_DSN", "KN_online");
@@ -234,7 +234,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourcePass = ini.GetString("ODBC", "GAME_PWD", "knight");
 
 	DatabaseConnManager::SetDatasourceConfig(
-		modelUtil::GAME,
+		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 
 	m_nServerNo = ini.GetInt(_T("ZONE_INFO"), _T("GROUP_INFO"), 1);
@@ -363,6 +363,13 @@ BOOL CAujardDlg::InitializeMMF()
 	return TRUE;
 }
 
+void CAujardDlg::ReportTableLoadError(const recordset_loader::Error& err, const char* source)
+{
+	CString msg;
+	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
+	AfxMessageBox(msg);
+}
+
 BOOL CAujardDlg::LoadItemTable()
 {
 	recordset_loader::Error err = {};
@@ -373,13 +380,6 @@ BOOL CAujardDlg::LoadItemTable()
 	}
 
 	return TRUE;
-}
-
-void CAujardDlg::ReportTableLoadError(const recordset_loader::Error& err, const char* source)
-{
-	CString msg;
-	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
-	AfxMessageBox(msg);
 }
 
 void CAujardDlg::SelectCharacter(char* pBuf)

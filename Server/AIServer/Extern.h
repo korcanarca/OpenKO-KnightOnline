@@ -6,6 +6,9 @@
 // -------------------------------------------------
 extern BOOL	g_bNpcExit;
 
+import AIServerModel;
+namespace model = aiserver_model;
+
 struct	_PARTY_GROUP
 {
 	WORD wIndex;

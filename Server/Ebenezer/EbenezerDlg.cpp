@@ -26,6 +26,9 @@
 #include <shared/lzf.h>
 #include <shared/packets.h>
 
+#include <db-library/DatabaseConnManager.h>
+#include <db-library/RecordSetLoader_STLMap.h>
+
 constexpr int GAME_TIME       	= 100;
 constexpr int SEND_TIME			= 200;
 constexpr int PACKET_CHECK		= 300;
@@ -40,6 +43,10 @@ constexpr int AWARD_GOLD          = 5000;
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
+
+import EbenezerBinder;
+
+using namespace db;
 
 CRITICAL_SECTION g_serial_critical;
 CRITICAL_SECTION g_region_critical;
@@ -276,6 +283,13 @@ CEbenezerDlg::CEbenezerDlg(CWnd* pParent /*=nullptr*/)
 	memset(m_strGamePWD, 0, sizeof(m_strGamePWD));
 
 	m_bSanta = FALSE;		// 갓댐 산타!!! >.<
+
+	DatabaseConnManager::Create();
+}
+
+CEbenezerDlg::~CEbenezerDlg()
+{
+	DatabaseConnManager::Destroy();
 }
 
 void CEbenezerDlg::DoDataExchange(CDataExchange* pDX)
@@ -1232,6 +1246,13 @@ BOOL CEbenezerDlg::MapFileLoad()
 	return TRUE;
 }
 
+void CEbenezerDlg::ReportTableLoadError(const recordset_loader::Error& err, const char* source)
+{
+	CString msg;
+	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
+	AfxMessageBox(msg);
+}
+
 BOOL CEbenezerDlg::LoadItemTable()
 {
 	CItemTableSet ItemTableSet;
@@ -1760,9 +1781,18 @@ void CEbenezerDlg::GetTimeFromIni()
 	m_nBattleZoneOpenHourStart = m_Ini.GetInt("BATTLE", "START_TIME", 20);
 	m_nBattleZoneOpenHourEnd = m_Ini.GetInt("BATTLE", "END_TIME", 0);
 
+	// TODO: This should be removed
 	m_Ini.GetString(_T("ODBC"), _T("GAME_DSN"), _T("KN_online"), m_strGameDSN, _countof(m_strGameDSN));
 	m_Ini.GetString(_T("ODBC"), _T("GAME_UID"), _T("knight"), m_strGameUID, _countof(m_strGameUID));
 	m_Ini.GetString(_T("ODBC"), _T("GAME_PWD"), _T("knight"), m_strGamePWD, _countof(m_strGamePWD));
+
+	std::string datasourceName = m_Ini.GetString("ODBC", "GAME_DSN", "KN_online");
+	std::string datasourceUser = m_Ini.GetString("ODBC", "GAME_UID", "knight");
+	std::string datasourcePass = m_Ini.GetString("ODBC", "GAME_PWD", "knight");
+
+	DatabaseConnManager::SetDatasourceConfig(
+		modelUtil::DbType::GAME,
+		datasourceName, datasourceUser, datasourcePass);
 
 	m_Ini.GetString("AI_SERVER", "IP", "127.0.0.1", m_AIServerIP, _countof(m_AIServerIP));
 

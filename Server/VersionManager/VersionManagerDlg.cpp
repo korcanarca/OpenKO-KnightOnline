@@ -10,11 +10,17 @@
 
 #include <shared/Ini.h>
 
+#include <db-library/DatabaseConnManager.h>
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
+
+import VersionManagerBinder;
+
+using namespace db;
 
 CIOCPort CVersionManagerDlg::m_Iocport;
 
@@ -38,6 +44,13 @@ CVersionManagerDlg::CVersionManagerDlg(CWnd* pParent /*=nullptr*/)
 	memset(m_TableName, 0, sizeof(m_TableName));
 
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+
+	DatabaseConnManager::Create();
+}
+
+CVersionManagerDlg::~CVersionManagerDlg()
+{
+	DatabaseConnManager::Destroy();
 }
 
 void CVersionManagerDlg::DoDataExchange(CDataExchange* pDX)
@@ -124,10 +137,22 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 	ini.GetString("DOWNLOAD", "URL", "127.0.0.1", m_strFtpUrl, _countof(m_strFtpUrl));
 	ini.GetString("DOWNLOAD", "PATH", "/", m_strFilePath, _countof(m_strFilePath));
 
+
+	// TODO: This should just be removed
 	ini.GetString(_T("ODBC"), _T("DSN"), _T("KN_online"), m_ODBCName, _countof(m_ODBCName));
 	ini.GetString(_T("ODBC"), _T("UID"), _T("knight"), m_ODBCLogin, _countof(m_ODBCLogin));
 	ini.GetString(_T("ODBC"), _T("PWD"), _T("knight"), m_ODBCPwd, _countof(m_ODBCPwd));
 	ini.GetString(_T("ODBC"), _T("TABLE"), _T("VERSION"), m_TableName, _countof(m_TableName));
+
+	// TODO: KN_online should be Knight_Account
+	std::string datasourceName = ini.GetString("ODBC", "DSN", "KN_online");
+	std::string datasourceUser = ini.GetString("ODBC", "UID", "knight");
+	std::string datasourcePass = ini.GetString("ODBC", "PWD", "knight");
+
+	DatabaseConnManager::SetDatasourceConfig(
+		modelUtil::DbType::ACCOUNT,
+		datasourceName, datasourceUser, datasourcePass);
+
 	ini.GetString(_T("CONFIGURATION"), _T("DEFAULT_PATH"), _T(""), m_strDefaultPath, _countof(m_strDefaultPath));
 
 	m_nServerCount = ini.GetInt("SERVER_LIST", "COUNT", 1);

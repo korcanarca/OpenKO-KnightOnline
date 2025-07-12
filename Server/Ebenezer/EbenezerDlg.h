@@ -26,6 +26,11 @@
 
 #include "resource.h"
 
+namespace recordset_loader
+{
+	struct Error;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CEbenezerDlg dialog
 
@@ -123,6 +128,7 @@ public:
 	BOOL LoadCoefficientTable();
 	BOOL LoadMagicTable();
 	BOOL LoadItemTable();
+	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 	BOOL MapFileLoad();
 	void UserAcceptThread();
 	// sungyong 2001.11.06
@@ -141,7 +147,9 @@ public:
 	void Send_All(char* pBuf, int len, CUser* pExceptUser = nullptr, int nation = 0);	// pointer != NULL don`t send to that user pointer
 	void Send_AIServer(int zone, char* pBuf, int len);
 	static CUser* GetUserPtr(const char* userid, NameType type);
+
 	CEbenezerDlg(CWnd* pParent = nullptr);	// standard constructor
+	~CEbenezerDlg();
 
 	static CEbenezerDlg* s_pInstance;
 	static CIOCPort	m_Iocport;

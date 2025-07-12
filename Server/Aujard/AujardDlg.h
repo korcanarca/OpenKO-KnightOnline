@@ -57,11 +57,12 @@ public:
 	void DeleteChar(char* pBuf);
 	void CreateNewChar(char* pBuf);
 	void SelectNation(char* pBuf);
-	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 	BOOL LoadItemTable();
+	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 	void UserLogOut(char* pBuf);
-	~CAujardDlg();
+
 	CAujardDlg(CWnd* pParent = nullptr);	// standard constructor
+	~CAujardDlg();
 
 	BOOL InitializeMMF();
 	void SelectCharacter(char* pBuf);

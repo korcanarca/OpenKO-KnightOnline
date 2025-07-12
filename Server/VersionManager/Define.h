@@ -56,6 +56,9 @@ typedef union
 	BYTE		b[4];
 } MYDWORD;
 
+import VersionManagerModel;
+// namespace model = versionmanager_model; // TODO
+
 struct _NEWS
 {
 	char Content[4096]	= {};
