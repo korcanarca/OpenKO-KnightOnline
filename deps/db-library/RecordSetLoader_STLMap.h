@@ -2,24 +2,24 @@
 
 #include "RecordSetLoader.h"
 
-#include "Model.h"
-#include "ModelRecordSet.h"
-#include "Exceptions.h" // db::DatasourceConfigNotFoundException
-
-#include <nanodbc/nanodbc.h> // nanodbc::database_error
-
 #include <type_traits>
 
 namespace recordset_loader
 {
-	namespace
+	template <
+		typename ContainerType,
+		typename ModelType = ContainerType::ValueType>
+	class STLMap : public Base<ModelType>
 	{
-		template <typename ContainerType, bool AllowEmptyTable>
-		static bool STLMap(ContainerType& container, Error& err)
+	public:
+		STLMap(ContainerType& targetContainer)
+			: _targetContainer(targetContainer)
 		{
-			using ModelType = ContainerType::ValueType;
-			using EnumErrorType = Error::EnumErrorType;
+		}
 
+	protected:
+		void ProcessRow(db::ModelRecordSet<ModelType>& recordset) override
+		{
 			using ContainerKeyType = std::remove_const_t<
 				std::remove_reference_t<typename ContainerType::KeyType>>;
 
@@ -40,59 +40,22 @@ namespace recordset_loader
 				static_assert(std::is_same_v<ContainerKeyType, ModelKeyType>);
 			}
 
-			try
-			{
-				db::ModelRecordSet<ModelType> recordset;
-				ContainerType localMap;
+			ModelType* model = new ModelType();
+			recordset.get_ref(*model);
 
-				while (recordset.next())
-				{
-					ModelType* model = new ModelType();
-					recordset.get_ref(*model);
-
-					ModelKeyType id = model->MapKey();
-					if (!localMap.PutData(id, model))
-						delete model;
-				}
-
-				if constexpr (!AllowEmptyTable)
-				{
-					if (localMap.IsEmpty())
-					{
-						err.Type = EnumErrorType::EmptyTable;
-						err.Message = "Table empty!";
-						return false;
-					}
-				}
-
-				container.Swap(localMap);
-				return true;
-			}
-			catch (const db::DatasourceConfigNotFoundException& ex)
-			{
-				err.Type = EnumErrorType::DatasourceConfig;
-				err.Message = ex.what();
-			}
-			catch (const nanodbc::database_error& ex)
-			{
-				err.Type = EnumErrorType::Database;
-				err.Message = ex.what();
-			}
-
-			return false;
+			ModelKeyType id = model->MapKey();
+			if (!_localContainer.PutData(id, model))
+				delete model;
 		}
-	}
 
-	template <typename ContainerType>
-	static inline bool STLMap_AllowEmpty(ContainerType& container, Error& err)
-	{
-		return STLMap<ContainerType, true>(container, err);
-	}
+		void Finalize() override
+		{
+			_targetContainer.Swap(_localContainer);
+		}
 
-	template <typename ContainerType>
-	static inline bool STLMap_ForbidEmpty(ContainerType& container, Error& err)
-	{
-		return STLMap<ContainerType, false>(container, err);
-	}
+	protected:
+		ContainerType& _targetContainer;
+		ContainerType _localContainer;
+	};
 
 }

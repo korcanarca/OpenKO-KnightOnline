@@ -1245,10 +1245,10 @@ void CEbenezerDlg::ReportTableLoadError(const recordset_loader::Error& err, cons
 
 BOOL CEbenezerDlg::LoadItemTable()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_ItemtableArray, err))
+	recordset_loader::STLMap loader(m_ItemtableArray);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1257,10 +1257,10 @@ BOOL CEbenezerDlg::LoadItemTable()
 
 BOOL CEbenezerDlg::LoadMagicTable()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_MagictableArray, err))
+	recordset_loader::STLMap loader(m_MagictableArray);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1269,10 +1269,10 @@ BOOL CEbenezerDlg::LoadMagicTable()
 
 BOOL CEbenezerDlg::LoadMagicType1()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype1Array, err))
+	recordset_loader::STLMap loader(m_Magictype1Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1281,10 +1281,10 @@ BOOL CEbenezerDlg::LoadMagicType1()
 
 BOOL CEbenezerDlg::LoadMagicType2()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype2Array, err))
+	recordset_loader::STLMap loader(m_Magictype2Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1293,23 +1293,22 @@ BOOL CEbenezerDlg::LoadMagicType2()
 
 BOOL CEbenezerDlg::LoadMagicType3()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype3Array, err))
+	recordset_loader::STLMap loader(m_Magictype3Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
 	return TRUE;
-
 }
 
 BOOL CEbenezerDlg::LoadMagicType4()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype4Array, err))
+	recordset_loader::STLMap loader(m_Magictype4Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1318,10 +1317,10 @@ BOOL CEbenezerDlg::LoadMagicType4()
 
 BOOL CEbenezerDlg::LoadMagicType5()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype5Array, err))
+	recordset_loader::STLMap loader(m_Magictype5Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1330,10 +1329,10 @@ BOOL CEbenezerDlg::LoadMagicType5()
 
 BOOL CEbenezerDlg::LoadMagicType8()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_Magictype8Array, err))
+	recordset_loader::STLMap loader(m_Magictype8Array);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -1342,10 +1341,10 @@ BOOL CEbenezerDlg::LoadMagicType8()
 
 BOOL CEbenezerDlg::LoadCoefficientTable()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_CoefficientArray, err))
+	recordset_loader::STLMap loader(m_CoefficientArray);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
@@ -3121,10 +3120,10 @@ void CEbenezerDlg::Announcement(BYTE type, int nation, int chat_type)
 
 BOOL CEbenezerDlg::LoadHomeTable()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_HomeArray, err))
+	recordset_loader::STLMap loader(m_HomeArray);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 

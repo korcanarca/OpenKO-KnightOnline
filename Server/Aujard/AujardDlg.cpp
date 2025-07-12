@@ -372,10 +372,10 @@ void CAujardDlg::ReportTableLoadError(const recordset_loader::Error& err, const 
 
 BOOL CAujardDlg::LoadItemTable()
 {
-	recordset_loader::Error err = {};
-	if (!recordset_loader::STLMap_ForbidEmpty(m_ItemtableArray, err))
+	recordset_loader::STLMap loader(m_ItemtableArray);
+	if (!loader.Load_ForbidEmpty())
 	{
-		ReportTableLoadError(err, __func__);
+		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
 
