@@ -17,7 +17,7 @@
 
 using ItemtableArray = CSTLMap<model::Item>;
 
-namespace STLMapRecordSetLoader
+namespace recordset_loader
 {
 	struct Error;
 }
@@ -57,7 +57,7 @@ public:
 	void DeleteChar(char* pBuf);
 	void CreateNewChar(char* pBuf);
 	void SelectNation(char* pBuf);
-	void ReportTableLoadError(const STLMapRecordSetLoader::Error& err, const char* source);
+	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 	BOOL LoadItemTable();
 	void UserLogOut(char* pBuf);
 	~CAujardDlg();

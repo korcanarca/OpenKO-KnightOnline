@@ -23,8 +23,9 @@
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelRecordSet.h" />
+    <ClInclude Include="RecordSetLoader_STLMap.h" />
     <ClInclude Include="SqlBuilder.h" />
-    <ClInclude Include="STLMapRecordSetLoader.h" />
+    <ClInclude Include="RecordSetLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DatabaseConnManager.cpp" />

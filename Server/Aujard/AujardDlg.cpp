@@ -10,7 +10,7 @@
 #include <shared/Ini.h>
 
 #include <db-library/DatabaseConnManager.h>
-#include <db-library/STLMapRecordSetLoader.h>
+#include <db-library/RecordSetLoader_STLMap.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -365,8 +365,8 @@ BOOL CAujardDlg::InitializeMMF()
 
 BOOL CAujardDlg::LoadItemTable()
 {
-	STLMapRecordSetLoader::Error err = {};
-	if (!STLMapRecordSetLoader::LoadForbidEmpty(m_ItemtableArray, err))
+	recordset_loader::Error err = {};
+	if (!recordset_loader::STLMap_AllowEmpty(m_ItemtableArray, err))
 	{
 		ReportTableLoadError(err, __func__);
 		return FALSE;
@@ -375,7 +375,7 @@ BOOL CAujardDlg::LoadItemTable()
 	return TRUE;
 }
 
-void CAujardDlg::ReportTableLoadError(const STLMapRecordSetLoader::Error& err, const char* source)
+void CAujardDlg::ReportTableLoadError(const recordset_loader::Error& err, const char* source)
 {
 	CString msg;
 	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
