@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "DatabaseConnManager.h"
 #include "SqlBuilder.h"
 #include <nanodbc/nanodbc.h>
 

@@ -8,14 +8,19 @@
 #include "Region.h"
 #include "Define.h"
 #include "User.h"
-#include "EventSet.h"
 #include "EbenezerDlg.h"
+
+#include <db-library/RecordSetLoader.h>
 
 #ifdef _DEBUG
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
+
+import EbenezerBinder;
+
+using namespace db;
 
 extern CRITICAL_SECTION g_region_critical;
 
@@ -564,51 +569,43 @@ BOOL C3DMap::CheckEvent(float x, float z, CUser* pUser)
 
 BOOL C3DMap::LoadEvent()
 {
-	CEventSet	EventSet;
-	CGameEvent* pEvent = nullptr;
+	using ModelType = model::Event;
 
-	if (!EventSet.Open())
+	recordset_loader::Base<ModelType> loader;
+	loader.SetProcessFetchCallback([this](db::ModelRecordSet<ModelType>& recordset)
 	{
-		AfxMessageBox(_T("EventTable Open Fail!"));
-		return FALSE;
-	}
-
-	if (EventSet.IsBOF()
-		|| EventSet.IsEOF())
-	{
-		AfxMessageBox(_T("EventTable Empty!"));
-		return FALSE;
-	}
-	EventSet.MoveFirst();
-
-	while (!EventSet.IsEOF())
-	{
-		if (EventSet.m_ZoneNum == m_nZoneNumber)
+		do
 		{
-			pEvent = new CGameEvent();
+			ModelType obj = {};
+			recordset.get_ref(obj);
 
-			pEvent->m_sIndex = EventSet.m_EventNum;
-			pEvent->m_bType = EventSet.m_Type;
-			pEvent->m_iCond[0] = _ttoi(EventSet.m_Cond1);
-			pEvent->m_iCond[1] = _ttoi(EventSet.m_Cond2);
-			pEvent->m_iCond[2] = _ttoi(EventSet.m_Cond3);
-			pEvent->m_iCond[3] = _ttoi(EventSet.m_Cond4);
-			pEvent->m_iCond[4] = _ttoi(EventSet.m_Cond5);
+			if (obj.ZoneNumber != m_nZoneNumber)
+				continue;
 
-			pEvent->m_iExec[0] = _ttoi(EventSet.m_Exec1);
-			pEvent->m_iExec[1] = _ttoi(EventSet.m_Exec2);
-			pEvent->m_iExec[2] = _ttoi(EventSet.m_Exec3);
-			pEvent->m_iExec[3] = _ttoi(EventSet.m_Exec4);
-			pEvent->m_iExec[4] = _ttoi(EventSet.m_Exec5);
+			CGameEvent* pEvent = new CGameEvent();
+
+			pEvent->m_sIndex = obj.EventNumber;
+			pEvent->m_bType = obj.EventType;
+
+			pEvent->m_iExec[0] = atoi(obj.Execute1.c_str());
+			pEvent->m_iExec[1] = atoi(obj.Execute2.c_str());
+			pEvent->m_iExec[2] = atoi(obj.Execute3.c_str());
+			pEvent->m_iExec[3] = atoi(obj.Execute4.c_str());
+			pEvent->m_iExec[4] = atoi(obj.Execute5.c_str());
 
 			if (!m_EventArray.PutData(pEvent->m_sIndex, pEvent))
 			{
 				TRACE(_T("Event PutData Fail - %d\n"), pEvent->m_sIndex);
 				delete pEvent;
-				pEvent = nullptr;
 			}
 		}
-		EventSet.MoveNext();
+		while (recordset.next());
+	});
+
+	if (!loader.Load_ForbidEmpty())
+	{
+		m_pMain->ReportTableLoadError(loader.GetError(), __func__);
+		return FALSE;
 	}
 
 	return TRUE;

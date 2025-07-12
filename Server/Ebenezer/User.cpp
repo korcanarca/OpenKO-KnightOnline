@@ -2628,7 +2628,7 @@ void CUser::SetDetailData()
 	if (m_pUserData->m_bLevel >= MAX_LEVEL)
 		Close();
 
-	m_iMaxExp = m_pMain->m_LevelUpArray[m_pUserData->m_bLevel - 1]->m_iExp;
+	m_iMaxExp = m_pMain->m_LevelUpArray[m_pUserData->m_bLevel - 1]->RequiredExp;
 	m_iMaxWeight = (m_pUserData->m_bStr + m_sItemStr) * 50;
 
 	m_iZoneIndex = m_pMain->GetZoneIndex(m_pUserData->m_bZone);
@@ -3564,7 +3564,7 @@ void CUser::ExpChange(int iExp)
 		if (m_pUserData->m_bLevel > 5)
 		{
 			--m_pUserData->m_bLevel;
-			m_pUserData->m_iExp += m_pMain->m_LevelUpArray[m_pUserData->m_bLevel - 1]->m_iExp;
+			m_pUserData->m_iExp += m_pMain->m_LevelUpArray[m_pUserData->m_bLevel - 1]->RequiredExp;
 			LevelChange(m_pUserData->m_bLevel, FALSE);
 			return;
 		}
@@ -3612,7 +3612,7 @@ void CUser::LevelChange(short level, BYTE type)
 			m_pUserData->m_bstrSkill[0] += 2;	// Skill Points up
 	}
 
-	m_iMaxExp = m_pMain->m_LevelUpArray[level - 1]->m_iExp;
+	m_iMaxExp = m_pMain->m_LevelUpArray[level - 1]->RequiredExp;
 
 	SetSlotItemValue();
 	SetUserAbility();
@@ -12650,7 +12650,7 @@ void CUser::GameStart(
 			if (m_pUserData->m_bCity <= 100)
 				--level;
 
-			m_iLostExp = m_pMain->m_LevelUpArray[level]->m_iExp;
+			m_iLostExp = m_pMain->m_LevelUpArray[level]->RequiredExp;
 			m_iLostExp = m_iLostExp * (m_pUserData->m_bCity % 10) / 100;
 
 			if (((m_pUserData->m_bCity % 100) / 10) == 1)

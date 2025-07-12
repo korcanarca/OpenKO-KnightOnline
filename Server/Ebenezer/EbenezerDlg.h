@@ -35,7 +35,7 @@ namespace recordset_loader
 // CEbenezerDlg dialog
 
 typedef std::vector <C3DMap*>				ZoneArray;
-typedef std::vector <_LEVELUP*>				LevelUpArray;
+typedef std::vector <model::LevelUp*>		LevelUpArray;
 typedef CSTLMap <model::Coefficient>		CoefficientArray;
 typedef CSTLMap <model::Item>				ItemtableArray;
 typedef CSTLMap <model::Magic>				MagictableArray;
@@ -68,7 +68,6 @@ public:
 		return s_pInstance;
 	}
 
-	CString GetGameDBConnectionString();
 	C3DMap* GetMapByID(int iZoneID) const;
 	C3DMap* GetMapByIndex(int iZoneIndex) const;
 	void WriteEventLog(char* pBuf);
@@ -259,10 +258,6 @@ public:
 	CFile				m_RegionLogFile;
 	CFile				m_LogFile;
 	CFile				m_EvnetLogFile;
-
-	TCHAR				m_strGameDSN[24];
-	TCHAR				m_strGameUID[24];
-	TCHAR				m_strGamePWD[24];
 
 // Dialog Data
 	//{{AFX_DATA(CEbenezerDlg)

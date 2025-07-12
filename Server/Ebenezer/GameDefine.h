@@ -271,12 +271,6 @@ struct _EXCHANGE_ITEM
 	int64_t	nSerialNum;	// item serial code
 };
 
-struct _LEVELUP
-{
-	short	m_sLevel;
-	int		m_iExp;
-};
-
 struct	_PARTY_GROUP
 {
 	WORD wIndex;

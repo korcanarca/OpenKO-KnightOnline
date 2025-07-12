@@ -1436,7 +1436,7 @@ void CKnightsManager::RecvKnightsList(char* pBuf)
 	}
 }
 
-BOOL CKnightsManager::AddKnightsUser(int index, char* UserName)
+BOOL CKnightsManager::AddKnightsUser(int index, const char* UserName)
 {
 	CKnights* pKnights = m_pMain->m_KnightsArray.GetData(index);
 	if (pKnights == nullptr)
@@ -1460,7 +1460,7 @@ BOOL CKnightsManager::AddKnightsUser(int index, char* UserName)
 	return FALSE;
 }
 
-BOOL CKnightsManager::ModifyKnightsUser(int index, char* UserName)
+BOOL CKnightsManager::ModifyKnightsUser(int index, const char* UserName)
 {
 	CKnights* pKnights = m_pMain->m_KnightsArray.GetData(index);
 	if (pKnights == nullptr)
@@ -1486,7 +1486,7 @@ BOOL CKnightsManager::ModifyKnightsUser(int index, char* UserName)
 	return FALSE;
 }
 
-BOOL CKnightsManager::RemoveKnightsUser(int index, char* UserName)
+BOOL CKnightsManager::RemoveKnightsUser(int index, const char* UserName)
 {
 	CKnights* pKnights = m_pMain->m_KnightsArray.GetData(index);
 	if (pKnights == nullptr)
@@ -1513,7 +1513,7 @@ BOOL CKnightsManager::RemoveKnightsUser(int index, char* UserName)
 	return FALSE;
 }
 
-void CKnightsManager::SetKnightsUser(int index, char* UserName)
+void CKnightsManager::SetKnightsUser(int index, const char* UserName)
 {
 	CKnights* pKnights = m_pMain->m_KnightsArray.GetData(index);
 	if (pKnights == nullptr)

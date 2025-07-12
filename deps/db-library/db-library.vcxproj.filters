@@ -12,6 +12,9 @@
     <ClInclude Include="RecordSetLoader_STLMap.h">
       <Filter>helpers</Filter>
     </ClInclude>
+    <ClInclude Include="RecordsetLoader_Vector.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DatabaseConnManager.cpp" />

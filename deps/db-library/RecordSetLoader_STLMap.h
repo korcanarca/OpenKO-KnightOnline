@@ -6,6 +6,7 @@
 
 namespace recordset_loader
 {
+
 	template <
 		typename ContainerType,
 		typename ModelType = ContainerType::ValueType>
