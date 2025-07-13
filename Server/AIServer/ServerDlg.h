@@ -20,7 +20,7 @@
 #include "Server.h"
 #include "Party.h"
 
-#include "extern.h"			// 전역 객체
+#include "Extern.h"			// 전역 객체
 
 #include "resource.h"
 
@@ -45,9 +45,9 @@ typedef CSTLMap <model::MagicType2>			Magictype2Array;
 typedef CSTLMap <model::MagicType3>			Magictype3Array;
 typedef CSTLMap	<model::MagicType4>			Magictype4Array;
 typedef CSTLMap <_PARTY_GROUP>				PartyArray;
-typedef CSTLMap <_MAKE_WEAPON>				MakeWeaponItemTableArray;
-typedef CSTLMap <_MAKE_ITEM_GRADE_CODE>		MakeGradeItemTableArray;
-typedef CSTLMap <_MAKE_ITEM_LARE_CODE>		MakeLareItemTableArray;
+typedef CSTLMap <model::MakeWeapon>			MakeWeaponItemTableArray;
+typedef CSTLMap <model::MakeItemGradeCode>	MakeGradeItemTableArray;
+typedef CSTLMap <model::MakeItemRareCode>	MakeLareItemTableArray;
 typedef std::list <int>						ZoneNpcInfoList;
 typedef std::vector <MAP*>					ZoneArray;
 
@@ -63,6 +63,7 @@ class CServerDlg : public CDialog
 {
 private:
 	void ResumeAI();
+	BOOL LoadNpcPosTable(std::vector<model::NpcPos*>& rows);
 	BOOL CreateNpcThread();
 	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 	BOOL GetMagicTableData();

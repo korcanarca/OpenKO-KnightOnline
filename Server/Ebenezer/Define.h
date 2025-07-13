@@ -268,38 +268,38 @@ struct _REGION_BUFFER
 //	Global Function Define
 //
 
-inline void GetString(char* tBuf, char* sBuf, int len, int& index)
+inline void GetString(char* tBuf, const char* sBuf, int len, int& index)
 {
 	memcpy(tBuf, sBuf + index, len);
 	index += len;
 }
 
-inline BYTE GetByte(char* sBuf, int& index)
+inline BYTE GetByte(const char* sBuf, int& index)
 {
 	int t_index = index;
 	index++;
 	return (BYTE) (*(sBuf + t_index));
 }
 
-inline int GetShort(char* sBuf, int& index)
+inline int GetShort(const char* sBuf, int& index)
 {
 	index += 2;
 	return *(short*) (sBuf + index - 2);
 }
 
-inline DWORD GetDWORD(char* sBuf, int& index)
+inline DWORD GetDWORD(const char* sBuf, int& index)
 {
 	index += 4;
 	return *(DWORD*) (sBuf + index - 4);
 }
 
-inline float Getfloat(char* sBuf, int& index)
+inline float Getfloat(const char* sBuf, int& index)
 {
 	index += 4;
 	return *(float*) (sBuf + index - 4);
 }
 
-inline int64_t GetInt64(char* sBuf, int& index)
+inline int64_t GetInt64(const char* sBuf, int& index)
 {
 	index += 8;
 	return *(int64_t*) (sBuf + index - 8);
@@ -356,7 +356,7 @@ inline void SetString2(char* tBuf, const char* sBuf, short len, int& index)
 }
 
 // sungyong 2001.11.06
-inline int GetVarString(char* tBuf, char* sBuf, int nSize, int& index)
+inline int GetVarString(char* tBuf, const char* sBuf, int nSize, int& index)
 {
 	int nLen = 0;
 	if (nSize == sizeof(BYTE))
@@ -370,7 +370,7 @@ inline int GetVarString(char* tBuf, char* sBuf, int nSize, int& index)
 	return nLen;
 }
 
-inline void SetVarString(char* tBuf, char* sBuf, int len, int& index)
+inline void SetVarString(char* tBuf, const char* sBuf, int len, int& index)
 {
 	*(tBuf + index) = (BYTE) len;
 	index ++;

@@ -8,12 +8,16 @@
 [submodule "deps/zlib"]
 	path = deps/zlib
 	url = https://github.com/madler/zlib.git
+	branch = master
 [submodule "deps/libjpeg-turbo"]
 	path = deps/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo
+	branch = main
 [submodule "deps/nanodbc"]
 	path = deps/nanodbc
 	url = https://github.com/nanodbc/nanodbc
+	branch = main
 [submodule "deps/db-modules"]
 	path = deps/db-modules
 	url = https://github.com/Open-KO/OpenKO-db-modules
+	branch = main

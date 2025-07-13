@@ -3,7 +3,7 @@
 
 #include <shared/StringConversion.h>
 
-BOOL CheckGetVarString(int nLength, char* tBuf, char* sBuf, int nSize, int& index)
+BOOL CheckGetVarString(int nLength, char* tBuf, const char* sBuf, int nSize, int& index)
 {
 	int nRet = GetVarString(tBuf, sBuf, nSize, index);
 	if (nRet <= 0
@@ -13,7 +13,7 @@ BOOL CheckGetVarString(int nLength, char* tBuf, char* sBuf, int nSize, int& inde
 	return TRUE;
 }
 
-int GetVarString(char* tBuf, char* sBuf, int nSize, int& index)
+int GetVarString(char* tBuf, const char* sBuf, int nSize, int& index)
 {
 	int nLen = 0;
 
@@ -28,38 +28,38 @@ int GetVarString(char* tBuf, char* sBuf, int nSize, int& index)
 	return nLen;
 }
 
-void GetString(char* tBuf, char* sBuf, int len, int& index)
+void GetString(char* tBuf, const char* sBuf, int len, int& index)
 {
 	memcpy(tBuf, sBuf + index, len);
 	index += len;
 }
 
-BYTE GetByte(char* sBuf, int& index)
+BYTE GetByte(const char* sBuf, int& index)
 {
 	int t_index = index;
 	index++;
 	return (BYTE) (*(sBuf + t_index));
 }
 
-int GetShort(char* sBuf, int& index)
+int GetShort(const char* sBuf, int& index)
 {
 	index += 2;
 	return *(short*) (sBuf + index - 2);
 }
 
-int GetInt(char* sBuf, int& index)
+int GetInt(const char* sBuf, int& index)
 {
 	index += 4;
 	return *(int*) (sBuf + index - 4);
 }
 
-DWORD GetDWORD(char* sBuf, int& index)
+DWORD GetDWORD(const char* sBuf, int& index)
 {
 	index += 4;
 	return *(DWORD*) (sBuf + index - 4);
 }
 
-float Getfloat(char* sBuf, int& index)
+float Getfloat(const char* sBuf, int& index)
 {
 	index += 4;
 	return *(float*) (sBuf + index - 4);
@@ -124,7 +124,7 @@ void SetString2(char* tBuf, const char* sBuf, short len, int& index)
 	SetString(tBuf, sBuf, len, index);
 }
 
-int ParseSpace(char* tBuf, char* sBuf)
+int ParseSpace(char* tBuf, const char* sBuf)
 {
 	int i = 0, index = 0;
 	BOOL flag = FALSE;

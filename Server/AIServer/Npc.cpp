@@ -5,16 +5,18 @@
 #include "Gamesocket.h"
 #include "Region.h"
 #include "Party.h"
+#include "extern.h"
+
+//BOOL g_bDebug = TRUE;
 
 int surround_x[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
 int surround_z[8] = { 0, -1, -1, -1, 0, 1, 1, 1 };
 
-
 int test_id = 1056;
 int cur_test = 0;	// 1 = test중 , 0이면 정상
 
-#include "extern.h"
-//BOOL g_bDebug = TRUE;
+constexpr int MAX_MAXWEAPON_CLASSES		= _countof(model::MakeWeapon::Class);
+constexpr int MAX_ITEM_GRADECODE_GRADES	= _countof(model::MakeItemGradeCode::Grade);
 
 #define ATROCITY_ATTACK_TYPE 1				// 선공
 #define TENDER_ATTACK_TYPE	 0				// 후공	
@@ -6916,68 +6918,34 @@ int	CNpc::ItemProdution(int item_number)
 	return iItemNumber;
 }
 
-int  CNpc::GetItemGrade(int item_grade)
+int CNpc::GetItemGrade(int item_grade)
 {
-	int iPercent = 0, iRandom = 0, i = 0;
-	int iItemGrade[9];
-	_MAKE_ITEM_GRADE_CODE* pItemData = nullptr;
-
-	iRandom = myrand(1, 1000);
-	pItemData = m_pMain->m_MakeGradeItemArray.GetData(item_grade);
+	model::MakeItemGradeCode* pItemData = m_pMain->m_MakeGradeItemArray.GetData(item_grade);
 	if (pItemData == nullptr)
 		return 0;
 
-	iItemGrade[0] = pItemData->sGrade_1;
-	iItemGrade[1] = pItemData->sGrade_2;
-	iItemGrade[2] = pItemData->sGrade_3;
-	iItemGrade[3] = pItemData->sGrade_4;
-	iItemGrade[4] = pItemData->sGrade_5;
-	iItemGrade[5] = pItemData->sGrade_6;
-	iItemGrade[6] = pItemData->sGrade_7;
-	iItemGrade[7] = pItemData->sGrade_8;
-	iItemGrade[8] = pItemData->sGrade_9;
+	int iRandom = myrand(1, 1000);
 
-	for (i = 0; i < 9; i++)
+	int iPercent = 0;
+	for (int i = 0; i < MAX_ITEM_GRADECODE_GRADES; i++)
 	{
-		if (i == 0)
-		{
-			if (iItemGrade[i] == 0)
-			{
-				iPercent += iItemGrade[i];
-				continue;
-			}
-
-			if (COMPARE(iRandom, 0, iItemGrade[i]))
-				return i + 1;
-
-			iPercent += iItemGrade[i];
+		int iGrade = pItemData->Grade[i];
+		if (iGrade == 0)
 			continue;
-		}
-		else
-		{
-			if (iItemGrade[i] == 0)
-			{
-				iPercent += iItemGrade[i];
-				continue;
-			}
 
-			if (COMPARE(iRandom, iPercent, iPercent + iItemGrade[i]))
-				return i + 1;
+		if (COMPARE(iRandom, iPercent, iPercent + iGrade))
+			return i + 1;
 
-			iPercent += iItemGrade[i];
-			continue;
-		}
+		iPercent += iGrade;
 	}
 
 	return 0;
 }
 
-int  CNpc::GetWeaponItemCodeNumber(int item_type)
+int CNpc::GetWeaponItemCodeNumber(int item_type)
 {
-	int iPercent = 0, iRandom = 0, i = 0, iItem_level = 0;
-	_MAKE_WEAPON* pItemData = nullptr;
-
-	iRandom = myrand(0, 1000);
+	int iPercent = 0, iItem_level = 0;
+	model::MakeWeapon* pItemData = nullptr;
 
 	// 무기구
 	if (item_type == 1)
@@ -6995,36 +6963,17 @@ int  CNpc::GetWeaponItemCodeNumber(int item_type)
 	if (pItemData == nullptr)
 		return 0;
 
-	for (i = 0; i < MAX_UPGRADE_WEAPON; i++)
+	int iRandom = myrand(0, 1000);
+
+	for (int i = 0; i < MAX_MAXWEAPON_CLASSES; i++)
 	{
-		if (i == 0)
-		{
-			if (pItemData->sClass[i] == 0)
-			{
-				iPercent += pItemData->sClass[i];
-				continue;
-			}
-
-			if (COMPARE(iRandom, 0, pItemData->sClass[i]))
-				return i + 1;
-
-			iPercent += pItemData->sClass[i];
+		if (pItemData->Class[i] == 0)
 			continue;
-		}
-		else
-		{
-			if (pItemData->sClass[i] == 0)
-			{
-				iPercent += pItemData->sClass[i];
-				continue;
-			}
 
-			if (COMPARE(iRandom, iPercent, iPercent + pItemData->sClass[i]))
-				return i + 1;
+		if (COMPARE(iRandom, iPercent, iPercent + pItemData->Class[i]))
+			return i + 1;
 
-			iPercent += pItemData->sClass[i];
-			continue;
-		}
+		iPercent += pItemData->Class[i];
 	}
 
 	return 0;
@@ -7032,45 +6981,27 @@ int  CNpc::GetWeaponItemCodeNumber(int item_type)
 
 int CNpc::GetItemCodeNumber(int level, int item_type)
 {
-	int iItemCode = 0, iRandom = 0, i = 0, iItemType = 0, iPercent = 0;
+	int iItemCode = 0, iItemType = 0, iPercent = 0;
 	int iItemPercent[3];
-	_MAKE_ITEM_LARE_CODE* pItemData = nullptr;
 
-	iRandom = myrand(0, 1000);
-	pItemData = m_pMain->m_MakeLareItemArray.GetData(level);
+	int iRandom = myrand(0, 1000);
+	model::MakeItemRareCode* pItemData = m_pMain->m_MakeLareItemArray.GetData(level);
 	if (pItemData == nullptr)
 		return -1;
 
-	iItemPercent[0] = pItemData->sLareItem;
-	iItemPercent[1] = pItemData->sMagicItem;
-	iItemPercent[2] = pItemData->sGereralItem;
+	iItemPercent[0] = pItemData->RareItem;
+	iItemPercent[1] = pItemData->MagicItem;
+	iItemPercent[2] = pItemData->GeneralItem;
 
-	for (i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 	{
-		if (i == 0)
+		if (COMPARE(iRandom, iPercent, iPercent + iItemPercent[i]))
 		{
-			if (COMPARE(iRandom, 0, iItemPercent[i]))
-			{
-				iItemType = i + 1;
-				break;
-			}
+			iItemType = i + 1;
+			break;
+		}
 
-			iPercent += iItemPercent[i];
-			continue;
-		}
-		else
-		{
-			if (COMPARE(iRandom, iPercent, iPercent + iItemPercent[i]))
-			{
-				iItemType = i + 1;
-				break;
-			}
-			else
-			{
-				iPercent += iItemPercent[i];
-				continue;
-			}
-		}
+		iPercent += iItemPercent[i];
 	}
 
 	switch (iItemType)
