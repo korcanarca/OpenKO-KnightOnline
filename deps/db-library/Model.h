@@ -30,7 +30,7 @@ namespace db
 			auto conn = DatabaseConnManager::GetConnectionTo(T::DbType());
 
 			std::string query = sql.SelectCountString();
-			nanodbc::statement stmt = nanodbc::statement(conn, query);
+			nanodbc::statement stmt = nanodbc::statement(*conn, query);
 			nanodbc::result result = nanodbc::execute(stmt);
 			int64_t rowCount = 0;
 
@@ -42,7 +42,7 @@ namespace db
 			}
 
 			query = sql.SelectString();
-			stmt = nanodbc::statement(conn, query);
+			stmt = nanodbc::statement(*conn, query);
 			result = nanodbc::execute(stmt);
 
 			short columnCount = result.columns();
