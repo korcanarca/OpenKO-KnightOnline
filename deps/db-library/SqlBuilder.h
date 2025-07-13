@@ -30,8 +30,34 @@ namespace db
 				fillSelectColumns();
 			}
 
+			const std::unordered_set<std::string>& modelBlobColumns
+				= ModelType::BlobColumns();
+
+			std::vector<std::string> deferredBlobColumns;
+			deferredBlobColumns.reserve(modelBlobColumns.size());
+
 			short i = 0;
 			for (const std::string& col : selectCols)
+			{
+				// long-data blob columns aren't always stored with the result set
+				// they need to be fetched after all regular columns, so we should
+				// defer them until the end of the list
+				if (modelBlobColumns.contains(col))
+				{
+					deferredBlobColumns.push_back(col);
+					continue;
+				}
+
+				if (i > 0)
+					query += ", ";
+
+				query += '[' + col + ']';
+				i++;
+			}
+
+			// all deferred long-data blob columns can now be added
+			// to the end of our list to ensure they will be fetched
+			for (const std::string& col : deferredBlobColumns)
 			{
 				if (i > 0)
 					query += ", ";
