@@ -15,7 +15,7 @@
 	branch = main
 [submodule "deps/nanodbc"]
 	path = deps/nanodbc
-	url = https://github.com/nanodbc/nanodbc
+	url = https://github.com/Open-KO/nanodbc
 	branch = main
 [submodule "deps/db-modules"]
 	path = deps/db-modules
