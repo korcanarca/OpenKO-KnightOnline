@@ -108,7 +108,6 @@ public:
 	void ResetBattleZone();
 	MAP* GetMapByIndex(int iZoneIndex) const;
 	MAP* GetMapByID(int iZoneID) const;
-	CString GetGameDBConnectionString();
 
 	CServerDlg(CWnd* pParent = nullptr);	// standard constructor
 	~CServerDlg();
@@ -197,10 +196,6 @@ private:
 	// ~패킷 압축에 필요 변수   -------------
 
 	BYTE				m_byZone;
-
-	TCHAR				m_strGameDSN[24];
-	TCHAR				m_strGameUID[24];
-	TCHAR				m_strGamePWD[24];
 
 // Implementation
 protected:

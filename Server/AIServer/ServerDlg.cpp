@@ -129,10 +129,6 @@ CServerDlg::CServerDlg(CWnd* pParent /*=nullptr*/)
 	//m_ppUserActive = nullptr;
 	//m_ppUserInActive = nullptr;
 
-	memset(m_strGameDSN, 0, sizeof(m_strGameDSN));
-	memset(m_strGameUID, 0, sizeof(m_strGameUID));
-	memset(m_strGamePWD, 0, sizeof(m_strGamePWD));
-
 	DatabaseConnManager::Create();
 }
 
@@ -2097,11 +2093,6 @@ void CServerDlg::GetServerInfoIni()
 	inifile.Load(iniPath);
 	m_byZone = inifile.GetInt(_T("SERVER"), _T("ZONE"), 1);
 
-	// TODO: This should be removed
-	inifile.GetString(_T("ODBC"), _T("GAME_DSN"), _T("KN_online"), m_strGameDSN, _countof(m_strGameDSN));
-	inifile.GetString(_T("ODBC"), _T("GAME_UID"), _T("knight"), m_strGameUID, _countof(m_strGameUID));
-	inifile.GetString(_T("ODBC"), _T("GAME_PWD"), _T("knight"), m_strGamePWD, _countof(m_strGamePWD));
-
 	std::string datasourceName = inifile.GetString("ODBC", "GAME_DSN", "KN_online");
 	std::string datasourceUser = inifile.GetString("ODBC", "GAME_UID", "knight");
 	std::string datasourcePass = inifile.GetString("ODBC", "GAME_PWD", "knight");
@@ -2171,15 +2162,4 @@ MAP* CServerDlg::GetMapByID(int iZoneID) const
 	}
 
 	return nullptr;
-}
-
-CString CServerDlg::GetGameDBConnectionString()
-{
-	CString strConnection;
-	strConnection.Format(
-		_T("ODBC;DSN=%s;UID=%s;PWD=%s"),
-		m_strGameDSN,
-		m_strGameUID,
-		m_strGamePWD);
-	return strConnection;
 }
