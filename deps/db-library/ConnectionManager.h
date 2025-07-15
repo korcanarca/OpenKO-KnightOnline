@@ -18,7 +18,7 @@ namespace db
 {
 
 	/// \brief manages connections to the database via nanodbc
-	class DatabaseConnManager
+	class ConnectionManager
 	{
 	protected:
 		struct DatasourceConfig
@@ -41,6 +41,23 @@ namespace db
 		static void Create();
 		static void Destroy();
 
+		struct Connection
+		{
+			std::shared_ptr<nanodbc::connection> Conn;
+			std::shared_ptr<const DatasourceConfig> Config;
+			long Timeout;
+			
+			Connection(
+				const std::shared_ptr<nanodbc::connection>& conn,
+				const std::shared_ptr<const DatasourceConfig>& config,
+				long timeout = 0)
+					: Conn(conn), Config(config), Timeout(timeout)
+			{
+			}
+
+			bool Reconnect();
+		};
+
 		/// \brief fetch the associated previously stored database config using the code-generated dbType
 		static void SetDatasourceConfig(modelUtil::DbType dbType, const std::string_view datasourceName, const std::string_view datasourceUserName, const std::string_view datasourcePassword);
 
@@ -50,16 +67,19 @@ namespace db
 		/// \brief attempt a connection to the database using the code-generated dbType
 		/// \throws DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
-		static std::shared_ptr<nanodbc::connection> GetConnectionTo(modelUtil::DbType dbType) noexcept(false);
+		static std::shared_ptr<Connection> GetConnectionTo(modelUtil::DbType dbType, long timeout = 0) noexcept(false);
+
+		/// \brief returns the current ODBC connection string for a given DbType, or empty string if there is none
+		static const std::string& OdbcConnString(modelUtil::DbType dbType);
 
 	protected:
-		static inline DatabaseConnManager& GetInstance()
+		static inline ConnectionManager& GetInstance()
 		{
 			assert(s_instance != nullptr);
 			return *s_instance;
 		}
 
-		DatabaseConnManager();
+		ConnectionManager();
 
 		/// \brief fetch the associated previously stored database config using the code-generated dbType
 		void SetDatasourceConfigImpl(modelUtil::DbType dbType, const std::string_view datasourceName, const std::string_view datasourceUserName, const std::string_view datasourcePassword);
@@ -70,12 +90,12 @@ namespace db
 		/// \brief attempt a connection to the database using the code-generated dbType
 		/// \throws DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
-		std::shared_ptr<nanodbc::connection> GetConnectionToImpl(modelUtil::DbType dbType) noexcept(false);
+		std::shared_ptr<Connection> GetConnectionToImpl(modelUtil::DbType dbType, long timeout = 0) noexcept(false);
 
-		~DatabaseConnManager();
+		~ConnectionManager();
 
 	protected:
-		static DatabaseConnManager* s_instance;
+		static ConnectionManager* s_instance;
 
 		std::unordered_map<modelUtil::DbType, std::shared_ptr<const DatasourceConfig>> _configMap;
 		mutable std::mutex _configLock;

@@ -10,7 +10,7 @@
 #include <shared/packets.h>
 #include <shared/StringUtils.h>
 
-#include <db-library/DatabaseConnManager.h>
+#include <db-library/ConnectionManager.h>
 
 constexpr int GAME_TIME       	= 100;
 constexpr int SEND_TIME			= 200;
@@ -267,12 +267,12 @@ CEbenezerDlg::CEbenezerDlg(CWnd* pParent /*=nullptr*/)
 
 	m_bSanta = FALSE;		// 갓댐 산타!!! >.<
 
-	DatabaseConnManager::Create();
+	ConnectionManager::Create();
 }
 
 CEbenezerDlg::~CEbenezerDlg()
 {
-	DatabaseConnManager::Destroy();
+	ConnectionManager::Destroy();
 }
 
 void CEbenezerDlg::DoDataExchange(CDataExchange* pDX)
@@ -1374,7 +1374,7 @@ void CEbenezerDlg::GetTimeFromIni()
 	std::string datasourceUser = m_Ini.GetString("ODBC", "GAME_UID", "knight");
 	std::string datasourcePass = m_Ini.GetString("ODBC", "GAME_PWD", "knight");
 
-	DatabaseConnManager::SetDatasourceConfig(
+	ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 

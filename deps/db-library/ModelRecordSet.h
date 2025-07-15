@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-#include "DatabaseConnManager.h"
+#include "ConnectionManager.h"
 #include "Model.h"
 #include "SqlBuilder.h"
 
@@ -100,13 +100,13 @@ namespace db
 			_columnCount = 0;
 			_rowCount.reset();
 
-			_conn = DatabaseConnManager::GetConnectionTo(ModelType::DbType());
+			_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
 
 			if (_fetchRowCount)
 			{
 				std::string query = filterObj.SelectCountString();
 
-				nanodbc::statement stmt(*_conn, query);
+				nanodbc::statement stmt(*_conn->Conn, query);
 				nanodbc::result result = nanodbc::execute(stmt);
 
 				int64_t rowCount = 0;
@@ -121,7 +121,7 @@ namespace db
 			}
 
 			query = filterObj.SelectString();
-			_stmt = std::make_unique<nanodbc::statement>(*_conn, query);
+			_stmt = std::make_unique<nanodbc::statement>(*_conn->Conn, query);
 			_result = nanodbc::execute(*_stmt);
 
 			_columnCount = _result.columns();
@@ -133,7 +133,7 @@ namespace db
 		}
 
 	private:
-		std::shared_ptr<nanodbc::connection> _conn {};
+		std::shared_ptr<ConnectionManager::Connection> _conn {};
 		std::unique_ptr<nanodbc::statement> _stmt {};
 		nanodbc::result _result {};
 		Model::BindingIndex<BoundModelType> _bindingIndex {};

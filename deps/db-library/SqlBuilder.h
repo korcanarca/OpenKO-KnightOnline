@@ -15,6 +15,7 @@ namespace db
 	public:
 		/// \brief Limits the size of the result set.  Defaults to 0 for no limit
 		int64_t Limit = 0;
+		std::string OrderBy = "";
 
 		/// \brief returns a select query string based on any configured modifiers
 		std::string SelectString()
@@ -67,6 +68,10 @@ namespace db
 			}
 
 			query += " FROM [" + ModelType::TableName() + ']';
+			if (!OrderBy.empty())
+			{
+				query += " " + OrderBy;
+			}
 
 #if defined(_DEBUG)
 			std::cout << "using query: " << query << '\n';
@@ -84,6 +89,23 @@ namespace db
 			return query;
 		}
 
+		std::string InsertString()
+		{
+			std::string insertQuery = "INSERT INTO [" + ModelType::TableName() + "] (";
+			std::string paramList;
+			for (const std::string& colName : ModelType::ColumnNames())
+			{
+				if (paramList.length() > 0)
+				{
+					insertQuery += ", ";
+					paramList += ", ";
+				}
+				insertQuery += '[' + colName + ']';
+				paramList += '?';
+			}
+			insertQuery += ") VALUES (" + paramList + ")";
+			return insertQuery;
+		}
 		/// \brief sets the columns for a select statement to a subset of bindable values
 		///
 		/// \param columns list of columns to select

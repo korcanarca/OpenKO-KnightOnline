@@ -12,7 +12,7 @@
 #include <shared/globals.h>
 #include <shared/Ini.h>
 
-#include <db-library/DatabaseConnManager.h>
+#include <db-library/ConnectionManager.h>
 
 #include <math.h>
 
@@ -129,12 +129,12 @@ CServerDlg::CServerDlg(CWnd* pParent /*=nullptr*/)
 	//m_ppUserActive = nullptr;
 	//m_ppUserInActive = nullptr;
 
-	DatabaseConnManager::Create();
+	ConnectionManager::Create();
 }
 
 CServerDlg::~CServerDlg()
 {
-	DatabaseConnManager::Destroy();
+	ConnectionManager::Destroy();
 }
 
 void CServerDlg::DoDataExchange(CDataExchange* pDX)
@@ -2097,7 +2097,7 @@ void CServerDlg::GetServerInfoIni()
 	std::string datasourceUser = inifile.GetString("ODBC", "GAME_UID", "knight");
 	std::string datasourcePass = inifile.GetString("ODBC", "GAME_PWD", "knight");
 
-	DatabaseConnManager::SetDatasourceConfig(
+	ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 

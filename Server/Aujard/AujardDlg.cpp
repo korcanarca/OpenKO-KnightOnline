@@ -9,7 +9,7 @@
 
 #include <shared/Ini.h>
 
-#include <db-library/DatabaseConnManager.h>
+#include <db-library/ConnectionManager.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -142,12 +142,12 @@ CAujardDlg::CAujardDlg(CWnd* pParent /*=nullptr*/)
 	m_iPacketCount = 0;
 	m_iRecvPacketCount = 0;
 
-	DatabaseConnManager::Create();
+	ConnectionManager::Create();
 }
 
 CAujardDlg::~CAujardDlg()
 {
-	DatabaseConnManager::Destroy();
+	ConnectionManager::Destroy();
 }
 
 void CAujardDlg::DoDataExchange(CDataExchange* pDX)
@@ -227,7 +227,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourceUser = ini.GetString("ODBC", "ACCOUNT_UID", "knight");
 	datasourcePass = ini.GetString("ODBC", "ACCOUNT_PWD", "knight");
 
-	DatabaseConnManager::SetDatasourceConfig(
+	ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::ACCOUNT,
 		datasourceName, datasourceUser, datasourcePass);
 
@@ -235,7 +235,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourceUser = ini.GetString("ODBC", "GAME_UID", "knight");
 	datasourcePass = ini.GetString("ODBC", "GAME_PWD", "knight");
 
-	DatabaseConnManager::SetDatasourceConfig(
+	ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 

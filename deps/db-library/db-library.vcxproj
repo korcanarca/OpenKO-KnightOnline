@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DatabaseConnManager.h" />
+    <ClInclude Include="ConnectionManager.h" />
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelRecordSet.h" />
@@ -29,7 +29,7 @@
     <ClInclude Include="RecordSetLoader.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DatabaseConnManager.cpp" />
+    <ClCompile Include="ConnectionManager.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
