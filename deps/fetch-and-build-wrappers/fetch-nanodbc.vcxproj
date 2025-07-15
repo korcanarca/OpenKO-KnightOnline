@@ -44,7 +44,7 @@
   <PropertyGroup>
     <NMakeBuildCommandLine>CALL "$(RootDir)build_scripts\build_dependency.cmd" "$(DependencyName)" "$(LocalDependencyDir)" "$(Configuration)" "$(Platform)" "$(VCToolsVersion)" "$(RealProjectPath)"</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>CALL "$(RootDir)build_scripts\build_dependency.cmd" "$(DependencyName)" "$(LocalDependencyDir)" "$(Configuration)" "$(Platform)" "$(VCToolsVersion)" "$(RealProjectPath)"</NMakeReBuildCommandLine>
-	<NMakeCleanCommandLine>ECHO Skipping clean...</NMakeCleanCommandLine>
+    <NMakeCleanCommandLine>CALL "$(RootDir)build_scripts\clean_dependency.cmd" "$(DependencyName)" "$(Configuration)" "$(Platform)" "$(RealProjectPath)"</NMakeCleanCommandLine>
   </PropertyGroup>
   <ItemGroup>
   </ItemGroup>
