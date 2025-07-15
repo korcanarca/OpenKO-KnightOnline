@@ -123,7 +123,7 @@ namespace db
 				config->DatasourcePassword,
 				timeout);
 		
-		return std::make_shared<Connection>(Connection(nanoconn, config, timeout));
+		return std::make_shared<Connection>(nanoconn, config, timeout);
 	}
 
 	ConnectionManager::~ConnectionManager()

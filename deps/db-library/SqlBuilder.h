@@ -15,7 +15,7 @@ namespace db
 	public:
 		/// \brief Limits the size of the result set.  Defaults to 0 for no limit
 		int64_t Limit = 0;
-		std::string OrderBy = "";
+		std::string OrderBy;
 
 		/// \brief returns a select query string based on any configured modifiers
 		std::string SelectString()
