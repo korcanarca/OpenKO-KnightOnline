@@ -15,7 +15,12 @@ namespace db
 	public:
 		/// \brief Limits the size of the result set.  Defaults to 0 for no limit
 		int64_t Limit = 0;
+
+		/// \brief adds an "ORDER BY" clause to SelectString()
 		std::string OrderBy;
+		
+		/// \brief will cause SelectString() to use a WHERE statement using PK columns
+		bool IsWherePK = false;
 
 		/// \brief returns a select query string based on any configured modifiers
 		std::string SelectString()
@@ -73,6 +78,19 @@ namespace db
 				query += " " + OrderBy;
 			}
 
+			if (IsWherePK && !ModelType::PrimaryKey().empty())
+			{
+				query += " WHERE ";
+				i = 0;
+				for (const std::string& col : ModelType::PrimaryKey())
+				{
+					if (i > 0)
+						query += " AND ";
+					query += '[' + col + "] = ?";
+					i++;
+				}
+			}
+
 #if defined(_DEBUG)
 			std::cout << "using query: " << query << '\n';
 #endif
@@ -106,6 +124,19 @@ namespace db
 			insertQuery += ") VALUES (" + paramList + ")";
 			return insertQuery;
 		}
+		// std::string UpdateString()
+		// {
+		// 	std::string updateQuery = "UPDATE [" + ModelType::TableName() + "] SET ";
+		// 	std::string paramList;
+		// 	for (const std::string& colName : ModelType::ColumnNames())
+		// 	{
+		// 		if (paramList.length() > 0)
+		// 		{
+		// 			updateQuery += ", ";
+		// 		}
+		// 		updateQuery += '[' + colName + "] = ?";
+		// 	}
+		// }
 		/// \brief sets the columns for a select statement to a subset of bindable values
 		///
 		/// \param columns list of columns to select

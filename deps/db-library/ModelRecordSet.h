@@ -121,7 +121,54 @@ namespace db
 			}
 
 			query = filterObj.SelectString();
-			_stmt = std::make_unique<nanodbc::statement>(*_conn->Conn, query);
+			_stmt = std::make_shared<nanodbc::statement>(*_conn->Conn, query);
+			_result = nanodbc::execute(*_stmt);
+
+			_columnCount = _result.columns();
+
+			Model::IndexColumnNameBindings<BoundModelType>(
+				_result,
+				_columnCount,
+				_bindingIndex);
+		}
+
+		/// \brief opens a connection to the model's database and queries its table using 
+		/// a prepared statement (bindings already set)
+		/// Results are accessed by iterating with next() and requesting a bound model object
+		/// with get()
+		///
+		/// \see next(), get()
+		/// \throws db::DatasourceConfigNotFoundException
+		/// \throws nanodbc::database_error
+		void open(std::shared_ptr<nanodbc::statement> prepStmt) noexcept(false)
+		{
+			std::string query;
+			SqlBuilder<ModelType> filterObj {};
+
+			_columnCount = 0;
+			_rowCount.reset();
+
+			_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
+
+			if (_fetchRowCount)
+			{
+				std::string query = filterObj.SelectCountString();
+
+				nanodbc::statement stmt(*_conn->Conn, query);
+				nanodbc::result result = nanodbc::execute(stmt);
+
+				int64_t rowCount = 0;
+				if (result.next())
+				{
+					rowCount = result.get<int64_t>(0);
+					if (filterObj.Limit > 0)
+						rowCount = (std::min)(rowCount, filterObj.Limit); // NOTE: allow for Windows.h defining min
+
+					_rowCount = rowCount;
+				}
+			}
+
+			_stmt = prepStmt;
 			_result = nanodbc::execute(*_stmt);
 
 			_columnCount = _result.columns();
@@ -134,7 +181,7 @@ namespace db
 
 	private:
 		std::shared_ptr<ConnectionManager::Connection> _conn {};
-		std::unique_ptr<nanodbc::statement> _stmt {};
+		std::shared_ptr<nanodbc::statement> _stmt {};
 		nanodbc::result _result {};
 		Model::BindingIndex<BoundModelType> _bindingIndex {};
 		bool _fetchRowCount {};
