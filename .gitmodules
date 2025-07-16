@@ -13,10 +13,6 @@
 	path = deps/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo
 	branch = main
-[submodule "deps/nanodbc"]
-	path = deps/nanodbc
-	url = https://github.com/Open-KO/nanodbc
-	branch = main
 [submodule "deps/db-modules"]
 	path = deps/db-modules
 	url = https://github.com/Open-KO/OpenKO-db-modules
