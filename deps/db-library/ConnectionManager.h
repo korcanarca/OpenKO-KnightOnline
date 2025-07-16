@@ -70,7 +70,7 @@ namespace db
 		static std::shared_ptr<Connection> GetConnectionTo(modelUtil::DbType dbType, long timeout = 0) noexcept(false);
 
 		/// \brief returns the current ODBC connection string for a given DbType, or empty string if there is none
-		static const std::string& OdbcConnString(modelUtil::DbType dbType);
+		static std::string OdbcConnString(modelUtil::DbType dbType);
 
 	protected:
 		static inline ConnectionManager& GetInstance()

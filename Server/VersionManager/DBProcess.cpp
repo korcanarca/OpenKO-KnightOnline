@@ -44,7 +44,8 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 {
 	try
 	{
-		conn = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::ACCOUNT, DB_PROCESS_TIMEOUT);
+		// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
+		conn = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
 		if (conn == nullptr)
 		{
 			return FALSE;
@@ -81,6 +82,8 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 		LogFileWrite(logLine);
 		throw dbErr;
 	}
+	logstr = _T("ReConnectODBC Success\r\n");
+	LogFileWrite(logstr);
 }
 
 /// \brief loads the VERSION table into VersionManagerDlg.VersionList
@@ -182,14 +185,14 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	return FALSE;
 }
 
-/// \brief Deletes Version table entries associated with the associated fileName
+/// \brief Deletes Version table entry tied to the specified key
 /// \return TRUE on success, FALSE on failure
-BOOL CDBProcess::DeleteVersion(const char* fileName)
+BOOL CDBProcess::DeleteVersion(int version)
 {
 	db::SqlBuilder<model::Version> sql;
-	std::string deleteQuery = "DELETE FROM [" + model::Version::TableName() + "] WHERE [strFileName] = ?";
+	std::string deleteQuery = sql.DeleteByIdString();
 	nanodbc::statement stmt = nanodbc::statement(*conn->Conn, deleteQuery);
-	stmt.bind(0, fileName);
+	stmt.bind(0, &version);
 	try
 	{
 		ReConnectODBC();

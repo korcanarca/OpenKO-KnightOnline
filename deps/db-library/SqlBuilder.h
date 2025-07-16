@@ -111,7 +111,7 @@ namespace db
 		{
 			std::string insertQuery = "INSERT INTO [" + ModelType::TableName() + "] (";
 			std::string paramList;
-			for (const std::string& colName : ModelType::ColumnNames())
+			for (const std::string& colName : ModelType::OrderedColumnNames())
 			{
 				if (paramList.length() > 0)
 				{
@@ -122,13 +122,19 @@ namespace db
 				paramList += '?';
 			}
 			insertQuery += ") VALUES (" + paramList + ")";
+
+#if defined(_DEBUG)
+			std::cout << "using query: " << insertQuery << '\n';
+#endif
+			
 			return insertQuery;
 		}
+		
 		// std::string UpdateString()
 		// {
 		// 	std::string updateQuery = "UPDATE [" + ModelType::TableName() + "] SET ";
 		// 	std::string paramList;
-		// 	for (const std::string& colName : ModelType::ColumnNames())
+		// 	for (const std::string& colName : ModelType::OrderedColumnNames())
 		// 	{
 		// 		if (paramList.length() > 0)
 		// 		{
@@ -137,6 +143,35 @@ namespace db
 		// 		updateQuery += '[' + colName + "] = ?";
 		// 	}
 		// }
+
+		/// \brief returns a select query built using the table's PK.  Delete statements
+		/// not using the PK should be carefully hand coded
+		std::string DeleteByIdString()
+		{
+			std::string query;
+			// do not create queries for tables with defined PKs
+			if (ModelType::PrimaryKey().empty())
+			{
+				return query;
+			}
+
+			query = "DELETE FROM [" + ModelType::TableName() + "] WHERE ";
+			short i = 0;
+			for (const std::string& col : ModelType::PrimaryKey())
+			{
+				if (i > 0)
+					query += " AND ";
+				query += '[' + col + "] = ?";
+				i++;
+			}
+
+#if defined(_DEBUG)
+			std::cout << "using query: " << query << '\n';
+#endif
+
+			return query;
+		}
+		
 		/// \brief sets the columns for a select statement to a subset of bindable values
 		///
 		/// \param columns list of columns to select

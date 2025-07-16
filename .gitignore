@@ -52,6 +52,7 @@ x64/
 lib/
 warfare_config.h
 *.idea
+All.sln.DotSettings.user
 *.txt
 last-build-states/
 module-output/

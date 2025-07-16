@@ -39,7 +39,7 @@ public:
 
 	/// \brief Deletes Version table entries associated with the associated fileName
 	/// \return TRUE on success, FALSE on failure
-	BOOL DeleteVersion(const char* fileName);
+	BOOL DeleteVersion(int version);
 
 	/// \brief attempts to create a new Version table record
 	/// \returns TRUE on success, FALSE on failure

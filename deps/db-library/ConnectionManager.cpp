@@ -55,7 +55,7 @@ namespace db
 	}
 
 	/// \brief returns the current ODBC connection string for a given DbType, or empty string if there is none
-	const std::string& ConnectionManager::OdbcConnString(modelUtil::DbType dbType)
+	std::string ConnectionManager::OdbcConnString(modelUtil::DbType dbType)
 	{
 		std::string out;
 		std::shared_ptr<const DatasourceConfig> config = GetDatasourceConfig(dbType);

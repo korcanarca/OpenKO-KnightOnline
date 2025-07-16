@@ -112,12 +112,7 @@ BOOL CVersionManagerDlg::OnInitDialog()
 		return FALSE;
 	}
 
-	std::string odbcString = ConnectionManager::OdbcConnString(modelUtil::DbType::ACCOUNT);
-	CString strConnection = odbcString.c_str();
-	OutputList.AddString(strConnection);
-	CString version;
-	version.Format(_T("Latest Version : %d"), LastVersion);
-	OutputList.AddString(version);
+	ResetOutputList();
 
 	::ResumeThread(IocPort.m_hAcceptThread);
 
@@ -133,23 +128,19 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 
 	ini.GetString("DOWNLOAD", "URL", "127.0.0.1", FtpUrl, _countof(FtpUrl));
 	ini.GetString("DOWNLOAD", "PATH", "/", FilePath, _countof(FilePath));
-
-
-	// TODO: This should just be removed
-	TableName = ini.GetString(ini::ODBC, ini::TABLE, "VERSION");
-
+	
 	// TODO: KN_online should be Knight_Account
 	std::string datasourceName = ini.GetString(ini::ODBC, ini::DSN, "KN_online");
 	std::string datasourceUser = ini.GetString(ini::ODBC, ini::UID, "knight");
 	std::string datasourcePass = ini.GetString(ini::ODBC, ini::PWD, "knight");
 
+	// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
 	ConnectionManager::SetDatasourceConfig(
-		modelUtil::DbType::ACCOUNT,
+		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 
-	ini.GetString(_T("CONFIGURATION"), _T("DEFAULT_PATH"), _T(""), DefaultPath, _countof(DefaultPath));
-
-	ServerCount = ini.GetInt("SERVER_LIST", "COUNT", 1);
+	DefaultPath = ini.GetString(ini::CONFIGURATION, ini::DEFAULT_PATH, "");
+	ServerCount = ini.GetInt(ini::SERVER_LIST, ini::COUNT, 1);
 
 	if (strlen(FtpUrl) == 0
 		|| strlen(FilePath) == 0)
@@ -158,8 +149,7 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 	if (datasourceName.length() == 0
 		// TODO: Should we not validate UID/Pass length?  Would that allow Windows Auth?
 		|| datasourceUser.length() == 0
-		|| datasourcePass.length() == 0
-		|| TableName.length() == 0)
+		|| datasourcePass.length() == 0)
 		return FALSE;
 
 	if (ServerCount <= 0)
@@ -292,18 +282,17 @@ BOOL CVersionManagerDlg::DestroyWindow()
 void CVersionManagerDlg::OnVersionSetting() 
 {
 	CSettingDlg	setdlg(LastVersion, this);
-	
-	_tcscpy(setdlg.m_strDefaultPath, DefaultPath);
+
+	CString conv = DefaultPath.c_str();
+	_tcscpy_s(setdlg.DefaultPath, conv);
 	if (setdlg.DoModal() != IDOK)
 		return;
-
-	_tcscpy(DefaultPath, setdlg.m_strDefaultPath);
 
 	std::filesystem::path iniPath(GetProgPath().GetString());
 	iniPath /= L"Version.ini";
 
 	CIni ini(iniPath);
-	ini.SetString(_T("CONFIGURATION"), _T("DEFAULT_PATH"), DefaultPath);
+	DefaultPath = ini.GetString(ini::CONFIGURATION, ini::DEFAULT_PATH, "");
 	ini.Save();
 }
 
@@ -312,4 +301,22 @@ void CVersionManagerDlg::ReportTableLoadError(const recordset_loader::Error& err
 	CString msg;
 	msg.Format(_T("%hs failed: %hs"), source, err.Message.c_str());
 	AfxMessageBox(msg);
+}
+
+/// \brief clears the OutputList text area and regenerates default output
+/// \see OutputList
+void CVersionManagerDlg::ResetOutputList()
+{
+	OutputList.ResetContent();
+
+	// print the ODBC connection string
+	// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
+	std::string odbcString = ConnectionManager::OdbcConnString(modelUtil::DbType::GAME);
+	CString strConnection = odbcString.c_str();
+	OutputList.AddString(strConnection);
+
+	// print the current version
+	CString version;
+	version.Format(_T("Latest Version : %d"), LastVersion);
+	OutputList.AddString(version);
 }

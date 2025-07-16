@@ -18,7 +18,7 @@
 
 /////////////////////////////////////////////////////////////////////////////
 // CVersionManagerDlg dialog
-typedef CSTLMap <model::Version, std::string>	VersionInfoList;
+typedef CSTLMap <model::Version>	VersionInfoList;
 typedef std::vector<_SERVER_INFO*>	ServerInfoList;
 
 namespace recordset_loader
@@ -38,9 +38,10 @@ public:
 	static CIOCPort		IocPort;
 	char				FtpUrl[256];
 	char				FilePath[256];
-	TCHAR				DefaultPath[_MAX_PATH];
+
+	/// \brief DefaultPath loaded from CONFIGURATION.DEFAULT_PATH
+	std::string			DefaultPath;
 	int					LastVersion;
-	std::string			TableName; // TODO: remove?
 	VersionInfoList		VersionList;
 	ServerInfoList		ServerList;
 	int					ServerCount;
@@ -55,9 +56,14 @@ public:
 
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CVersionManagerDlg)
-	virtual BOOL PreTranslateMessage(MSG* msg);
-	virtual BOOL DestroyWindow();
+	BOOL PreTranslateMessage(MSG* msg) override;
+	BOOL DestroyWindow() override;
 	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
+
+	/// \brief clears the OutputList text area and regenerates default output
+	/// \see OutputList
+	void ResetOutputList();
+	
 protected:
 	virtual void DoDataExchange(CDataExchange* data);	// DDX/DDV support
 	//}}AFX_VIRTUAL
@@ -68,7 +74,7 @@ protected:
 
 	// Generated message map functions
 	//{{AFX_MSG(CVersionManagerDlg)
-	virtual BOOL OnInitDialog();
+	BOOL OnInitDialog() override;
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnVersionSetting();

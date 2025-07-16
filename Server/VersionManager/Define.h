@@ -1,6 +1,10 @@
 ﻿#ifndef _DEFINE_H
 #define _DEFINE_H
 
+#define _DEBUG
+#if defined(_DEBUG)
+#include <iostream>
+#endif
 #include <string>
 #include <mmsystem.h>
 
@@ -198,7 +202,8 @@ inline void LogFileWrite(const TCHAR* logstr)
 {
 	CString LogFileName;
 	LogFileName.Format(_T("%s\\Login.log"), GetProgPath().GetString());
-
+	
+	
 	CFile file;
 	if (!file.Open(LogFileName, CFile::modeCreate | CFile::modeNoTruncate | CFile::modeWrite))
 		return;
@@ -207,8 +212,14 @@ inline void LogFileWrite(const TCHAR* logstr)
 
 #if defined(_UNICODE)
 	const std::string utf8 = WideToUtf8(logstr, wcslen(logstr));
+#if defined(_DEBUG)
+	std::cout << "using query: " << utf8 << '\n';
+#endif
 	file.Write(utf8.c_str(), static_cast<int>(utf8.size()));
 #else
+#if defined(_DEBUG)
+	std::cout << "using query: " << logstr << '\n';
+#endif
 	file.Write(logstr, strlen(logstr));
 #endif
 
@@ -249,10 +260,18 @@ namespace ini
 {
 	// ODBC Config Section
 	static const std::string ODBC = "ODBC";
-	const std::string DSN = "DSN";
-	const std::string UID = "UID";
-	const std::string PWD = "PWD";
-	const std::string TABLE = "TABLE";
+	static const std::string DSN = "DSN";
+	static const std::string UID = "UID";
+	static const std::string PWD = "PWD";
+	static const std::string TABLE = "TABLE";
+
+	// CONFIGURATION section
+	static const std::string CONFIGURATION = "CONFIGURATION";
+	static const std::string DEFAULT_PATH = "DEFAULT_PATH";
+
+	// SERVER_LIST section
+	static const std::string SERVER_LIST = "SERVER_LIST";
+	static const std::string COUNT = "COUNT";
 }
 
 #endif

@@ -64,7 +64,7 @@ ECHO Please note that this may take some time, so please be patient.
 
 :: Update submodule.
 PUSHD "%REPO_ROOT%"
-"%GitPath%" submodule update --init --recursive "%DEP_PATH%"
+"%GitPath%" submodule update --init --recursive --remote "%DEP_PATH%"
 POPD
 
 :: Not all dependencies need to be built (e.g. ko-client-assets).
