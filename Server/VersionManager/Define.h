@@ -1,7 +1,6 @@
 ﻿#ifndef _DEFINE_H
 #define _DEFINE_H
 
-#define _DEBUG
 #if defined(_DEBUG)
 #include <iostream>
 #endif

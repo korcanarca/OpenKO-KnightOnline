@@ -37,7 +37,7 @@ public:
 	/// \throws nanodbc::database_error
 	void ReConnectODBC();
 
-	/// \brief Deletes Version table entries associated with the associated fileName
+	/// \brief Deletes Version table entry tied to the specified key
 	/// \return TRUE on success, FALSE on failure
 	BOOL DeleteVersion(int version);
 
