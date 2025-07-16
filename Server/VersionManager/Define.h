@@ -11,6 +11,7 @@ constexpr int MAX_USER			= 3000;
 
 #define _LISTEN_PORT			15100
 #define CLIENT_SOCKSIZE			10
+#define DB_PROCESS_TIMEOUT		100
 
 ////////////////////////////////////////////////////////////
 // Socket Define
@@ -57,20 +58,12 @@ typedef union
 } MYDWORD;
 
 import VersionManagerModel;
-// namespace model = versionmanager_model; // TODO
+namespace model = versionmanager_model; 
 
 struct _NEWS
 {
 	char Content[4096]	= {};
 	short Size			= 0;
-};
-
-struct _VERSION_INFO
-{
-	short		sVersion;
-	short		sHistoryVersion;
-	std::string	strFileName;
-	std::string	strCompName;
 };
 
 struct _SERVER_INFO
@@ -222,6 +215,12 @@ inline void LogFileWrite(const TCHAR* logstr)
 	file.Close();
 }
 
+inline void LogFileWrite(const std::string& logStr)
+{
+	CString clog = logStr.c_str();
+	LogFileWrite(clog);
+}
+
 inline int DisplayErrorMsg(SQLHANDLE hstmt)
 {
 	SQLTCHAR      SqlState[6], Msg[1024];
@@ -243,6 +242,17 @@ inline int DisplayErrorMsg(SQLHANDLE hstmt)
 		return -1;
 
 	return 0;
+}
+
+// ini config variable names
+namespace ini
+{
+	// ODBC Config Section
+	static const std::string ODBC = "ODBC";
+	const std::string DSN = "DSN";
+	const std::string UID = "UID";
+	const std::string PWD = "PWD";
+	const std::string TABLE = "TABLE";
 }
 
 #endif

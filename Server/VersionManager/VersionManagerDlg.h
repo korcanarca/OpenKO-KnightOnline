@@ -18,9 +18,13 @@
 
 /////////////////////////////////////////////////////////////////////////////
 // CVersionManagerDlg dialog
+typedef CSTLMap <model::Version, std::string>	VersionInfoList;
+typedef std::vector<_SERVER_INFO*>	ServerInfoList;
 
-typedef CSTLMap <_VERSION_INFO, std::string>	VersionInfoList;
-typedef std::vector <_SERVER_INFO*>	ServerInfoList;
+namespace recordset_loader
+{
+	struct Error;
+}
 
 class CVersionManagerDlg : public CDialog
 {
@@ -28,48 +32,39 @@ class CVersionManagerDlg : public CDialog
 public:
 	BOOL GetInfoFromIni();
 
-	CVersionManagerDlg(CWnd* pParent = nullptr);	// standard constructor
+	CVersionManagerDlg(CWnd* parent = nullptr);	// standard constructor
 	~CVersionManagerDlg();
 
-	static CIOCPort	m_Iocport;
-
-	char	m_strFtpUrl[256];
-	char	m_strFilePath[256];
-	TCHAR	m_strDefaultPath[_MAX_PATH];
-
-	int		m_nLastVersion;
-
-	TCHAR	m_ODBCName[32];
-	TCHAR	m_ODBCLogin[32];
-	TCHAR	m_ODBCPwd[32];
-	TCHAR	m_TableName[32];
-
-	VersionInfoList		m_VersionList;
-	ServerInfoList		m_ServerList;
-	int					m_nServerCount;
-
-	_NEWS				m_News;
-
-	CDBProcess	m_DBProcess;
+	static CIOCPort		IocPort;
+	char				FtpUrl[256];
+	char				FilePath[256];
+	TCHAR				DefaultPath[_MAX_PATH];
+	int					LastVersion;
+	std::string			TableName; // TODO: remove?
+	VersionInfoList		VersionList;
+	ServerInfoList		ServerList;
+	int					ServerCount;
+	_NEWS				News;
+	CDBProcess			DbProcess;
 
 // Dialog Data
 	//{{AFX_DATA(CVersionManagerDlg)
 	enum { IDD = IDD_VERSIONMANAGER_DIALOG };
-	CListBox	m_OutputList;
+	CListBox	OutputList;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CVersionManagerDlg)
-public:
-	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	virtual BOOL PreTranslateMessage(MSG* msg);
 	virtual BOOL DestroyWindow();
+	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 protected:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
+	virtual void DoDataExchange(CDataExchange* data);	// DDX/DDV support
 	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
-	HICON m_hIcon;
+	HICON Icon;
 
 	// Generated message map functions
 	//{{AFX_MSG(CVersionManagerDlg)

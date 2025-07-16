@@ -9,6 +9,9 @@
 
 #include <string>
 
+import VersionManagerModel;
+namespace model = versionmanager_model;
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -25,7 +28,7 @@ using PathType = std::string;
 // CSettingDlg dialog
 
 CSettingDlg::CSettingDlg(int version, CWnd* pParent /*=NULL*/)
-	: CDialog(CSettingDlg::IDD, pParent)
+	: CDialog(IDD, pParent)
 {
 	//{{AFX_DATA_INIT(CSettingDlg)
 	m_nVersion = version;
@@ -135,14 +138,13 @@ void CSettingDlg::OnAddfile()
 
 void CSettingDlg::OnDeletefile()
 {
-	int selcount = 0;
-	CString delfilename, compname, errmsg;
-	std::string			filename;
-	std::vector<int>	sellist;
-	_VERSION_INFO* pInfo = nullptr;
+	CString delFileName, compressName, errMsg;
+	std::string			fileName;
+	std::vector<int>	selList;
+	model::Version* delVersion = nullptr;
 
-	selcount = m_FileList.GetSelCount();
-	if (selcount == 0)
+	int selCount = m_FileList.GetSelCount();
+	if (selCount == 0)
 	{
 		AfxMessageBox(_T("File Not Selected."));
 		return;
@@ -150,44 +152,44 @@ void CSettingDlg::OnDeletefile()
 
 	BeginWaitCursor();
 
-	sellist.reserve(selcount);
+	selList.reserve(selCount);
 
-	m_FileList.GetSelItems(selcount, &sellist[0]);
+	m_FileList.GetSelItems(selCount, &selList[0]);
 
-	for (int i = 0; i < selcount; i++)
+	for (int i = 0; i < selCount; i++)
 	{
-		m_FileList.GetText(sellist[i], delfilename);
-		filename = CT2A(delfilename);
+		m_FileList.GetText(selList[i], delFileName);
+		fileName = CT2A(delFileName);
 
-		pInfo = m_pMain->m_VersionList.GetData(filename);
-		if (pInfo == nullptr)
+		delVersion = m_pMain->VersionList.GetData(fileName);
+		if (delVersion == nullptr)
 			continue;
 
-		if (!m_pMain->m_DBProcess.DeleteVersion(filename.c_str()))
+		if (!m_pMain->DbProcess.DeleteVersion(fileName.c_str()))
 		{
-			errmsg.Format(_T("%hs DB Delete Fail"), filename.c_str());
-			AfxMessageBox(errmsg);
+			errMsg.Format(_T("%hs DB Delete Fail"), fileName.c_str());
+			AfxMessageBox(errMsg);
 			return;
 		}
 
 		// Restore
-		if (pInfo->sHistoryVersion > 0)
+		if (delVersion->HistoryVersion > 0)
 		{
-			pInfo->sVersion = pInfo->sHistoryVersion;
-			pInfo->sHistoryVersion = 0;
+			delVersion->Number = delVersion->HistoryVersion;
+			delVersion->HistoryVersion = 0;
 
-			compname.Format(_T("patch%.4d.zip"), pInfo->sVersion);
-			if (!m_pMain->m_DBProcess.InsertVersion(pInfo->sVersion, filename.c_str(), CT2A(compname), 0))
+			compressName.Format(_T("patch%.4d.zip"), delVersion->Number);
+			if (!m_pMain->DbProcess.InsertVersion(delVersion->Number, fileName.c_str(), CT2A(compressName), 0))
 			{
-				m_pMain->m_VersionList.DeleteData(filename);
-				errmsg.Format(_T("%hs DB Insert Fail"), filename.c_str());
-				AfxMessageBox(errmsg);
+				m_pMain->VersionList.DeleteData(fileName);
+				errMsg.Format(_T("%hs DB Insert Fail"), fileName.c_str());
+				AfxMessageBox(errMsg);
 				return;
 			}
 		}
 		else
 		{
-			m_pMain->m_VersionList.DeleteData(filename);
+			m_pMain->VersionList.DeleteData(fileName);
 		}
 
 		Sleep(10);
@@ -204,7 +206,6 @@ void CSettingDlg::OnCompress()
 	DWORD dwsize;
 	CFile file;
 	std::string		addfilename;
-	_VERSION_INFO* pInfo = nullptr;
 
 	UpdateData(TRUE);
 
@@ -253,9 +254,9 @@ void CSettingDlg::OnCompress()
 
 		addfilename = CT2A(filename);
 
-		pInfo = m_pMain->m_VersionList.GetData(addfilename);
+		model::Version* pInfo = m_pMain->VersionList.GetData(addfilename);
 		if (pInfo != nullptr)
-			m_RepackingVersionList.insert(pInfo->sHistoryVersion);
+			m_RepackingVersionList.insert(pInfo->HistoryVersion);
 	}
 
 	SetDlgItemText(IDC_STATUS, _T("Compressed"));
@@ -290,10 +291,10 @@ void CSettingDlg::OnRefresh()
 
 	m_FileList.ResetContent();
 
-	for (const auto& [_, pInfo] : m_pMain->m_VersionList)
+	for (const auto& [_, pInfo] : m_pMain->VersionList)
 	{
-		if (pInfo->sVersion == m_nVersion)
-			m_FileList.AddString(CA2T(pInfo->strFileName.c_str()));
+		if (pInfo->Number == m_nVersion)
+			m_FileList.AddString(CA2T(pInfo->FileName.c_str()));
 	}
 }
 
@@ -332,12 +333,12 @@ bool CSettingDlg::Repacking(int version)
 
 	m_ZipArchive.Open(compfullpath, CZipArchive::create);
 
-	for (const auto& [_, pInfo] : m_pMain->m_VersionList)
+	for (const auto& [_, pInfo] : m_pMain->VersionList)
 	{
-		if (pInfo->sVersion != version)
+		if (pInfo->Number != version)
 			continue;
 
-		filename.Format(_T("%s%hs"), m_strDefaultPath, pInfo->strFileName.c_str());
+		filename.Format(_T("%s%hs"), m_strDefaultPath, pInfo->FileName.c_str());
 		if (!file.Open(filename, CFile::modeRead))
 		{
 			errmsg.Format(_T("%s File Open Fail"), filename.GetString());
@@ -363,57 +364,57 @@ bool CSettingDlg::Repacking(int version)
 
 bool CSettingDlg::InsertProcess(const TCHAR* filename)
 {
-	_VERSION_INFO* pInfo1 = nullptr, *pInfo2 = nullptr;
-	CString compname, errmsg;
-	std::string		addfilename;
-	int historyversion = 0;
+	model::Version* pInfo1 = nullptr, *pInfo2 = nullptr;
+	CString compressName, errMsg;
+	std::string		fileName;
+	int historyVersion = 0;
 
-	addfilename = CT2A(filename);
+	fileName = CT2A(filename);
 
-	if (IsDBCSString(addfilename.c_str()))
+	if (IsDBCSString(fileName.c_str()))
 	{
-		errmsg.Format(_T("%s include DBCS character"), filename);
-		AfxMessageBox(errmsg);
+		errMsg.Format(_T("%s include DBCS character"), filename);
+		AfxMessageBox(errMsg);
 		return false;
 	}
 
-	compname.Format(_T("patch%.4d.zip"), m_nVersion);
+	compressName.Format(_T("patch%.4d.zip"), m_nVersion);
 
-	pInfo1 = m_pMain->m_VersionList.GetData(addfilename);
+	pInfo1 = m_pMain->VersionList.GetData(fileName);
 	if (pInfo1 != nullptr)
 	{
-		historyversion = pInfo1->sVersion;
-		m_pMain->m_VersionList.DeleteData(addfilename);
+		historyVersion = pInfo1->Number;
+		m_pMain->VersionList.DeleteData(fileName);
 
-		if (!m_pMain->m_DBProcess.DeleteVersion(addfilename.c_str()))
+		if (!m_pMain->DbProcess.DeleteVersion(fileName.c_str()))
 		{
-			errmsg.Format(_T("%hs DB Delete Fail"), addfilename.c_str());
-			AfxMessageBox(errmsg);
+			errMsg.Format(_T("%hs DB Delete Fail"), fileName.c_str());
+			AfxMessageBox(errMsg);
 			return false;
 		}
 	}
 
-	pInfo2 = new _VERSION_INFO;
-	pInfo2->sVersion = m_nVersion;
-	pInfo2->strFileName = addfilename;
-	pInfo2->strCompName = CT2A(compname);
-	pInfo2->sHistoryVersion = historyversion;
-	if (!m_pMain->m_VersionList.PutData(addfilename, pInfo2))
+	pInfo2 = new model::Version();
+	pInfo2->Number = m_nVersion;
+	pInfo2->FileName = fileName;
+	pInfo2->CompressName = CT2A(compressName);
+	pInfo2->HistoryVersion = historyVersion;
+	if (!m_pMain->VersionList.PutData(fileName, pInfo2))
 	{
 		delete pInfo2;
 		return false;
 	}
 
-	if (!m_pMain->m_DBProcess.InsertVersion(
+	if (!m_pMain->DbProcess.InsertVersion(
 		m_nVersion,
-		addfilename.c_str(),
-		pInfo2->strCompName.c_str(),
-		historyversion))
+		fileName.c_str(),
+		pInfo2->CompressName.c_str(),
+		historyVersion))
 	{
-		m_pMain->m_VersionList.DeleteData(addfilename);
+		m_pMain->VersionList.DeleteData(fileName);
 
-		errmsg.Format(_T("%hs DB Insert Fail"), addfilename.c_str());
-		AfxMessageBox(errmsg);
+		errMsg.Format(_T("%hs DB Insert Fail"), fileName.c_str());
+		AfxMessageBox(errMsg);
 		return false;
 	}
 
