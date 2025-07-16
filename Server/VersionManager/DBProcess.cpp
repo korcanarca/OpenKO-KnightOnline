@@ -37,6 +37,9 @@ CDBProcess::~CDBProcess()
 {
 }
 
+/// \brief attempts a connection with db::ConnectionManager to the ACCOUNT dbType
+/// \throws nanodbc::database_error
+/// \returns TRUE is successful, FALSE otherwise
 BOOL CDBProcess::InitDatabase() noexcept(false)
 {
 	try
@@ -58,7 +61,9 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 	return TRUE;
 }
 
-void CDBProcess::ReConnectODBC()
+/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
+/// \throws nanodbc::database_error
+void CDBProcess::ReConnectODBC() noexcept(false)
 {
 	CString logstr;
 	CTime t = CTime::GetCurrentTime();
@@ -74,9 +79,12 @@ void CDBProcess::ReConnectODBC()
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
+		throw dbErr;
 	}
 }
 
+/// \brief loads the VERSION table into VersionManagerDlg.VersionList
+/// \returns TRUE if successful, FALSE otherwise
 BOOL CDBProcess::LoadVersionList()
 {
 	recordset_loader::STLMap loader(Main->VersionList);
@@ -97,21 +105,21 @@ BOOL CDBProcess::LoadVersionList()
 	return TRUE;
 }
 
-int CDBProcess::AccountLogin(const char* id, const char* pwd)
+/// \brief Attempts account authentication with a given accountId and password
+/// \returns AUTH_OK on success, AUTH_NOT_FOUND on failure, AUTH_BANNED for banned accounts
+int CDBProcess::AccountLogin(const char* accountId, const char* password)
 {
 	// TODO: Restore this, but it should be handled ideally in its own database, or a separate stored procedure.
 	// As we're currently using a singular database (and we expect people to be using our database), and we have
 	// no means of syncing this currently, we'll temporarily hack this to fetch and handle basic auth logic
 	// without a procedure.
-#if 1
-
 	db::SqlBuilder<model::TbUser> sql;
 	sql.IsWherePK = true;
 	nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
-	stmt.bind(0, id);
+	stmt.bind(0, accountId);
 	try
 	{
-		conn->Reconnect();
+		ReConnectODBC();
 		db::ModelRecordSet<model::TbUser> recordSet;
 		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
 		recordSet.open(prepStmt);
@@ -120,7 +128,7 @@ int CDBProcess::AccountLogin(const char* id, const char* pwd)
 			return AUTH_NOT_FOUND;
 		}
 		model::TbUser user = recordSet.get();
-		if (user.Password != pwd)
+		if (user.Password != password)
 		{
 			return AUTH_NOT_FOUND;
 		}
@@ -138,35 +146,11 @@ int CDBProcess::AccountLogin(const char* id, const char* pwd)
 		return AUTH_FAILED;
 	}
 	
-#else
-	// retVal
-	// 0 = failed login
-	// 1 = account with no characters
-	// 2 = account with karus characters
-	// 3 = account with el morad characters
-	// -1 = not modified by proc
-	int16_t retVal = -1;
-	storedProc::AccountLogin login(conn->Conn);
-	try
-	{
-		conn->Reconnect();
-		std::weak_ptr<nanodbc::result> weak_result = login.execute(id, pwd, &retVal);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
-		// TODO: This stored proc isn't currently written for this task
-	}
-	catch (nanodbc::database_error dbErr)
-	{
-		std::string logLine = "DBProcess.AccountLogin(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
-		return AUTH_FAILED;
-	}
-#endif
 	return AUTH_OK;
 }
 
 /// \brief attempts to create a new Version table record
+/// \returns TRUE on success, FALSE on failure
 BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* compressName, int historyVersion)
 {
 
@@ -179,7 +163,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	stmt.bind(3, &historyVersion);
 	try
 	{
-		conn->Reconnect();
+		ReConnectODBC();
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
 		{
@@ -199,6 +183,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 }
 
 /// \brief Deletes Version table entries associated with the associated fileName
+/// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::DeleteVersion(const char* fileName)
 {
 	db::SqlBuilder<model::Version> sql;
@@ -207,7 +192,7 @@ BOOL CDBProcess::DeleteVersion(const char* fileName)
 	stmt.bind(0, fileName);
 	try
 	{
-		conn->Reconnect();
+		ReConnectODBC();
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
 		{
@@ -227,12 +212,13 @@ BOOL CDBProcess::DeleteVersion(const char* fileName)
 }
 
 /// \brief updates the server's concurrent user counts
+/// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::LoadUserCountList()
 {
 	db::ModelRecordSet<model::Concurrent> recordSet;
 	try
 	{
-		conn->Reconnect();
+		ReConnectODBC();
 		recordSet.open();
 		while (recordSet.next())
 		{
@@ -247,7 +233,7 @@ BOOL CDBProcess::LoadUserCountList()
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
-		return AUTH_FAILED;
+		return FALSE;
 	}
 	
 	return TRUE;
@@ -255,6 +241,10 @@ BOOL CDBProcess::LoadUserCountList()
 
 /// \brief Checks to see if a user is present in CURRENTUSER for a particular server
 /// writes to serverIp and serverId
+/// \param accountId
+/// \param[out] serverIp output of the server IP the user is connected to
+/// \param[out] serverId output of the serverId the user is connected to
+/// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serverId)
 {
 	db::SqlBuilder<model::CurrentUser> sql;
@@ -263,7 +253,7 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	stmt.bind(0, accountId);
 	try
 	{
-		conn->Reconnect();
+		ReConnectODBC();
 		db::ModelRecordSet<model::CurrentUser> recordSet;
 		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
 		recordSet.open(prepStmt);
@@ -287,7 +277,11 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	return TRUE;
 }
 
-/// \brief calls LoadPremiumServiceUser and returns how many days of premium remain
+/// \brief calls LoadPremiumServiceUser and writes how many days of premium remain
+/// to premiumDaysRemaining
+/// \param accountId
+/// \param[out] premiumDaysRemaining output value of remaining premium days
+/// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDaysRemaining)
 {
 	int32_t premiumType = 0; // NOTE: we don't need this in the login server
@@ -295,7 +289,7 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 	storedProc::LoadPremiumServiceUser premium(conn->Conn);
 	try
 	{
-		conn->Reconnect();
+		ReConnectODBC();
 		std::weak_ptr<nanodbc::result> weak_result = premium.execute(accountId, &premiumType, &daysRemaining);
 		short sDays = static_cast<short>(daysRemaining);
 		premiumDaysRemaining = &sDays;
@@ -306,7 +300,7 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
-		return AUTH_FAILED;
+		return FALSE;
 	}
 	
 	return TRUE;
