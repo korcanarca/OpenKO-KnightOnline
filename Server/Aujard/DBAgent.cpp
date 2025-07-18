@@ -54,7 +54,7 @@ bool CDBAgent::DatabaseInit()
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.InitDatabase(_gameConn1): ";
 		logLine += dbErr.what();
@@ -72,7 +72,7 @@ bool CDBAgent::DatabaseInit()
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.InitDatabase(_accountConn1): ";
 		logLine += dbErr.what();
@@ -90,7 +90,7 @@ bool CDBAgent::DatabaseInit()
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.InitDatabase(_accountConn2): ";
 		logLine += dbErr.what();
@@ -115,13 +115,13 @@ void CDBAgent::ReConnectODBC(std::shared_ptr<db::ConnectionManager::Connection> 
 	{
 		conn->Reconnect();
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.ReConnectODBC(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
-		throw dbErr;
+		throw;
 	}
 	logstr = _T("ReConnectODBC Success\r\n");
 	LogFileWrite(logstr);
@@ -235,7 +235,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 			LoyaltyMonthly = result->get<uint32_t>(36);
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.LoadUserData(): ";
 		logLine += dbErr.what();
@@ -546,7 +546,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.LoadUserData(): ";
 		logLine += dbErr.what();
@@ -571,7 +571,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			accountId, password, &retCode);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.AccountLogInReq(): ";
 		logLine += dbErr.what();
@@ -597,7 +597,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, accountId, nation);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.NationSelect(): ";
 		logLine += dbErr.what();
@@ -630,7 +630,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 			&retCode, accountId, index, charId, race, Class, hair,
 			face, str, sta, dex, intel, cha);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.CreateNewChar(): ";
 		logLine += dbErr.what();
@@ -688,7 +688,7 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.LoadCharInfo(): ";
 		logLine += dbErr.what();
@@ -777,7 +777,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.GetAllCharID(): ";
 		logLine += dbErr.what();
@@ -821,7 +821,7 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, knightsId, nation, flag, name, chief);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.CreateKnights(): ";
 		logLine += dbErr.what();
@@ -852,7 +852,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, type, charId, knightsId, domination);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.UpdateKnights(): ";
 		logLine += dbErr.what();
@@ -877,7 +877,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, knightsId);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.DeleteKnights(): ";
 		logLine += dbErr.what();
@@ -944,7 +944,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 			rowCount++;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.LoadKnightsAllMembers(): ";
 		logLine += dbErr.what();
@@ -976,7 +976,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 		stmt.bind(1, &serverId);
 		nanodbc::result result = stmt.execute();
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.UpdateConCurrentUserCount(): ";
 		logLine += dbErr.what();
@@ -1030,7 +1030,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 			std::ranges::copy(warehouse.Serial.value(), serial);
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.LoadWarehouseData(): ";
 		logLine += dbErr.what();
@@ -1138,7 +1138,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.UpdateWarehouseData(): ";
 		logLine += dbErr.what();
@@ -1191,7 +1191,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 		SetShort(buffOut, knights.Members, buffIndex);
 		SetDWORD(buffOut, knights.Points, buffIndex);
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.LoadKnightsInfo(): ";
 		logLine += dbErr.what();
@@ -1244,7 +1244,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.SetLogInInfo(): ";
 		logLine += dbErr.what();
@@ -1282,7 +1282,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBAgent.AccountLogout(): ";
 		logLine += dbErr.what();
@@ -1331,7 +1331,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.CheckUserData(): ";
 		logLine += dbErr.what();
@@ -1422,7 +1422,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 			}
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.LoadKnightsAllList(): ";
 		logLine += dbErr.what();
@@ -1487,7 +1487,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 			return false;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.UpdateBattleEvent(): ";
 		logLine += dbErr.what();

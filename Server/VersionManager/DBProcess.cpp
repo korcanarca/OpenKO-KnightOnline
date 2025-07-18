@@ -23,7 +23,6 @@ import StoredProc;
 // NOTE: Explicitly handled under DEBUG_NEW override
 #include <db-library/RecordSetLoader_STLMap.h>
 
-
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -51,7 +50,7 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 			return FALSE;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.InitDatabase(): ";
 		logLine += dbErr.what();
@@ -74,13 +73,13 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 	{
 		conn->Reconnect();
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.ReConnectODBC(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
-		throw dbErr;
+		throw;
 	}
 	logstr = _T("ReConnectODBC Success\r\n");
 	LogFileWrite(logstr);
@@ -141,7 +140,7 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 			return AUTH_BANNED;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.AccountLogin(): ";
 		logLine += dbErr.what();
@@ -173,7 +172,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 			return TRUE;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.InsertVersion(): ";
 		logLine += dbErr.what();
@@ -202,7 +201,7 @@ BOOL CDBProcess::DeleteVersion(int version)
 			return TRUE;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.DeleteVersion(): ";
 		logLine += dbErr.what();
@@ -230,7 +229,7 @@ BOOL CDBProcess::LoadUserCountList()
 				Main->ServerList[concurrent.ServerId - 1]->sUserCount = concurrent.Zone1Count + concurrent.Zone2Count + concurrent.Zone3Count;
 		}
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.LoadUserCountList(): ";
 		logLine += dbErr.what();
@@ -268,7 +267,7 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 		serverId = user.ServerId;
 		strcpy(serverIp, user.ServerIP.c_str());
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.IsCurrentUser(): ";
 		logLine += dbErr.what();
@@ -297,7 +296,7 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 		short sDays = static_cast<short>(daysRemaining);
 		premiumDaysRemaining = &sDays;
 	}
-	catch (nanodbc::database_error dbErr)
+	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "DBProcess.LoadPremiumServiceUser(): ";
 		logLine += dbErr.what();
