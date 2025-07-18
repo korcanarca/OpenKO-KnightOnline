@@ -30,97 +30,212 @@ class CAujardDlg : public CDialog
 // Construction
 public:
 	static inline CAujardDlg* GetInstance() {
-		return s_pInstance;
+		return _instance;
 	}
 
-	void CouponEvent(char* pData);
-	void BattleEventResult(char* pData);
-	void WriteLogFile(char* pData);
-	void SaveUserData();
-	void WritePacketLog();
-	void UserKickOut(char* pBuf);
-	void SetLogInInfo(char* pBuf);
-	void KnightsList(char* pBuf);
-	void ConCurrentUserCount();
-	void AllKnightsMember(char* pBuf);
-	void DestroyKnights(char* pBuf);
-	void ModifyKnightsMember(char* pBuf, BYTE command);
-	void WithdrawKnights(char* pBuf);
-	void JoinKnights(char* pBuf);
-	void CreateKnights(char* pBuf);
-	void KnightsPacket(char* pBuf);
-	_USER_DATA* GetUserPtr(const char* struserid, int& uid);
-	void UserDataSave(char* pBuf);
-	void AllSaveRoutine();
-	void AllCharInfoReq(char* pBuf);
-	void AccountLogIn(char* pBuf);
-	void DeleteChar(char* pBuf);
-	void CreateNewChar(char* pBuf);
-	void SelectNation(char* pBuf);
-	BOOL LoadItemTable();
-	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
-	void UserLogOut(char* pBuf);
+	/// \brief handles DB_COUPON_EVENT requests
+	/// \todo related stored procedures are not implemented
+	/// \see DB_COUPON_EVENT
+	void CouponEvent(char* data);
+	
+	/// \brief handles WIZ_BATTLE_EVENT requests
+    /// \details contains which nation won the war and which charId killed the commander
+    /// \see WIZ_BATTLE_EVENT
+	void BattleEventResult(char* data);
 
-	CAujardDlg(CWnd* pParent = nullptr);	// standard constructor
+	/// \brief Writes a string to the AujardLog-DATE.txt log
+	/// \todo: refactor out for LogFileWrite in Define.h or other logger solution
+	void WriteLogFile(char* data);
+
+	/// \brief checks for users who have not saved their data in AUTOSAVE_DELTA milliseconds
+	/// and performs a UserDataSave() for them.
+	/// \note this is currently disabled in OnTimer()
+	/// \see UserDataSave(), OnTimer(), PACKET_CHECK
+	void SaveUserData();
+
+	/// \brief writes a packet summary line to the log file
+	void WritePacketLog();
+
+	/// \brief handles WIZ_KICKOUT requests
+	/// \see WIZ_KICKOUT
+	void UserKickOut(char* buffer);
+
+	/// \brief handles WIZ_LOGIN_INFO requests, updating CURRENTUSER for a user
+	/// \see WIZ_LOGIN_INFO
+	void SetLogInInfo(char* buffer);
+
+	/// \brief attempts to retrieve metadata for a knights clan
+	/// \see KnightsPacket(), KNIGHTS_LIST_REQ
+	void KnightsList(char* buffer);
+
+	/// \brief Called by OnTimer if __SAMMA is defined
+	/// \todo safe to remove?
+	void ConCurrentUserCount();
+
+	/// \brief attempts to return a list of all knights members
+	/// \see KnightsPacket(), KNIGHTS_MEMBER_REQ
+	void AllKnightsMember(char* buffer);
+
+	/// \brief attempts to disband a knights clan
+	/// \see KnightsPacket(), KNIGHTS_DESTROY
+	void DestroyKnights(char* buffer);
+
+	/// \brief attempts to modify a knights character
+	/// \see KnightsPacket(), KNIGHTS_REMOVE, KNIGHTS_ADMIT, KNIGHTS_REJECT, KNIGHTS_CHIEF,
+	/// KNIGHTS_VICECHIEF, KNIGHTS_OFFICER, KNIGHTS_PUNISH
+	void ModifyKnightsMember(char* buffer, BYTE command);
+
+	/// \brief attempt to remove a character from a knights clan
+	/// \see KnightsPacket(), KNIGHTS_WITHDRAW
+	void WithdrawKnights(char* buffer);
+
+	/// \brief attempts to add a character to a knights clan
+	/// \see KnightsPacket(), KNIGHTS_JOIN
+	void JoinKnights(char* buffer);
+
+	/// \brief attempts to create a knights clan
+	/// \see KnightsPacket(), KNIGHTS_CREATE
+	void CreateKnights(char* buffer);
+
+	/// \brief handles WIZ_KNIGHTS_PROCESS and WIZ_CLAN_PROCESS requests
+	/// \detail calls the appropriate method for the subprocess op-code
+	/// \see "Knights Packet sub define" section in Define.h
+	void KnightsPacket(char* buffer);
+
+	/// \brief attempts to find a UserData record for charId
+	/// \param charId
+	/// \param[out] userId UserData index of the user, if found
+	/// \return pointer to UserData[userId] object if found, nullptr otherwise
+	_USER_DATA* GetUserPtr(const char* charId, int& userId);
+	
+	/// \brief handles a WIZ_ALLCHAR_INFO_REQ request
+	/// \details Loads all character information and sends it to the client
+	/// \see WIZ_ALLCHAR_INFO_REQ
+	void AllCharInfoReq(char* buffer);
+
+	/// \brief handles a WIZ_LOGIN request to a selected game server
+	/// \see WIZ_LOGIN
+	void AccountLogIn(char* buffer);
+
+	/// \brief handles a WIZ_DEL_CHAR request
+	/// \todo not implemented, always returns an error to the client
+	/// \see WIZ_DEL_CHAR
+	void DeleteChar(char* buffer);
+
+	/// \brief handles a WIZ_NEW_CHAR request
+	/// \see WIZ_NEW_CHAR
+	void CreateNewChar(char* buffer);
+
+	/// \brief handles a WIZ_SEL_NATION request to a selected game server
+	/// \see WIZ_SEL_NATION
+	void SelectNation(char* buffer);
+
+	/// \brief loads information needed from the ITEM table to a cache map
+	BOOL LoadItemTable();
+	
+	/// \brief writes a recordset_loader::Error to an error pop-up
+	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
+
+	/// \brief handles a WIZ_DATASAVE request
+	/// \see WIZ_DATASAVE
+	/// \see HandleUserUpdate()
+	void UserDataSave(char* buffer);
+	
+	/// \brief Handles a WIZ_LOGOUT request when logging out of the game
+	/// \details Updates USERDATA and WAREHOUSE as part of logging out, then resets the UserData entry for re-use
+	/// \see WIZ_LOGOUT, HandleUserLogout()
+	void UserLogOut(char* buffer);
+	
+	/// \brief handling for when OnTimer fails a PROCESS_CHECK with ebenezer
+	/// \details Logs ebenezer outage, attempts to save all UserData, and resets all UserData[userId] objects
+	/// \see OnTimer(), HandleUserLogout()
+	void AllSaveRoutine();
+
+	CAujardDlg(CWnd* parent = nullptr);	// standard constructor
 	~CAujardDlg();
 
-	BOOL InitializeMMF();
-	void SelectCharacter(char* pBuf);
+	/// \brief initializes shared memory with other server applications
+	BOOL InitSharedMemory();
 
-	CSharedMemQueue		m_LoggerSendQueue;
-	CSharedMemQueue		m_LoggerRecvQueue;
+	/// \brief loads and sends data after a character is selected
+	void SelectCharacter(char* buffer);
 
-	HANDLE				m_hReadQueueThread;
-	HANDLE				m_hMMFile;
-	char*				m_lpMMFile;
+	CSharedMemQueue		LoggerSendQueue;
+	CSharedMemQueue		LoggerRecvQueue;
 
-	CDBAgent			m_DBAgent;
+	HANDLE				ReadQueue;
+	HANDLE				SharedMemoryHandle;
+	char*				SharedMemoryFile;
 
-	ItemtableArray		m_ItemtableArray;
+	CDBAgent			DBAgent;
 
-	int					m_nServerNo;
-	int					m_nZoneNo;
+	ItemtableArray		ItemArray;
 
-	TCHAR m_strGameDSN[24], m_strAccountDSN[24];
-	TCHAR m_strGameUID[24], m_strAccountUID[24];
-	TCHAR m_strGamePWD[24], m_strAccountPWD[24];
+	int					ServerId;
+	int					ZoneId;
 
-	CFile					m_LogFile;
+	CFile					LogFile;
 
-	int m_iPacketCount;		// packet의 수를 체크
-	int m_iSendPacketCount;	// packet의 수를 체크
-	int m_iRecvPacketCount;	// packet의 수를 체크
-	int m_iLogFileDay;
+	int PacketCount;		// packet의 수를 체크
+	int SendPacketCount;	// packet의 수를 체크
+	int RecvPacketCount;	// packet의 수를 체크
+	int LogFileDay;
 
 // Dialog Data
 	//{{AFX_DATA(CAujardDlg)
 	enum { IDD = IDD_AUJARD_DIALOG };
-	CListBox	m_OutputList;
-	CString	    m_DBProcessNum;
+	CListBox	OutputList;
+	CString	    DBProcessNum;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CAujardDlg)
-public:
-	virtual BOOL DestroyWindow();
-	virtual BOOL PreTranslateMessage(MSG* pMsg);
+
+	/// \brief destroys all resources associated with the dialog window
+	BOOL DestroyWindow() override;
+	
+	BOOL PreTranslateMessage(MSG* msg) override;
 protected:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
+	
+	/// \brief handles user logout functions
+	/// \param userId user index for UserData
+	/// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE
+	/// \param forceLogout should be set to true in panic situations
+	/// \see UserLogOut(), AllSaveRoutine(), HandleUserUpdate()
+	bool HandleUserLogout(int userId, byte saveType, bool forceLogout = false);
+
+	/// \brief handles user update functions and retry logic
+	/// \param userId user index for UserData
+	/// \param user reference to user object
+	/// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
+	/// \see UserDataSave(), HandleUserLogout()
+	bool HandleUserUpdate(int userId, const _USER_DATA& user, byte saveType);
+
+	/// \brief performs MFC data exchange
+	/// \see https://learn.microsoft.com/en-us/cpp/mfc/dialog-data-exchange?view=msvc-170
+	void DoDataExchange(CDataExchange* data) override;	// DDX/DDV support
+
 	//}}AFX_VIRTUAL
 
 // Implementation
-protected:
-	HICON m_hIcon;
 
-	static CAujardDlg* s_pInstance;
+	HICON _icon;
+
+	static CAujardDlg* _instance;
 
 	// Generated message map functions
 	//{{AFX_MSG(CAujardDlg)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
+
+	/// \brief The system calls this to obtain the cursor to display while the user drags
+	///  the minimized window.
 	afx_msg HCURSOR OnQueryDragIcon();
-	virtual void OnOK();
-	afx_msg void OnTimer(UINT nIDEvent);
+
+	/// \brief triggered when the Exit button is clicked. Will ask user to confirm intent to close the program.
+	void OnOK() override;
+	
+	afx_msg void OnTimer(UINT EventId);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

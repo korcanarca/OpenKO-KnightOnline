@@ -5,13 +5,22 @@
 #include "stdafx.h"
 #include "Aujard.h"
 #include "DBAgent.h"
+
+#include <format>
+#include <nanodbc/nanodbc.h>
+
 #include "AujardDlg.h"
+#include "db-library/ModelRecordSet.h"
+#include "db-library/SqlBuilder.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
+
+import AujardBinder;
+import StoredProc;
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -27,386 +36,327 @@ CDBAgent::~CDBAgent()
 {
 }
 
-BOOL CDBAgent::DatabaseInit()
+/// \brief attempts connections with db::ConnectionManager for the needed dbTypes
+/// \returns true is successful, false otherwise
+bool CDBAgent::DatabaseInit()
 {
 	//	Main DB Connecting..
 	/////////////////////////////////////////////////////////////////////////////////////
-	m_pMain = (CAujardDlg*) AfxGetApp()->GetMainWnd();
+	Main = (CAujardDlg*) AfxGetApp()->GetMainWnd();
 
-	CString strConnect;
-	strConnect.Format(_T("ODBC;DSN=%s;UID=%s;PWD=%s"), m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-
-	m_GameDB.SetLoginTimeout(10);
-	if (!m_GameDB.Open(nullptr, FALSE, FALSE, strConnect))
+	// initialize each connection inside its own try/catch block so we can catch
+	// exceptions per-connection
+	try
 	{
-		AfxMessageBox(_T("GameDB SQL Connection Fail..."));
-		return FALSE;
+		_gameConn1 = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
+		if (_gameConn1 == nullptr)
+		{
+			return false;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.InitDatabase(_gameConn1): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 
-	strConnect.Format(_T("ODBC;DSN=%s;UID=%s;PWD=%s"), m_pMain->m_strAccountDSN, m_pMain->m_strAccountUID, m_pMain->m_strAccountPWD);
-
-	m_AccountDB.SetLoginTimeout(10);
-
-	if (!m_AccountDB.Open(nullptr, FALSE, FALSE, strConnect))
+	try
 	{
-		AfxMessageBox(_T("AccountDB SQL Connection Fail..."));
-		return FALSE;
+		// TODO: modelUtil::DbType::ACCOUNT; Currently all models are assigned to GAME
+		_accountConn1 = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
+		if (_accountConn1 == nullptr)
+		{
+			return false;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.InitDatabase(_accountConn1): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 
-	m_AccountDB1.SetLoginTimeout(10);
-
-	if (!m_AccountDB1.Open(nullptr, FALSE, FALSE, strConnect))
+	try
 	{
-		AfxMessageBox(_T("AccountDB1 SQL Connection Fail..."));
-		return FALSE;
+		// TODO: modelUtil::DbType::ACCOUNT; Currently all models are assigned to GAME
+		_accountConn2 = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
+		if (_accountConn2 == nullptr)
+		{
+			return false;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.InitDatabase(_accountConn2): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-void CDBAgent::ReConnectODBC(CDatabase* m_db, const TCHAR* strdb, const TCHAR* strname, const TCHAR* strpwd)
+/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
+/// \param conn the connection to attempt a reconnect on
+/// \throws nanodbc::database_error
+void CDBAgent::ReConnectODBC(std::shared_ptr<db::ConnectionManager::Connection> conn) noexcept(false)
 {
-	char strlog[256] = {};
+	CString logstr;
 	CTime t = CTime::GetCurrentTime();
-	sprintf(strlog, "Try ReConnectODBC... \r\n");
-	m_pMain->WriteLogFile(strlog);
-	//m_pMain->m_LogFile.Write(strlog, strlen(strlog));
-
-	// DATABASE 연결...
-	CString strConnect;
-	strConnect.Format(_T("DSN=%s;UID=%s;PWD=%s"), strdb, strname, strpwd);
-	int iCount = 0;
-
-	DBProcessNumber(1);
-
-	do
+	logstr.Format(_T("Try ReConnectODBC... %02d/%02d %02d:%02d\r\n"), t.GetMonth(), t.GetDay(), t.GetHour(), t.GetMinute());
+	LogFileWrite(logstr);
+	try
 	{
-		iCount++;
-		if (iCount >= 4)
-			break;
-
-		m_db->SetLoginTimeout(10);
-
-		try
-		{
-			m_db->OpenEx((LPCTSTR) strConnect, CDatabase::noOdbcDialog);
-		}
-		catch (CDBException* e)
-		{
-			e->Delete();
-		}
-
+		conn->Reconnect();
 	}
-	while (!m_db->IsOpen());
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.ReConnectODBC(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		throw dbErr;
+	}
+	logstr = _T("ReConnectODBC Success\r\n");
+	LogFileWrite(logstr);
 }
 
-void CDBAgent::MUserInit(int uid)
+/// \brief resets a UserData[userId] record.  Called after logout actions
+/// \see UserData
+void CDBAgent::ResetUserData(int userId)
 {
-	_USER_DATA* pUser = m_UserDataArray[uid];
-	if (pUser == nullptr)
+	_USER_DATA* user = UserData[userId];
+	if (user == nullptr)
 		return;
 
-	memset(pUser, 0, sizeof(_USER_DATA));
-	pUser->m_bAuthority = AUTHORITY_USER;
+	memset(user, 0, sizeof(_USER_DATA));
+	user->m_bAuthority = AUTHORITY_USER;
 }
 
-BOOL CDBAgent::LoadUserData(const char* accountid, const char* userid, int uid)
+/// \brief populates UserData[userId] from the database
+bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userId)
 {
-	SQLHSTMT		hstmt;
-	SQLRETURN		retcode;
-	BOOL			retval;
-	_USER_DATA*		pUser = nullptr;
-	TCHAR			szSQL[1024] = {};
+	// verify UserData[userId] is valid for load
+	_USER_DATA* user =  UserData[userId];
+	if (user == nullptr)
+	{
+		LogFileWrite(std::format("LoadUserData(): UserData[{}] not found for charId={}\r\n", userId, charId));
+		return false;
+	}
+	if (user->m_bLogout)
+	{
+		LogFileWrite(std::format("LoadUserData(): logout error: charId={}, logout={} \r\n", charId, user->m_bLogout));
+		return false;
+	}
 
-	//wsprintf(szSQL, TEXT("{? = call LOAD_USER_DATA ('%hs')}"), userid);
-	wsprintf(szSQL, TEXT("{call LOAD_USER_DATA ('%hs', '%hs', ?)}"), accountid, userid);
-
-	SQLCHAR Nation, Race, HairColor, Rank, Title, Level;
-	SQLINTEGER Exp, Loyalty, Gold, PX, PZ, PY, dwTime, MannerPoint, LoyaltyMonthly;
+	uint8_t Nation, Race, HairColor, Rank, Title, Level;
+	uint32_t Exp, Loyalty, Gold, PX, PZ, PY, dwTime, MannerPoint, LoyaltyMonthly;
 	SQLCHAR Face, City, Fame, Authority, Points;
-	SQLSMALLINT Hp, Mp, Sp, sRet, Class, Bind, Knights, QuestCount;
+	SQLSMALLINT Hp, Mp, Sp, Class, Bind, Knights, QuestCount;
 	SQLCHAR Str, Sta, Dex, Intel, Cha, Zone;
 	char strSkill[10] = {},
 		strItem[400] = {},
 		strSerial[400] = {},
 		strQuest[400] = {};
-
-	SQLINTEGER Indexind = SQL_NTS;
-
-	hstmt = nullptr;
-
-	DBProcessNumber(2);
-
-	char logstr[256] = {};
-	sprintf(logstr, "LoadUserData : name=%s\r\n", userid);
-	//m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode != SQL_SUCCESS)
+	
+	int16_t rowCount = 0;
+	try
 	{
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData Fail 000 : name=%s\r\n", userid);
-	//	m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
-	}
-
-	retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, &sRet, 0, &Indexind);
-	if (retcode != SQL_SUCCESS)
-	{
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData Fail : name=%s, retcode=%d\r\n", userid, retcode);
-	//	m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
-	}
-
-	retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-	if (retcode == SQL_SUCCESS)
-	{ //|| retcode == SQL_SUCCESS_WITH_INFO){
-		retcode = SQLFetch(hstmt);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
+		DBProcessNumber(2);
+		ReConnectODBC(_gameConn1);
+		storedProc::LoadUserData proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(accountId, charId, &rowCount);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		if (result != nullptr && result->next())
 		{
-			SQLGetData(hstmt, 1, SQL_C_TINYINT, &Nation, 0, &Indexind);
-			SQLGetData(hstmt, 2, SQL_C_TINYINT, &Race, 0, &Indexind);
-			SQLGetData(hstmt, 3, SQL_C_SSHORT, &Class, 0, &Indexind);
-			SQLGetData(hstmt, 4, SQL_C_TINYINT, &HairColor, 0, &Indexind);
-			SQLGetData(hstmt, 5, SQL_C_TINYINT, &Rank, 0, &Indexind);
-			SQLGetData(hstmt, 6, SQL_C_TINYINT, &Title, 0, &Indexind);
-			SQLGetData(hstmt, 7, SQL_C_TINYINT, &Level, 0, &Indexind);
-			SQLGetData(hstmt, 8, SQL_C_LONG, &Exp, 0, &Indexind);
-			SQLGetData(hstmt, 9, SQL_C_LONG, &Loyalty, 0, &Indexind);
-			SQLGetData(hstmt, 10, SQL_C_TINYINT, &Face, 0, &Indexind);
-			SQLGetData(hstmt, 11, SQL_C_TINYINT, &City, 0, &Indexind);
-			SQLGetData(hstmt, 12, SQL_C_SSHORT, &Knights, 0, &Indexind);
-			SQLGetData(hstmt, 13, SQL_C_TINYINT, &Fame, 0, &Indexind);
-			SQLGetData(hstmt, 14, SQL_C_SSHORT, &Hp, 0, &Indexind);
-			SQLGetData(hstmt, 15, SQL_C_SSHORT, &Mp, 0, &Indexind);
-			SQLGetData(hstmt, 16, SQL_C_SSHORT, &Sp, 0, &Indexind);
-			SQLGetData(hstmt, 17, SQL_C_TINYINT, &Str, 0, &Indexind);
-			SQLGetData(hstmt, 18, SQL_C_TINYINT, &Sta, 0, &Indexind);
-			SQLGetData(hstmt, 19, SQL_C_TINYINT, &Dex, 0, &Indexind);
-			SQLGetData(hstmt, 20, SQL_C_TINYINT, &Intel, 0, &Indexind);
-			SQLGetData(hstmt, 21, SQL_C_TINYINT, &Cha, 0, &Indexind);
-			SQLGetData(hstmt, 22, SQL_C_TINYINT, &Authority, 0, &Indexind);
-			SQLGetData(hstmt, 23, SQL_C_TINYINT, &Points, 0, &Indexind);
-			SQLGetData(hstmt, 24, SQL_C_LONG, &Gold, 0, &Indexind);
-			SQLGetData(hstmt, 25, SQL_C_TINYINT, &Zone, 0, &Indexind);
-			SQLGetData(hstmt, 26, SQL_C_SSHORT, &Bind, 0, &Indexind);
-			SQLGetData(hstmt, 27, SQL_C_LONG, &PX, 0, &Indexind);
-			SQLGetData(hstmt, 28, SQL_C_LONG, &PZ, 0, &Indexind);
-			SQLGetData(hstmt, 29, SQL_C_LONG, &PY, 0, &Indexind);
-			SQLGetData(hstmt, 30, SQL_C_LONG, &dwTime, 0, &Indexind);
-			SQLGetData(hstmt, 31, SQL_C_CHAR, strSkill, 10, &Indexind);
-			SQLGetData(hstmt, 32, SQL_C_CHAR, strItem, 400, &Indexind);
-			SQLGetData(hstmt, 33, SQL_C_CHAR, strSerial, 400, &Indexind);
-			SQLGetData(hstmt, 34, SQL_C_SSHORT, &QuestCount, 0, &Indexind);
-			SQLGetData(hstmt, 35, SQL_C_CHAR, strQuest, 400, &Indexind);
-			SQLGetData(hstmt, 36, SQL_C_LONG, &MannerPoint, 0, &Indexind);
-			SQLGetData(hstmt, 37, SQL_C_LONG, &LoyaltyMonthly, 0, &Indexind);
-			retval = TRUE;
-		}
-		else
-		{
-			memset(logstr, 0, sizeof(logstr));
-			sprintf(logstr, "LoadUserData Fail 222 : name=%s, retcode=%d\r\n", userid, retcode);
-	//		m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-			retval = FALSE;
-		}
-	}
-	else
-	{
-		if (DisplayErrorMsg(hstmt) == -1)
-		{
-			char logstr[256] = {};
-			sprintf(logstr, "[Error-DB Fail] LoadUserData : name=%s\r\n", userid);
-	//		m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-
-			m_GameDB.Close();
-
-			if (!m_GameDB.IsOpen())
+			// THIS IS WHERE THE FUN STARTS
+			Nation = static_cast<uint8_t>(result->get<int16_t>(0));
+			Race = static_cast<uint8_t>(result->get<int16_t>(1));
+			Class = result->get<int16_t>(2);
+			HairColor = static_cast<uint8_t>(result->get<int16_t>(3));
+			Rank = static_cast<uint8_t>(result->get<int16_t>(4));
+			Title = static_cast<uint8_t>(result->get<int16_t>(5));
+			Level = static_cast<uint8_t>(result->get<int16_t>(6));
+			Exp = result->get<uint32_t>(7);
+			Loyalty = result->get<uint32_t>(8);
+			Face = static_cast<uint8_t>(result->get<int16_t>(9));
+			City = static_cast<uint8_t>(result->get<int16_t>(10));
+			Knights = result->get<int16_t>(11);
+			Fame = static_cast<uint8_t>(result->get<int16_t>(12));
+			Hp = result->get<int16_t>(13);
+			Mp = result->get<int16_t>(14);
+			Sp = result->get<int16_t>(15);
+			Str = static_cast<uint8_t>(result->get<int16_t>(16));
+			Sta = static_cast<uint8_t>(result->get<int16_t>(17));
+			Dex = static_cast<uint8_t>(result->get<int16_t>(18));
+			Intel = static_cast<uint8_t>(result->get<int16_t>(19));
+			Cha = static_cast<uint8_t>(result->get<int16_t>(20));
+			Authority = static_cast<uint8_t>(result->get<int16_t>(21));
+			Points = static_cast<uint8_t>(result->get<int16_t>(22));
+			Gold = result->get<uint32_t>(23);
+			Zone = static_cast<uint8_t>(result->get<int16_t>(24));
+			Bind = result->get<int16_t>(25);
+			PX = result->get<uint32_t>(26);
+			PZ = result->get<uint32_t>(27);
+			PY = result->get<uint32_t>(28);
+			dwTime = result->get<uint32_t>(29);
+			// not entirely sure why this would be a log-only error
+			if (dwTime != 0)
 			{
-				ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-				return FALSE;
+				LogFileWrite(std::format("[LoadUserData dwTime Error : name={}, dwTime={}\r\n", charId, dwTime));
 			}
+			
+			std::vector<uint8_t> temp(sizeof(strSkill));
+			result->get_ref(30, temp);
+			std::ranges::copy(temp, strSkill);
+			temp.clear();
+
+			result->get_ref(31, temp);
+			std::ranges::copy(temp, strItem);
+			temp.clear();
+			
+			result->get_ref(32, temp);
+			std::ranges::copy(temp, strSerial);
+			temp.clear();
+			
+			QuestCount = result->get<int16_t>(33);
+			
+			result->get_ref(34, temp);
+			std::ranges::copy(temp, strQuest);
+			temp.clear();
+			
+			MannerPoint = result->get<uint32_t>(35);
+			LoyaltyMonthly = result->get<uint32_t>(36);
 		}
-		retval = FALSE;
-
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData Fail 333 : name=%s, retcode=%d\r\n", userid, retcode);
-	//	m_pMain->m_LogFile.Write(logstr, strlen(logstr));
 	}
-
-	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-
-	// 엠겜 유저가 아니다.
-/*	if(sRet == 0)	{
-		memset( logstr, 0x00, 256);
-		sprintf( logstr, "LoadUserData Fail : name=%s, sRet= %d, retval=%d, nation=%d \r\n", userid, sRet, retval, Nation );
-		m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
-	}	*/
-
-	if (retval == 0)
+	catch (nanodbc::database_error dbErr)
 	{
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData Fail : name=%s, retval= %d \r\n", userid, retval);
-	//	m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
-	}
-
-	pUser = (_USER_DATA*) m_UserDataArray[uid];
-	if (pUser == nullptr)
-	{
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData point is Fail : name=%s, uid= %d \r\n", userid, uid);
-	//	m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
+		std::string logLine = "DBAgent.LoadUserData(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 	
-	if (strlen(pUser->m_id) != 0)
+	// data successfully loaded from the database, copy to UserData record
+	if (strcpy_s(user->m_id, charId))
 	{
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData id length is null Fail : name=%s,  \r\n", userid);
-	//	m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
+		LogFileWrite(std::format("LoadUserData(): failed to write charId(len: {}, val: {}) to user->m_id",
+			std::strlen(charId), charId));
+		return false;
 	}
-
-	if (dwTime != 0)
-	{
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "[LoadUserData dwTime Error : name=%s, dwTime=%d\r\n", userid, dwTime);
-		// m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		TRACE(logstr);
-	}
-
-	// 아직 종료되지 않은 유저...
-	if (pUser->m_bLogout)
-	{
-		memset(logstr, 0, sizeof(logstr));
-		sprintf(logstr, "LoadUserData logout Fail : name=%s, logout= %d \r\n", userid, pUser->m_bLogout);
-		// m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-		return FALSE;
-	}
-
-	memset(logstr, 0, sizeof(logstr));
-	sprintf(logstr, "LoadUserData Success : name=%s\r\n", userid);
-	//m_pMain->m_LogFile.Write(logstr, strlen(logstr));
-
-	strcpy(pUser->m_id, userid);
-
-	pUser->m_bZone = Zone;
-	pUser->m_curx = (float) (PX / 100);
-	pUser->m_curz = (float) (PZ / 100);
-	pUser->m_cury = (float) (PY / 100);
-
-	pUser->m_bNation = Nation;
-	pUser->m_bRace = Race;
-	pUser->m_sClass = Class;
-	pUser->m_bHairColor = HairColor;
-	pUser->m_bRank = Rank;
-	pUser->m_bTitle = Title;
-	pUser->m_bLevel = Level;
-	pUser->m_iExp = Exp;
-	pUser->m_iLoyalty = Loyalty;
-	pUser->m_bFace = Face;
-	pUser->m_bCity = City;
-	pUser->m_bKnights = Knights;
-	// 작업 : clan정보를 받아와야 한다
+	user->m_bZone = Zone;
+	user->m_curx = static_cast<float>(PX / 100);
+	user->m_curz = static_cast<float>(PZ / 100);
+	user->m_cury = static_cast<float>(PY / 100);
+	user->m_dwTime = dwTime+1;
+	user->m_bNation = Nation;
+	user->m_bRace = Race;
+	user->m_sClass = Class;
+	user->m_bHairColor = HairColor;
+	user->m_bRank = Rank;
+	user->m_bTitle = Title;
+	user->m_bLevel = Level;
+	user->m_iExp = Exp;
+	user->m_iLoyalty = Loyalty;
+	user->m_bFace = Face;
+	user->m_bCity = City;
+	user->m_bKnights = Knights;
 	//pUser->m_sClan = clan;
-	pUser->m_bFame = Fame;
-	pUser->m_sHp = Hp;
-	pUser->m_sMp = Mp;
-	pUser->m_sSp = Sp;
-	pUser->m_bStr = Str;
-	pUser->m_bSta = Sta;
-	pUser->m_bDex = Dex;
-	pUser->m_bIntel = Intel;
-	pUser->m_bCha = Cha;
-	pUser->m_bAuthority = Authority;
-	pUser->m_bPoints = Points;
-	pUser->m_iGold = Gold;
-	pUser->m_sBind = Bind;
-	pUser->m_dwTime = dwTime + 1;
+	user->m_bFame = Fame;
+	user->m_sHp = Hp;
+	user->m_sMp = Mp;
+	user->m_sSp = Sp;
+	user->m_bStr = Str;
+	user->m_bSta = Sta;
+	user->m_bDex = Dex;
+	user->m_bIntel = Intel;
+	user->m_bCha = Cha;
+	user->m_bAuthority = Authority;
+	user->m_bPoints = Points;
+	user->m_iGold = Gold;
+	user->m_sBind = Bind;
+	user->m_dwTime = dwTime + 1;
+	user->m_iMannerPoint = MannerPoint;
+	user->m_iLoyaltyMonthly = LoyaltyMonthly;
 
-	pUser->m_iMannerPoint = MannerPoint;
-	pUser->m_iLoyaltyMonthly = LoyaltyMonthly;
-
+#ifdef _DEBUG
 	CTime t = CTime::GetCurrentTime();
-	memset(logstr, 0, sizeof(logstr));
-	sprintf(logstr, "[LoadUserData %d-%d-%d]: name=%s, nation=%d, zone=%d, level=%d, exp=%d, money=%d\r\n", t.GetHour(), t.GetMinute(), t.GetSecond(), userid, Nation, Zone, Level, Exp, Gold);
-	//m_pMain->m_LogFile.Write(logstr, strlen(logstr));
+	LogFileWrite(std::format("[LoadUserData {:02}-{:02}-{:02}]: name={}, nation={}, zone={}, level={}, exp={}, money={}\r\n", t.GetHour(), t.GetMinute(), t.GetSecond(), charId, Nation, Zone, Level, Exp, Gold));
+#endif	
 
 	int index = 0, serial_index = 0;
 	for (int i = 0; i < 9; i++)
-		pUser->m_bstrSkill[i] = GetByte(strSkill, index);
+		user->m_bstrSkill[i] = GetByte(strSkill, index);
 
 	index = 0;
-	DWORD itemid = 0;
+	DWORD itemId = 0;
 	short count = 0, duration = 0;
 	int64_t serial = 0;
 	model::Item* pTable = nullptr;
 
-	// 착용갯수 + 소유갯수(14+28=42)
+	// Equip slots + inventory slots (14+28=42)
 	for (int i = 0; i < HAVE_MAX + SLOT_MAX; i++)
 	{
-		itemid = GetDWORD(strItem, index);
+		itemId = GetDWORD(strItem, index);
 		duration = GetShort(strItem, index);
 		count = GetShort(strItem, index);
 
 		serial = GetInt64(strSerial, serial_index);		// item serial number
 
-		pTable = m_pMain->m_ItemtableArray.GetData(itemid);
+		pTable = Main->ItemArray.GetData(itemId);
 
 		if (pTable != nullptr)
 		{
-			pUser->m_sItemArray[i].nNum = itemid;
-			pUser->m_sItemArray[i].sDuration = duration;
-			pUser->m_sItemArray[i].nSerialNum = serial;
-			pUser->m_sItemArray[i].byFlag = 0;
-			pUser->m_sItemArray[i].sTimeRemaining = 0;
+			user->m_sItemArray[i].nNum = itemId;
+			user->m_sItemArray[i].sDuration = duration;
+			user->m_sItemArray[i].nSerialNum = serial;
+			user->m_sItemArray[i].byFlag = 0;
+			user->m_sItemArray[i].sTimeRemaining = 0;
 
 			if (count > ITEMCOUNT_MAX)
 			{
-				pUser->m_sItemArray[i].sCount = ITEMCOUNT_MAX;
+				user->m_sItemArray[i].sCount = ITEMCOUNT_MAX;
 			}
 			else if (pTable->Countable && count <= 0)
 			{
-				pUser->m_sItemArray[i].nNum = 0;
-				pUser->m_sItemArray[i].sDuration = 0;
-				pUser->m_sItemArray[i].sCount = 0;
-				pUser->m_sItemArray[i].nSerialNum = 0;
+				user->m_sItemArray[i].nNum = 0;
+				user->m_sItemArray[i].sDuration = 0;
+				user->m_sItemArray[i].sCount = 0;
+				user->m_sItemArray[i].nSerialNum = 0;
 			}
 			else
 			{
 				if (count <= 0)
-					pUser->m_sItemArray[i].sCount = 1;
+					user->m_sItemArray[i].sCount = 1;
 
-				pUser->m_sItemArray[i].sCount = count;
+				user->m_sItemArray[i].sCount = count;
 			}
 
-			TRACE(_T("%hs : %d slot (%d : %I64d)\n"), pUser->m_id, i, pUser->m_sItemArray[i].nNum, pUser->m_sItemArray[i].nSerialNum);
-			sprintf(logstr, "%s : %d slot (%d : %I64d)\n", pUser->m_id, i, pUser->m_sItemArray[i].nNum, pUser->m_sItemArray[i].nSerialNum);
-			//m_pMain->WriteLogFile( logstr );
-			//m_pMain->m_LogFile.Write(logstr, strlen(logstr));
+#ifdef _DEBUG
+			TRACE(_T("%hs : %d slot (%d : %I64d)\n"), user->m_id, i, user->m_sItemArray[i].nNum, user->m_sItemArray[i].nSerialNum);
+			LogFileWrite(std::format("{} : {} slot ({} : {})\n", user->m_id, i, user->m_sItemArray[i].nNum, user->m_sItemArray[i].nSerialNum));
+#endif
 		}
 		else
 		{
-			pUser->m_sItemArray[i].nNum = 0;
-			pUser->m_sItemArray[i].sDuration = 0;
-			pUser->m_sItemArray[i].sCount = 0;
-			pUser->m_sItemArray[i].nSerialNum = 0;
-			pUser->m_sItemArray[i].byFlag = 0;
-			pUser->m_sItemArray[i].sTimeRemaining = 0;
+			user->m_sItemArray[i].nNum = 0;
+			user->m_sItemArray[i].sDuration = 0;
+			user->m_sItemArray[i].sCount = 0;
+			user->m_sItemArray[i].nSerialNum = 0;
+			user->m_sItemArray[i].byFlag = 0;
+			user->m_sItemArray[i].sTimeRemaining = 0;
 
-			if (itemid > 0)
+			if (itemId > 0)
 			{
-				sprintf(logstr, "Item Drop : name=%s, itemid=%d\r\n", userid, itemid);
-				m_pMain->WriteLogFile(logstr);
-				//m_pMain->m_LogFile.Write(logstr, strlen(logstr));
+				LogFileWrite(std::format("Item Drop : charId={}, itemId={}\r\n", charId, itemId));
 			}
-
-			continue;
 		}
 	}
 
@@ -414,7 +364,7 @@ BOOL CDBAgent::LoadUserData(const char* accountid, const char* userid, int uid)
 	index = 0;
 	for (int i = 0; i < MAX_QUEST; i++)
 	{
-		_USER_QUEST& quest = pUser->m_quests[i];
+		_USER_QUEST& quest = user->m_quests[i];
 		quest.sQuestID = GetShort(strQuest, index);
 		quest.byQuestState = GetByte(strQuest, index);
 
@@ -430,117 +380,110 @@ BOOL CDBAgent::LoadUserData(const char* accountid, const char* userid, int uid)
 	}
 
 	if (QuestCount != sQuestTotal)
-		pUser->m_sQuestCount = sQuestTotal;
+		user->m_sQuestCount = sQuestTotal;
 
-	if (pUser->m_bLevel == 1
-		&& pUser->m_iExp == 0
-		&& pUser->m_iGold == 0)
+	if (user->m_bLevel == 1
+		&& user->m_iExp == 0
+		&& user->m_iGold == 0)
 	{
-		int empty_slot = 0;
+		int emptySlot = 0;
 		for (int j = SLOT_MAX; j < HAVE_MAX + SLOT_MAX; j++)
 		{
-			if (pUser->m_sItemArray[j].nNum == 0)
+			if (user->m_sItemArray[j].nNum == 0)
 			{
-				empty_slot = j;
+				emptySlot = j;
 				break;
 			}
 		}
 
-		if (empty_slot == HAVE_MAX + SLOT_MAX)
-			return retval;
+		if (emptySlot == HAVE_MAX + SLOT_MAX)
+			return true;
 
-		switch (pUser->m_sClass)
+		switch (user->m_sClass)
 		{
 			case 101:
-				pUser->m_sItemArray[empty_slot].nNum = 120010000;
-				pUser->m_sItemArray[empty_slot].sDuration = 5000;
+				user->m_sItemArray[emptySlot].nNum = 120010000;
+				user->m_sItemArray[emptySlot].sDuration = 5000;
 				break;
 
 			case 102:
-				pUser->m_sItemArray[empty_slot].nNum = 110010000;
-				pUser->m_sItemArray[empty_slot].sDuration = 4000;
+				user->m_sItemArray[emptySlot].nNum = 110010000;
+				user->m_sItemArray[emptySlot].sDuration = 4000;
 				break;
 
 			case 103:
-				pUser->m_sItemArray[empty_slot].nNum = 180010000;
-				pUser->m_sItemArray[empty_slot].sDuration = 5000;
+				user->m_sItemArray[emptySlot].nNum = 180010000;
+				user->m_sItemArray[emptySlot].sDuration = 5000;
 				break;
 
 			case 104:
-				pUser->m_sItemArray[empty_slot].nNum = 190010000;
-				pUser->m_sItemArray[empty_slot].sDuration = 10000;
+				user->m_sItemArray[emptySlot].nNum = 190010000;
+				user->m_sItemArray[emptySlot].sDuration = 10000;
 				break;
 
 			case 201:
-				pUser->m_sItemArray[empty_slot].nNum = 120050000;
-				pUser->m_sItemArray[empty_slot].sDuration = 5000;
+				user->m_sItemArray[emptySlot].nNum = 120050000;
+				user->m_sItemArray[emptySlot].sDuration = 5000;
 				break;
 
 			case 202:
-				pUser->m_sItemArray[empty_slot].nNum = 110050000;
-				pUser->m_sItemArray[empty_slot].sDuration = 4000;
+				user->m_sItemArray[emptySlot].nNum = 110050000;
+				user->m_sItemArray[emptySlot].sDuration = 4000;
 				break;
 
 			case 203:
-				pUser->m_sItemArray[empty_slot].nNum = 180050000;
-				pUser->m_sItemArray[empty_slot].sDuration = 5000;
+				user->m_sItemArray[emptySlot].nNum = 180050000;
+				user->m_sItemArray[emptySlot].sDuration = 5000;
 				break;
 
 			case 204:
-				pUser->m_sItemArray[empty_slot].nNum = 190050000;
-				pUser->m_sItemArray[empty_slot].sDuration = 10000;
+				user->m_sItemArray[emptySlot].nNum = 190050000;
+				user->m_sItemArray[emptySlot].sDuration = 10000;
 				break;
+			default:
+				user->m_sItemArray[emptySlot].sCount = 1;
+				user->m_sItemArray[emptySlot].nSerialNum = 0;
 		}
-
-		pUser->m_sItemArray[empty_slot].sCount = 1;
-		pUser->m_sItemArray[empty_slot].nSerialNum = 0;
 	}
 
-	return retval;
+	return true;
 }
 
-int CDBAgent::UpdateUser(const char* userid, int uid, int type)
+/// \brief updates the database with the data from UserData[userId]
+/// \param charId
+/// \param userId
+/// \param updateType one of UPDATE_PACKET_SAVE, UPDATE_LOGOUT, UPDATE_ALL_SAVE
+/// \see UPDATE_PACKET_SAVE, UPDATE_LOGOUT, UPDATE_ALL_SAVE
+/// \returns true when database successfully updated, false otherwise
+bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 {
-	SQLHSTMT		hstmt;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[4096] = {};
-	SDWORD			sStrItem, sStrSkill, sStrSerial, sStrQuest;
-
-	_USER_DATA*		pUser = nullptr;
-
-	DBProcessNumber(3);
-
-	pUser = (_USER_DATA*) m_UserDataArray[uid];
-	if (pUser == nullptr)
+	_USER_DATA* user = UserData[userId];
+	if (user == nullptr)
 		return -1;
 
-	if (_strnicmp(pUser->m_id, userid, MAX_ID_SIZE) != 0)
+	if (_strnicmp(user->m_id, charId, MAX_ID_SIZE) != 0)
 		return -1;
 
-	if (type == UPDATE_PACKET_SAVE)
-		pUser->m_dwTime++;
-	else if (type == UPDATE_LOGOUT
-		|| type == UPDATE_ALL_SAVE)
-		pUser->m_dwTime = 0;
+	if (updateType == UPDATE_PACKET_SAVE)
+		user->m_dwTime++;
+	else if (updateType == UPDATE_LOGOUT
+		|| updateType == UPDATE_ALL_SAVE)
+		user->m_dwTime = 0;
 
-	char strSkill[10] = {},
-		strItem[400] = {},
-		strSerial[400] = {},
-		strQuest[400] = {};
-	short sQuestTotal = 0;
-	sStrSkill = sizeof(strSkill);
-	sStrItem = sizeof(strItem);
-	sStrSerial = sizeof(strSerial);
-	sStrQuest = sizeof(strQuest);
+	char skills[10] = {},
+		items[400] = {},
+		serial[400] = {},
+		quests[400] = {};
+	short questTotal = 0;
 
-	int index = 0, serial_index = 0;
+	int index = 0, serialIndex = 0;
 	for (int i = 0; i < 9; i++)
-		SetByte(strSkill, pUser->m_bstrSkill[i], index);
+		SetByte(skills, user->m_bstrSkill[i], index);
 
 	index = 0;
 	for (int i = 0; i < MAX_QUEST; i++)
 	{
-		_USER_QUEST& quest = pUser->m_quests[i];
+		_USER_QUEST& quest = user->m_quests[i];
 
 		if (quest.sQuestID > 100
 			|| quest.byQuestState > 3)
@@ -550,393 +493,223 @@ int CDBAgent::UpdateUser(const char* userid, int uid, int type)
 		else
 		{
 			if (quest.sQuestID > 0)
-				++sQuestTotal;
+				++questTotal;
 		}
 
-		SetShort(strQuest, quest.sQuestID, index);
-		SetByte(strQuest, quest.byQuestState, index);
+		SetShort(quests, quest.sQuestID, index);
+		SetByte(quests, quest.byQuestState, index);
 	}
 
-	if (sQuestTotal != pUser->m_sQuestCount)
-		pUser->m_sQuestCount = sQuestTotal;
+	if (questTotal != user->m_sQuestCount)
+		user->m_sQuestCount = questTotal;
 
 	index = 0;
 
-	// 착용갯수 + 소유갯수(14+28=42)
+	// Equip slots + inventory slots (14+28=42)
 	for (int i = 0; i < HAVE_MAX + SLOT_MAX; i++)
 	{
-		if (pUser->m_sItemArray[i].nNum > 0)
+		if (user->m_sItemArray[i].nNum > 0)
 		{
-			if (m_pMain->m_ItemtableArray.GetData(pUser->m_sItemArray[i].nNum) == nullptr)
-				TRACE(_T("Item Drop Saved(%d) : %d (%hs)\n"), i, pUser->m_sItemArray[i].nNum, pUser->m_id);
+			if (Main->ItemArray.GetData(user->m_sItemArray[i].nNum) == nullptr)
+				TRACE(_T("Item Drop Saved({}) : %d (%hs)\n"), i, user->m_sItemArray[i].nNum, user->m_id);
 		}
 
-		SetDWORD(strItem, pUser->m_sItemArray[i].nNum, index);
-		SetShort(strItem, pUser->m_sItemArray[i].sDuration, index);
-		SetShort(strItem, pUser->m_sItemArray[i].sCount, index);
+		SetDWORD(items, user->m_sItemArray[i].nNum, index);
+		SetShort(items, user->m_sItemArray[i].sDuration, index);
+		SetShort(items, user->m_sItemArray[i].sCount, index);
 
-		SetInt64(strSerial, pUser->m_sItemArray[i].nSerialNum, serial_index);
+		SetInt64(serial, user->m_sItemArray[i].nSerialNum, serialIndex);
 	}
-
-	// 작업 : clan정보도 업데이트
-	wsprintf(
-		szSQL,
-		TEXT("{call UPDATE_USER_DATA ( \'%hs\', %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,?,?,?,?,%d,%d)}"),
-		pUser->m_id,
-		pUser->m_bNation,
-		pUser->m_bRace,
-		pUser->m_sClass,
-		pUser->m_bHairColor,
-		pUser->m_bRank,
-		pUser->m_bTitle,
-		pUser->m_bLevel,
-		pUser->m_iExp,
-		pUser->m_iLoyalty,
-		pUser->m_bFace,
-		pUser->m_bCity,
-		pUser->m_bKnights,
-		pUser->m_bFame,
-		pUser->m_sHp,
-		pUser->m_sMp,
-		pUser->m_sSp,
-		pUser->m_bStr,
-		pUser->m_bSta,
-		pUser->m_bDex,
-		pUser->m_bIntel,
-		pUser->m_bCha,
-		pUser->m_bAuthority,
-		pUser->m_bPoints,
-		pUser->m_iGold,
-		pUser->m_bZone,
-		pUser->m_sBind,
-		static_cast<int>(pUser->m_curx * 100),
-		static_cast<int>(pUser->m_curz * 100),
-		static_cast<int>(pUser->m_cury * 100),
-		pUser->m_dwTime,
-		sQuestTotal,
-		// @strSkill
-		// @strItem
-		// @strSerial
-		// @strQuest
-		pUser->m_iMannerPoint,
-		pUser->m_iLoyaltyMonthly);
-
-	hstmt = nullptr;
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	
+	try
 	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(strSkill), 0, strSkill, 0, &sStrSkill);
-		retcode = SQLBindParameter(hstmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(strItem), 0, strItem, 0, &sStrItem);
-		retcode = SQLBindParameter(hstmt, 3, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(strSerial), 0, strSerial, 0, &sStrSerial);
-		retcode = SQLBindParameter(hstmt, 4, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(strQuest), 0, strQuest, 0, &sStrQuest);
-		if (retcode == SQL_SUCCESS)
+		DBProcessNumber(3);
+		ReConnectODBC(_gameConn1);
+		storedProc::UpdateUserData proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			user->m_id, user->m_bNation, user->m_bRace, user->m_sClass,
+			user->m_bHairColor,user->m_bRank, user->m_bTitle, user->m_bLevel,
+			user->m_iExp, user->m_iLoyalty, user->m_bFace, user->m_bCity,
+			user->m_bKnights, user->m_bFame, user->m_sHp, user->m_sMp, user->m_sSp,
+			user->m_bStr, user->m_bSta, user->m_bDex, user->m_bIntel, user->m_bCha,
+			user->m_bAuthority, user->m_bPoints, user->m_iGold, user->m_bZone, user->m_sBind,
+			static_cast<int>(user->m_curx * 100),
+			static_cast<int>(user->m_curz * 100),
+			static_cast<int>(user->m_cury * 100),
+			user->m_dwTime, questTotal, skills, items, serial,
+			quests, user->m_iMannerPoint, user->m_iLoyaltyMonthly);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		// affected_rows will be -1 if unavailable should be 1 if available
+		if (result->affected_rows() == 0)
 		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return 0;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-
-				TCHAR logstr[1024] = {};
-				wsprintf(logstr, _T("[Error-DB Fail] %s, Skill[%hs] Item[%hs] \r\n"), szSQL, strSkill, strItem);
-				LogFileWrite(logstr);
-				return 0;
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return 1;
+			LogFileWrite(std::format("UpdateUser(): No rows affected for charId={}", charId));
+			return false;
 		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 	}
-
-	return 0;
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.LoadUserData(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+	
+	return true;
 }
 
-int CDBAgent::AccountLogInReq(char* id, char* pw)
+/// \brief attempts to login a character to the game server
+/// \returns -1 for failure, 0 for unselected nation, 1 for karus, 2 for elmorad
+int CDBAgent::AccountLogInReq(char* accountId, char* password)
 {
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call ACCOUNT_LOGIN( \'%hs\', \'%hs\', ?)}"), id, pw);
-
-	DBProcessNumber(4);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	int16_t retCode = 0;
+	try
 	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, &sParmRet, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_SUCCESS
-				|| retcode == SQL_SUCCESS_WITH_INFO)
-			{
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				if (sParmRet == 0)
-					return -1;
-				else
-					return sParmRet - 1;	// sParmRet == Nation + 1....
-			}
-			else
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return FALSE;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return FALSE;
-			}
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+		DBProcessNumber(4);
+		ReConnectODBC(_gameConn1);
+		storedProc::AccountLogin proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			accountId, password, &retCode);
 	}
-
-	return FALSE;
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.AccountLogInReq(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+	
+	return retCode-1;
 }
 
-BOOL CDBAgent::NationSelect(char* id, int nation)
+/// \brief ensures that database records are created in ACCOUNT_CHAR
+/// and WAREHOUSE prior to logging into the game
+/// \returns true if records are properly set, false otherwise
+bool CDBAgent::NationSelect(char* accountId, int nation)
 {
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call NATION_SELECT ( ?, \'%hs\', %d)}"), id, nation);
-
-	DBProcessNumber(5);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	int16_t retCode = 0;
+	try
 	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return FALSE;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return FALSE;
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-
-			if (sParmRet < 0)
-				return FALSE;
-			else
-				return TRUE;
-		}
+		DBProcessNumber(5);
+		ReConnectODBC(_gameConn1);
+		storedProc::NationSelect proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			&retCode, accountId, nation);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.NationSelect(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 
-	return FALSE;
-}
-
-int CDBAgent::CreateNewChar(char* accountid, int index, char* charid, int race, int Class, int hair, int face, int str, int sta, int dex, int intel, int cha)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call CREATE_NEW_CHAR ( ?, \'%hs\', %d, \'%hs\', %d,%d,%d,%d,%d,%d,%d,%d,%d)}"), accountid, index, charid, race, Class, hair, face, str, sta, dex, intel, cha);
-
-	DBProcessNumber(6);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	// should only be 0 if bind failed, -2 for a DB error
+	if (retCode != 1)
 	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return -1;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return sParmRet;
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return sParmRet;
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+		return false;
 	}
 
-	return -1;
+	return true;
 }
 
-BOOL CDBAgent::DeleteChar(int index, char* id, char* charid, char* socno)
+/// \brief attempts to create a new character
+/// \returns NEW_CHAR_SUCCESS on success, or one of the following on error:
+/// NEW_CHAR_ERROR, NEW_CHAR_NO_FREE_SLOT, NEW_CHAR_INVALID_RACE, NEW_CHAR_NAME_IN_USE, NEW_CHAR_SYNC_ERROR
+int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, int Class, int hair, int face, int str, int sta, int dex, int intel, int cha)
 {
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{ call DELETE_CHAR ( \'%hs\', %d, \'%hs\', \'%hs\', ? )}"), id, index, charid, socno);
-
-	DBProcessNumber(7);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	int16_t retCode = 0;
+	try
 	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return FALSE;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return FALSE;
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return sParmRet;
-		}
+		DBProcessNumber(6);
+		ReConnectODBC(_gameConn1);
+		storedProc::CreateNewChar proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			&retCode, accountId, index, charId, race, Class, hair,
+			face, str, sta, dex, intel, cha);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.CreateNewChar(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return -1;
 	}
 
-	return FALSE;
+	return retCode;
 }
 
-BOOL CDBAgent::LoadCharInfo(char* id, char* buff, int& buff_index)
+/// \brief loads character information needed in WIZ_ALLCHAR_INFO_REQ
+/// \param[out] charId will trime whitespace
+/// \param[out] buff buffer to write character info to
+/// \param[out] buffIndex
+/// /// \see AllCharInfoReq(), WIZ_ALLCHAR_INFO_REQ
+bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 {
-	SQLHSTMT		hstmt;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	BOOL			retval;
-	CString			userid;
+	// trim charId
+	CString	_charId;
+	_charId = charId;
+	_charId.TrimRight();
+	strcpy(charId, CT2A(_charId));
 
-	userid = id;
-	userid.TrimRight();
-	strcpy(id, CT2A(userid));
-
-	wsprintf(szSQL, TEXT("{call LOAD_CHAR_INFO ('%hs', ?)}"), id);
-
-	DBProcessNumber(8);
-
-	SQLCHAR Race = 0, HairColor = 0, Level = 0, Face = 0, Zone = 0;
-	SQLSMALLINT sRet, Class = 0;
+	uint8_t Race = 0, HairColor = 0, Level = 0, Face = 0, Zone = 0;
+	int16_t Class = 0;
 	char strItem[400] = {};
-
-	SQLINTEGER Indexind = SQL_NTS;
-
-	hstmt = nullptr;
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode != SQL_SUCCESS)
-		return FALSE;
-
-	retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, &sRet, 0, &Indexind);
-	if (retcode != SQL_SUCCESS)
+	
+	int16_t rowCount = 0;
+	try
 	{
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-		return FALSE;
-	}
-
-	retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-	if (retcode == SQL_SUCCESS
-		|| retcode == SQL_SUCCESS_WITH_INFO)
-	{
-		retcode = SQLFetch(hstmt);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
+		DBProcessNumber(8);
+		ReConnectODBC(_gameConn1);
+		storedProc::LoadCharInfo proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(charId, &rowCount);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		if (result != nullptr && result->next())
 		{
-			SQLGetData(hstmt, 1, SQL_C_TINYINT, &Race, 0, &Indexind);
-			SQLGetData(hstmt, 2, SQL_C_SSHORT, &Class, 0, &Indexind);
-			SQLGetData(hstmt, 3, SQL_C_TINYINT, &HairColor, 0, &Indexind);
-			SQLGetData(hstmt, 4, SQL_C_TINYINT, &Level, 0, &Indexind);
-			SQLGetData(hstmt, 5, SQL_C_TINYINT, &Face, 0, &Indexind);
-			SQLGetData(hstmt, 6, SQL_C_TINYINT, &Zone, 0, &Indexind);
-			SQLGetData(hstmt, 7, SQL_C_CHAR, strItem, 400, &Indexind);
-			retval = TRUE;
+			Race = static_cast<uint8_t>(result->get<int16_t>(0));
+			Class = result->get<int16_t>(1);
+			HairColor = static_cast<uint8_t>(result->get<int16_t>(2));
+			Level = static_cast<uint8_t>(result->get<int16_t>(3));
+			Face = static_cast<uint8_t>(result->get<int16_t>(4));
+			Zone = static_cast<uint8_t>(result->get<int16_t>(5));
+
+			if (!result->is_null(6))
+			{
+				std::vector<uint8_t> itemData(sizeof(strItem));
+				result->get_ref(6, itemData);
+				std::ranges::copy(itemData, strItem);
+			}
 		}
 		else
 		{
-			retval = FALSE;
+			return false;
 		}
 	}
-	else
+	catch (nanodbc::database_error dbErr)
 	{
-		if (DisplayErrorMsg(hstmt) == -1)
-		{
-			m_GameDB.Close();
-
-			if (!m_GameDB.IsOpen())
-			{
-				ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-				return FALSE;
-			}
-		}
-
-		retval = FALSE;
+		std::string logLine = "DBAgent.LoadCharInfo(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
-	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
-	SetShort(buff, strlen(id), buff_index);
-	SetString(buff, (char*) id, strlen(id), buff_index);
-	SetByte(buff, Race, buff_index);
-	SetShort(buff, Class, buff_index);
-	SetByte(buff, Level, buff_index);
-	SetByte(buff, Face, buff_index);
-	SetByte(buff, HairColor, buff_index);
-	SetByte(buff, Zone, buff_index);
+	SetShort(buff, strlen(charId), buffIndex);
+	SetString(buff, (char*) charId, strlen(charId), buffIndex);
+	SetByte(buff, Race, buffIndex);
+	SetShort(buff, Class, buffIndex);
+	SetByte(buff, Level, buffIndex);
+	SetByte(buff, Face, buffIndex);
+	SetByte(buff, HairColor, buffIndex);
+	SetByte(buff, Zone, buffIndex);
 
-	int tempid = 0, count = 0, index = 0, duration = 0;
+	int tempId = 0, count = 0, index = 0, duration = 0;
 	for (int i = 0; i < SLOT_MAX; i++)
 	{
-		tempid = GetDWORD(strItem, index);
+		tempId = GetDWORD(strItem, index);
 		duration = GetShort(strItem, index);
 		count = GetShort(strItem, index);
 
@@ -949,998 +722,785 @@ BOOL CDBAgent::LoadCharInfo(char* id, char* buff, int& buff_index)
 			|| i == LEFTHAND
 			|| i == RIGHTHAND)
 		{
-			SetDWORD(buff, tempid, buff_index);
-			SetShort(buff, duration, buff_index);
+			SetDWORD(buff, tempId, buffIndex);
+			SetShort(buff, duration, buffIndex);
 		}
 	}
 
-	return retval;
+	return true;
 }
 
-BOOL CDBAgent::GetAllCharID(const char* id, char* char1, char* char2, char* char3, char* char4, char* char5)
+/// \brief loads all character names for an account
+/// \param accountId
+/// \param[out] charId1
+/// \param[out] charId2
+/// \param[out] charId3
+/// \returns true if charIds were successfully loaded, false otherwise
+bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2, char* charId3)
 {
-	SQLHSTMT		hstmt;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	BOOL			retval;
-	_USER_DATA*		pUser = nullptr;
-	CString			Item;
-
-	wsprintf(szSQL, TEXT("{? = call LOAD_ACCOUNT_CHARID ('%hs')}"), id);
-
-	DBProcessNumber(9);
-
-	SQLSMALLINT sRet;
-	char charid1[MAX_ID_SIZE + 1] = {},
-		charid2[MAX_ID_SIZE + 1] = {},
-		charid3[MAX_ID_SIZE + 1] = {},
-		charid4[MAX_ID_SIZE + 1] = {},
-		charid5[MAX_ID_SIZE + 1] = {};
-
-	SQLINTEGER Indexind = SQL_NTS;
-
-	hstmt = nullptr;
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode != SQL_SUCCESS)
-		return FALSE;
-
-	retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, &sRet, 0, &Indexind);
-	if (retcode != SQL_SUCCESS)
+	char _charId1[MAX_ID_SIZE + 1] = {},
+		_charId2[MAX_ID_SIZE + 1] = {},
+		_charId3[MAX_ID_SIZE + 1] = {};
+	
+	int32_t rowCount = 0;
+	try
 	{
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-		return FALSE;
-	}
-
-	retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-	if (retcode == SQL_SUCCESS
-		|| retcode == SQL_SUCCESS_WITH_INFO)
-	{
-		retcode = SQLFetch(hstmt);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
+		DBProcessNumber(9);
+		ReConnectODBC(_gameConn1);
+		storedProc::LoadAccountCharid proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(&rowCount, accountId);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		if (result != nullptr && result->next())
 		{
-			SQLGetData(hstmt, 1, SQL_C_CHAR, charid1, MAX_ID_SIZE + 1, &Indexind);
-			SQLGetData(hstmt, 2, SQL_C_CHAR, charid2, MAX_ID_SIZE + 1, &Indexind);
-			SQLGetData(hstmt, 3, SQL_C_CHAR, charid3, MAX_ID_SIZE + 1, &Indexind);
-			SQLGetData(hstmt, 4, SQL_C_CHAR, charid4, MAX_ID_SIZE + 1, &Indexind);
-			SQLGetData(hstmt, 5, SQL_C_CHAR, charid5, MAX_ID_SIZE + 1, &Indexind);
-			retval = TRUE;
-		}
-		else
-		{
-			retval = FALSE;
-		}
-	}
-	else
-	{
-		if (DisplayErrorMsg(hstmt) == -1)
-		{
-			m_GameDB.Close();
-			if (!m_GameDB.IsOpen())
+			std::vector<uint8_t> charId(sizeof(_charId1));
+			if (!result->is_null(0))
 			{
-				ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-				return FALSE;
+				result->get_ref(0, charId);
+				std::ranges::copy(charId, _charId1);
+				charId.clear();
 			}
-		}
-
-		retval = FALSE;
-	}
-
-	if (sRet == 0)
-	{
-		retval = FALSE;
-	}
-	else
-	{
-		strcpy(char1, charid1);
-		strcpy(char2, charid2);
-		strcpy(char3, charid3);
-		strcpy(char4, charid4);
-		strcpy(char5, charid5);
-	}
-
-	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	return retval;
-}
-
-int CDBAgent::CreateKnights(int knightsindex, int nation, char* name, char* chief, int iFlag)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet = 0, sKnightIndex = 0;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call CREATE_KNIGHTS ( ?, %d, %d, %d, \'%hs\', \'%hs\' )}"), knightsindex, nation, iFlag, name, chief);
-	//wsprintf( szSQL, TEXT( "{call CREATE_KNIGHTS ( ?, ?, %d, %d, \'%hs\', \'%hs\' )}" ), nation, iFlag, name, chief );
-
-	DBProcessNumber(10);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
-		//retcode = SQLBindParameter(hstmt, 2, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0,0, &sKnightIndex,0, &cbParmRet );
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
+			if (!result->is_null(1))
 			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return FALSE;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return sParmRet;
+				result->get_ref(1, charId);
+				std::ranges::copy(charId, _charId2);
+				charId.clear();
 			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return sParmRet;
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-
-	return -1;
-}
-
-int CDBAgent::UpdateKnights(int type, char* userid, int knightsindex, int domination)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call UPDATE_KNIGHTS ( ?, %d, \'%hs\', %d, %d)}"), (BYTE) type, userid, knightsindex, (BYTE) domination);
-	//wsprintf( szSQL, TEXT( "{call UPDATE_KNIGHTS2 ( ?, %d, \'%hs\', %d, %d)}" ), type, userid, knightsindex, domination );
-
-	DBProcessNumber(11);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
+			if (!result->is_null(2))
 			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return FALSE;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return sParmRet;
-			}
-
-			TRACE(_T("DB - UpdateKnights - command=%d, name=%hs, index=%d, result=%d \n"), type, userid, knightsindex, domination);
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return sParmRet;
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-
-	return -1;
-}
-
-int CDBAgent::DeleteKnights(int knightsindex)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call DELETE_KNIGHTS ( ?, %d )}"), knightsindex);
-	//wsprintf( szSQL, TEXT( "{call DELETE_KNIGHTS2 ( ?, %d )}" ), knightsindex );
-
-	DBProcessNumber(12);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return -1;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return sParmRet;
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return sParmRet;
-		}
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-
-	return -1;
-}
-
-int CDBAgent::LoadKnightsAllMembers(int knightsindex, int start, char* temp_buff, int& buff_index)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	BOOL			bData = TRUE;
-	int				count = 0, temp_index = 0, sid = 0;
-	CString			tempid;
-	TCHAR			szSQL[1024] = {};
-
-	SQLCHAR userid[MAX_ID_SIZE + 1] = {};
-	char szNewID[MAX_ID_SIZE + 1] = {};
-	SQLCHAR Fame, Level;
-	SQLSMALLINT	Class;
-	SQLINTEGER Indexind = SQL_NTS;
-	_USER_DATA* pUser = nullptr;
-
-	//wsprintf( szSQL, TEXT( "SELECT strUserId, Fame, [Level], Class FROM USERDATA WHERE Knights = %d" ), knightsindex );
-	wsprintf(szSQL, TEXT("{call LOAD_KNIGHTS_MEMBERS ( %d )}"), knightsindex);
-
-	DBProcessNumber(13);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
-		{
-			while (bData)
-			{
-				retcode = SQLFetch(hstmt);
-				if (retcode == SQL_SUCCESS
-					|| retcode == SQL_SUCCESS_WITH_INFO)
-				{
-					SQLGetData(hstmt, 1, SQL_C_CHAR, userid, MAX_ID_SIZE + 1, &Indexind);
-					SQLGetData(hstmt, 2, SQL_C_TINYINT, &Fame, 0, &Indexind);
-					SQLGetData(hstmt, 3, SQL_C_TINYINT, &Level, 0, &Indexind);
-					SQLGetData(hstmt, 4, SQL_C_SSHORT, &Class, 0, &Indexind);
-
-				//	if( count < start ) {
-				//		count++;
-				//		continue;
-				//	}
-
-					tempid = userid;
-					tempid.TrimRight();
-					
-					strcpy_s(szNewID, CT2A(tempid));
-
-					SetShort(temp_buff, (short) strlen(szNewID), temp_index);
-					SetString(temp_buff, szNewID, (int) strlen(szNewID), temp_index);
-					SetByte(temp_buff, Fame, temp_index);
-					SetByte(temp_buff, Level, temp_index);
-					SetShort(temp_buff, Class, temp_index);
-
-					sid = -1;
-					//(_USER_DATA*)m_UserDataArray[uid];
-					pUser = m_pMain->GetUserPtr((const char*) (LPCTSTR) tempid, sid);
-					//pUser = (_USER_DATA*)m_UserDataArray[sid];
-					if (pUser != nullptr)
-						SetByte(temp_buff, 1, temp_index);
-					else
-						SetByte(temp_buff, 0, temp_index);
-
-					count++;
-					//if( count >= start + 10 )
-					//	break;
-
-					bData = TRUE;
-				}
-				else
-				{
-					bData = FALSE;
-				}
+				result->get_ref(2, charId);
+				std::ranges::copy(charId, _charId3);
 			}
 		}
 		else
 		{
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_GameDB.Close();
-				if (!m_GameDB.IsOpen())
-				{
-					ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-					return 0;
-				}
-			}
+			LogFileWrite(std::format("GetAllCharID(): No rows selected for accountId={}", accountId));
+			return false;
 		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.GetAllCharID(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 
-	buff_index = temp_index;
-	return (count - start);
+	if (strcpy_s(charId1, MAX_ID_SIZE+1, _charId1))
+	{
+		LogFileWrite(std::format("GetAllCharID(): failed to write _charId1(len: {}, val: {}) to charId1",
+			std::strlen(_charId1), _charId1));
+		return false;
+	}
+	if (strcpy_s(charId2, MAX_ID_SIZE+1, _charId2))
+	{
+		LogFileWrite(std::format("GetAllCharID(): failed to write _charId2(len: {}, val: {}) to charId2",
+			std::strlen(_charId2), _charId2));
+		return false;
+	}
+	if (strcpy_s(charId3, MAX_ID_SIZE+1, _charId3))
+	{
+		LogFileWrite(std::format("GetAllCharID(): failed to write _charId3(len: {}, val: {}) to charId3",
+			std::strlen(_charId3), _charId3));
+		return false;
+	}
+
+	return true;
 }
 
-BOOL CDBAgent::UpdateConCurrentUserCount(int serverno, int zoneno, int t_count)
+/// \brief attempts to create a knights clan
+/// \returns 0 for success, 3 for name already in use, 6 for db error
+int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, int flag)
 {
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-
-	switch (zoneno)
+	int16_t retCode = 0;
+	try
 	{
-		case 1:
-			wsprintf(szSQL, TEXT("UPDATE CONCURRENT SET zone1_count = %d WHERE serverid = %d"), t_count, serverno);
-			break;
-
-		case 2:
-			wsprintf(szSQL, TEXT("UPDATE CONCURRENT SET zone2_count = %d WHERE serverid = %d"), t_count, serverno);
-			break;
-
-		case 3:
-			wsprintf(szSQL, TEXT("UPDATE CONCURRENT SET zone3_count = %d WHERE serverid = %d"), t_count, serverno);
-			break;
+		DBProcessNumber(10);
+		ReConnectODBC(_gameConn1);
+		storedProc::CreateKnights proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			&retCode, knightsId, nation, flag, name, chief);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.CreateKnights(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return 6;
 	}
 
-	DBProcessNumber(14);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_AccountDB1.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	if (retCode == 6)
 	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_ERROR)
-		{
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_AccountDB1.Close();
-				if (!m_AccountDB1.IsOpen())
-				{
-					ReConnectODBC(&m_AccountDB1, m_pMain->m_strAccountDSN, m_pMain->m_strAccountUID, m_pMain->m_strAccountPWD);
-					return FALSE;
-				}
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return FALSE;
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+		LogFileWrite(std::format("CreateKnights(): database error creating knights (knightsId={}, nation={}, name={}, chief={}, flag={}",
+			knightsId, nation, name, chief, flag));
 	}
 
-	return TRUE;
+	return retCode;
 }
 
-BOOL CDBAgent::LoadWarehouseData(const char* accountid, int uid)
+/// \brief attempts to update a knights clan
+/// \returns 0 on success, 2 for charId not found or db error, 7 for not found, 8 for capacity error
+int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int domination)
 {
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	BOOL retval;
-	TCHAR			szSQL[1024] = {};
-
-	_USER_DATA* pUser = nullptr;
-	model::Item* pTable = nullptr;
-	SQLINTEGER	Money = 0, dwTime = 0;
-	char strItem[1600] = {}, strSerial[1600] = {};
-	SQLINTEGER Indexind = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("SELECT nMoney, dwTime, WarehouseData, strSerial FROM WAREHOUSE WHERE strAccountID = \'%hs\'"), accountid);
-
-	DBProcessNumber(15);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode != SQL_SUCCESS)
-		return FALSE;
-
-	retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-	if (retcode == SQL_SUCCESS
-		|| retcode == SQL_SUCCESS_WITH_INFO)
+	int16_t retCode = 0;
+	try
 	{
-		retcode = SQLFetch(hstmt);
-		if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-		{
-			SQLGetData(hstmt, 1, SQL_C_LONG, &Money, 0, &Indexind);
-			SQLGetData(hstmt, 2, SQL_C_LONG, &dwTime, 0, &Indexind);
-			SQLGetData(hstmt, 3, SQL_C_CHAR, strItem, 1600, &Indexind);
-			SQLGetData(hstmt, 4, SQL_C_CHAR, strSerial, 1600, &Indexind);
-			retval = TRUE;
-		}
-		else
-			retval = FALSE;
+		DBProcessNumber(11);
+		ReConnectODBC(_gameConn1);
+		storedProc::UpdateKnights proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			&retCode, type, charId, knightsId, domination);
 	}
-	else
+	catch (nanodbc::database_error dbErr)
 	{
-		if (DisplayErrorMsg(hstmt) == -1)
-		{
-			m_GameDB.Close();
-			if (!m_GameDB.IsOpen())
-			{
-				ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-				return FALSE;
-			}
-		}
-		retval = FALSE;
+		std::string logLine = "DBAgent.UpdateKnights(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return 2;
 	}
 
-	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+	return retCode;
+}
 
-	if (!retval)
-		return FALSE;
+/// \brief attemps to delete a knights clan from the database
+/// \return 0 for success, 7 if not found
+int CDBAgent::DeleteKnights(int knightsId)
+{
+	int16_t retCode = 0;
+	try
+	{
+		DBProcessNumber(12);
+		ReConnectODBC(_gameConn1);
+		storedProc::DeleteKnights proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			&retCode, knightsId);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.DeleteKnights(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return 7;
+	}
 
-	pUser = (_USER_DATA*) m_UserDataArray[uid];
-	if (pUser == nullptr)
-		return FALSE;
+	return retCode;
+	
+}
 
-	if (strlen(pUser->m_id) == 0)
-		return FALSE;
+/// \brief loads knight member information into buffOut
+/// \param knightsId
+/// \param start likely made for pagination, but unused by callers (always 0)
+/// \param[out] buffOut buffer to write member information to
+/// \param[out] buffIndex
+/// \returns rowCount - start
+int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int& buffIndex)
+{
+	int				tempIndex = 0, userId = 0;
+	CString			tempId;
 
-	pUser->m_iBank = Money;
+	char charId[MAX_ID_SIZE + 1] = {};
+	uint8_t Fame, Level;
+	int16_t	Class;
+	int32_t rowCount = 0;
+	try
+	{
+		DBProcessNumber(13);
+		ReConnectODBC(_gameConn1);
+		storedProc::LoadKnightsMembers proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(knightsId);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		while (result != nullptr && result->next())
+		{
+			std::vector<uint8_t> temp(sizeof(charId));
+			result->get_ref(0, temp);
+			std::ranges::copy(temp, charId);
+			Fame = static_cast<uint8_t>(result->get<int16_t>(1));
+			Level = static_cast<uint8_t>(result->get<int16_t>(2));
+			Class = result->get<int16_t>(3);
 
-	int index = 0, serial_index = 0;
-	DWORD itemid = 0;
-	short count = 0, duration = 0;
-	int64_t serial = 0;
+			tempId = charId;
+			tempId.TrimRight();
+			strcpy_s(charId, CT2A(tempId));
+			SetShort(buffOut, static_cast<int16_t>(strlen(charId)), tempIndex);
+			SetString(buffOut, charId, static_cast<int32_t>(strlen(charId)), tempIndex);
+			SetByte(buffOut, Fame, tempIndex);
+			SetByte(buffOut, Level, tempIndex);
+			SetShort(buffOut, Class, tempIndex);
+
+			// check if the user is online
+			userId = -1;
+			_USER_DATA* pUser = Main->GetUserPtr(charId, userId);
+			if (pUser != nullptr)
+				SetByte(buffOut, 1, tempIndex);
+			else
+				SetByte(buffOut, 0, tempIndex);
+
+			// pagination:
+			//if( count >= start + 10 )
+			//	break;
+			rowCount++;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.LoadKnightsAllMembers(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return 0;
+	}
+
+	if (rowCount == 0)
+	{
+		LogFileWrite(std::format("LoadKnightsAllMembers(): No rows selected for knightsId={}", knightsId));
+	}
+
+	// clamp result so that start doesn't send rowCount negative
+	return max(rowCount-start, 0);
+}
+
+/// \brief updates concurrent zone count
+/// \returns true if successful, false otherwise
+bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount)
+{
+	std::string updateQuery = std::format("UPDATE CONCURRENT SET [zone{}_count] = ? WHERE [serverid] = ?", zoneId);
+	try
+	{
+		DBProcessNumber(14);
+		ReConnectODBC(_accountConn2);
+		nanodbc::statement stmt = nanodbc::statement(*_accountConn2->Conn, updateQuery);
+		stmt.bind(0, &userCount);
+		stmt.bind(1, &serverId);
+		nanodbc::result result = stmt.execute();
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.UpdateConCurrentUserCount(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+
+	return true;
+}
+
+/// \brief attempts to load warehouse data for an account into UserData[userId]
+/// \returns true if successful, otherwise false
+bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
+{
+	char items[1600] = {}, serial[1600] = {};
+
+	_USER_DATA* user = UserData[userId];
+	if (user == nullptr || strlen(user->m_id) == 0)
+	{
+		LogFileWrite(std::format("LoadWarehouseData(): called for inactive userId={}", userId));
+		return false;
+	}
+	
+	db::SqlBuilder<model::Warehouse> sql;
+	// note: dwTime from prior query wasn't used, so not selecting it here.
+	sql.SetSelectColumns({"nMoney", "WarehouseData", "strSerial"});
+	sql.IsWherePK = true;
+	try
+	{
+		DBProcessNumber(15);
+		ReConnectODBC(_gameConn1);
+		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, sql.SelectString());
+		stmt.bind(0, accountId);
+		db::ModelRecordSet<model::Warehouse> recordSet;
+		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
+		recordSet.open(prepStmt);
+		if (!recordSet.next())
+		{
+			LogFileWrite(std::format("LoadWarehouseData(): No rows selected for accountId={}", accountId));
+			return false;
+		}
+		model::Warehouse warehouse = recordSet.get();
+		user->m_iBank = warehouse.Money;
+		if (warehouse.ItemData.has_value())
+		{
+			std::ranges::copy(warehouse.ItemData.value(), items);
+		}
+		if (warehouse.Serial.has_value())
+		{
+			std::ranges::copy(warehouse.Serial.value(), serial);
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.LoadWarehouseData(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+
+	int index = 0, serialIndex = 0;
+	DWORD itemId = 0;
+	short count = 0, durability = 0;
+	int64_t serialNumber = 0;
+	model::Item* itemData = nullptr;
 	for (int i = 0; i < WAREHOUSE_MAX; i++)
 	{
-		itemid = GetDWORD(strItem, index);
-		duration = GetShort(strItem, index);
-		count = GetShort(strItem, index);
+		itemId = GetDWORD(items, index);
+		durability = GetShort(items, index);
+		count = GetShort(items, index);
 
-		serial = GetInt64(strSerial, serial_index);
+		serialNumber = GetInt64(serial, serialIndex);
 
-		pTable = m_pMain->m_ItemtableArray.GetData(itemid);
-		if (pTable != nullptr)
+		itemData = Main->ItemArray.GetData(itemId);
+		if (itemData != nullptr)
 		{
-			pUser->m_sWarehouseArray[i].nNum = itemid;
-			pUser->m_sWarehouseArray[i].sDuration = duration;
+			user->m_sWarehouseArray[i].nNum = itemId;
+			user->m_sWarehouseArray[i].sDuration = durability;
 
 			if (count > ITEMCOUNT_MAX)
-				pUser->m_sWarehouseArray[i].sCount = ITEMCOUNT_MAX;
+				user->m_sWarehouseArray[i].sCount = ITEMCOUNT_MAX;
 			else if (count <= 0)
 				count = 1;
 
-			pUser->m_sWarehouseArray[i].sCount = count;
-			pUser->m_sWarehouseArray[i].nSerialNum = serial;
-			TRACE(_T("%hs : %d ware slot (%d : %I64d)\n"), pUser->m_id, i, pUser->m_sWarehouseArray[i].nNum, pUser->m_sWarehouseArray[i].nSerialNum);
+			user->m_sWarehouseArray[i].sCount = count;
+			user->m_sWarehouseArray[i].nSerialNum = serialNumber;
+			TRACE(_T("%hs : %d ware slot (%d : %I64d)\n"), user->m_id, i, user->m_sWarehouseArray[i].nNum, user->m_sWarehouseArray[i].nSerialNum);
 		}
 		else
 		{
-			pUser->m_sWarehouseArray[i].nNum = 0;
-			pUser->m_sWarehouseArray[i].sDuration = 0;
-			pUser->m_sWarehouseArray[i].sCount = 0;
+			user->m_sWarehouseArray[i].nNum = 0;
+			user->m_sWarehouseArray[i].sDuration = 0;
+			user->m_sWarehouseArray[i].sCount = 0;
 
-			if (itemid > 0)
+			if (itemId > 0)
 			{
-				char logstr[256] = {};
-				sprintf(logstr, "Warehouse Item Drop(%d) : %d (%s)\r\n", i, itemid, accountid);
-				//m_pMain->WriteLogFile( logstr );
-				//m_pMain->m_LogFile.Write(logstr, strlen(logstr));
+				LogFileWrite(std::format("LoadWarehouseData(): item dropped itemId={} accountId={}",
+					itemId, accountId));
 			}
 		}
 	}
 
-	return retval;
+	return true;
 }
 
-int CDBAgent::UpdateWarehouseData(const char* accountid, int uid, int type)
+/// \brief attempts to update warehouse data from UserData[userId]
+/// \param accountId
+/// \param userId
+/// \param updateType one of UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
+/// \returns true for success, otherwise false
+bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int updateType)
 {
-	SQLHSTMT		hstmt;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SDWORD			sStrItem, sStrSerial;
+	_USER_DATA* pUser = UserData[userId];
+	if (pUser == nullptr || strlen(accountId) == 0)
+	{
+		LogFileWrite(std::format("UpdateWarehouseData(): called with inactive userId={} accountId={}",
+					userId, accountId));
+		return false;
+	}
 
-	_USER_DATA* pUser = nullptr;
+	if (_strnicmp(pUser->m_Accountid, accountId, MAX_ID_SIZE) != 0)
+	{
+		LogFileWrite(std::format("UpdateWarehouseData(): accountId mismatch user.accountId={} accountId={}",
+					pUser->m_Accountid, accountId));
+		return false;
+	}
 
-	pUser = (_USER_DATA*) m_UserDataArray[uid];
-	if (pUser == nullptr)
-		return -1;
-
-	if (strlen(accountid) == 0)
-		return -1;
-
-	if (_strnicmp(pUser->m_Accountid, accountid, MAX_ID_SIZE) != 0)
-		return -1;
-
-	if (type == UPDATE_LOGOUT
-		|| type == UPDATE_ALL_SAVE)
+	if (updateType == UPDATE_LOGOUT
+		|| updateType == UPDATE_ALL_SAVE)
 		pUser->m_dwTime = 0;
 
-	char strItem[1600] = {},
-		strSerial[1600] = {};
-	sStrItem = sizeof(strItem);
-	sStrSerial = sizeof(strSerial);
+	char items[1600] = {},
+		serial[1600] = {};
 
-	int index = 0, serial_index = 0;
+	int index = 0, serialIndex = 0;
 	for (int i = 0; i < WAREHOUSE_MAX; i++)
 	{
-		SetDWORD(strItem, pUser->m_sWarehouseArray[i].nNum, index);
-		SetShort(strItem, pUser->m_sWarehouseArray[i].sDuration, index);
-		SetShort(strItem, pUser->m_sWarehouseArray[i].sCount, index);
-
-		SetInt64(strSerial, pUser->m_sWarehouseArray[i].nSerialNum, serial_index);
+		SetDWORD(items, pUser->m_sWarehouseArray[i].nNum, index);
+		SetShort(items, pUser->m_sWarehouseArray[i].sDuration, index);
+		SetShort(items, pUser->m_sWarehouseArray[i].sCount, index);
+		SetInt64(serial, pUser->m_sWarehouseArray[i].nSerialNum, serialIndex);
 	}
 
-	wsprintf(szSQL, TEXT("{call UPDATE_WAREHOUSE ( \'%hs\', %d,%d,?,?)}"), accountid, pUser->m_iBank, pUser->m_dwTime);
-
-	DBProcessNumber(16);
-
-	hstmt = nullptr;
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	try
 	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(strItem), 0, strItem, 0, &sStrItem);
-		retcode = SQLBindParameter(hstmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(strSerial), 0, strSerial, 0, &sStrSerial);
-		if (retcode == SQL_SUCCESS)
+		DBProcessNumber(16);
+		ReConnectODBC(_gameConn1);
+		storedProc::UpdateWarehouse proc(_gameConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			accountId, pUser->m_iBank, pUser->m_dwTime,
+			items, serial);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		// affected_rows will be -1 if unavailable should be 1 if available
+		if (result->affected_rows() == 0)
 		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_ERROR)
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_GameDB.Close();
-					if (!m_GameDB.IsOpen())
-					{
-						ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-						return 0;
-					}
-				}
+			LogFileWrite(std::format("UpdateWarehouseData(): No rows affected for accountId={}", accountId));
+			return false;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.UpdateWarehouseData(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
 
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+	return true;
+}
 
-				TCHAR logstr[2048] = {};
-				wsprintf(logstr, _T("%s, Item[%hs] \r\n"), szSQL, strItem);
-				LogFileWrite(logstr);
-				return FALSE;
-			}
+/// \brief loads knights clan metadata into the supplied buffer
+/// \param knightsId
+/// \param[out] buffOut buffer to write knights data to
+/// \param[out] buffIndex
+/// \returns true if data was successfully loaded to the buffer, otherwise false
+bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
+{
+	char knightsName[MAX_ID_SIZE + 1] = {};
+	
+	db::SqlBuilder<model::Knights> sql;
+	sql.SetSelectColumns({"IDNum", "Nation", "IDName", "Members", "Points"});
+	sql.IsWherePK = true;
+	try
+	{
+		DBProcessNumber(17);
+		ReConnectODBC(_gameConn1);
+		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, sql.SelectString());
+		stmt.bind(0, &knightsId);
+		db::ModelRecordSet<model::Knights> recordSet;
+		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
+		recordSet.open(prepStmt);
+		if (!recordSet.next())
+		{
+			LogFileWrite(std::format("LoadKnightsInfo(): No rows selected for knightsId={}", knightsId));
+			return false;
+		}
 
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return 1;
+		model::Knights knights = recordSet.get();
+		if (strcpy_s(knightsName, MAX_ID_SIZE+1, knights.Name.c_str()))
+		{
+			LogFileWrite(std::format("LoadKnightsInfo(): failed to write knights.Name(len: {}, val: {}) to knightsName",
+			knights.Name.length(), knights.Name));
+			return false;
+		}
+		SetShort(buffOut, knights.ID, buffIndex);
+		SetByte(buffOut, knights.Nation, buffIndex);
+		SetShort(buffOut, static_cast<uint8_t>(strlen(knightsName)), buffIndex);
+		SetString(buffOut, knightsName, static_cast<int32_t>(strlen(knightsName)), buffIndex);
+		SetShort(buffOut, knights.Members, buffIndex);
+		SetDWORD(buffOut, knights.Points, buffIndex);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.LoadKnightsInfo(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+
+	return true;
+}
+
+/// \brief sets CURRENTUSER record for a given accountId
+/// \param accountId
+/// \param charId
+/// \param serverIp
+/// \param serverId
+/// \param clientIp
+/// \param init 0x01 to insert, 0x02 to update CURRENTUSER
+/// \returns true when CURRENTUSER successfully updated, otherwise false
+bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const char* serverIp, int serverId, const char* clientIp, BYTE init)
+{
+	std::string query;
+	if (init == 0x01)
+	{
+		query = std::format("INSERT INTO [CURRENTUSER] ([strAccountID], [strCharID], [nServerNo], [strServerIP], [strClientIP]) VALUES (\'{}\',\'{}\',{},\'{}\',\'{}\')",
+			accountId, charId, serverId, serverIp, clientIp);
+	}
+	else if (init == 0x02)
+	{
+		query = std::format("UPDATE [CURRENTUSER] SET [nServerNo]={}, [strServerIP]=\'{}\' WHERE [strAccountID] = \'{}\'",
+			serverId, serverIp, accountId);
+	}
+	else
+	{
+		LogFileWrite(std::format("SetLogInInfo(): invalid init code specified (init: {}) for accountId={}",
+			init, accountId));
+		return false;
+	}
+
+	try
+	{
+		DBProcessNumber(18);
+		ReConnectODBC(_accountConn1);
+		nanodbc::statement stmt = nanodbc::statement(*_accountConn1->Conn, query);
+		nanodbc::result result = stmt.execute();
+		// affected_rows will be -1 if unavailable should be 1 if available
+		if (result.affected_rows() == 0)
+		{
+			LogFileWrite(std::format("SetLogInInfo(): No rows affected for accountId={}", accountId));
+			return false;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.SetLogInInfo(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+
+	return true;
+}
+
+/// \brief removes the CURRENTUSER record for accountId
+/// \returns true on success, otherwise false
+bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
+{
+	// these always return as 1 currently, not really useful
+	int16_t ret1 = 0, ret2 = 0;
+	try
+	{
+		DBProcessNumber(19);
+		ReConnectODBC(_accountConn1);
+		storedProc::AccountLogout proc(_accountConn1->Conn);
+		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+			accountId, logoutCode, &ret1, &ret2);
+		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		// affected_rows will be -1 if unavailable should be 1 if available
+		if (result->affected_rows() == 0)
+		{
+			LogFileWrite(std::format("AccountLogout(): No rows affected for accountId={}", accountId));
+			return false;
+		}
+		if (ret1 != 1)
+		{
+			LogFileWrite(std::format("AccountLogout(): ret1 not updated by proc for accountId={}", accountId));
+			return false;
+		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBAgent.AccountLogout(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
+
+	return true;
+}
+
+/// \brief verifies that USERDATA or WAREHOUSE are in sync with the provided input
+/// \param accountId
+/// \param charId
+/// \param checkType 0 for USERDATA, 1 for WAREHOUSE
+/// \param compareData is WAREHOUSE.nMoney when checkType is 1, otherwise USERDATA.Exp
+/// \returns true when input data matches database record, false otherwise
+bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int checkType, int userUpdateTime, int compareData)
+{
+	uint32_t dbData = 0, dbTime = 0;
+
+	std::string query;
+	if (checkType == 1)
+	{
+		query = std::format("SELECT [dwTime], [nMoney] FROM [WAREHOUSE] WHERE [strAccountID] = \'{}\'", accountId);
+	}
+	else
+	{
+		query = std::format("SELECT [dwTime], [Exp] FROM [USERDATA] WHERE [strUserID] = \'{}\'", charId);
+	}
+	
+	try
+	{
+		DBProcessNumber(20);
+		ReConnectODBC(_gameConn1);
+		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, query);
+		nanodbc::result result = stmt.execute();
+		if (result.next())
+		{
+			dbTime = result.get<uint32_t>(0);
+			dbData = result.get<uint32_t>(1);
 		}
 		else
 		{
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+			LogFileWrite(std::format("CheckUserData(): No rows affected for accountId={} charId={}", accountId, charId));
+			return false;
 		}
 	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.CheckUserData(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
+	}
 
-	return 0;
+	if (dbTime != userUpdateTime ||
+		dbData != compareData)
+	{
+		LogFileWrite(std::format("CheckUserData(): data mismatch dbTime(expected: {}, actual: {}) dbData(expected: {}, actual: {})",
+			userUpdateTime, dbTime,
+			compareData, dbData));
+		return false;
+	}
+
+	return true;
 }
 
-BOOL CDBAgent::LoadKnightsInfo(int index, char* buff, int& buff_index)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	BOOL			bData = TRUE, retval = FALSE;
-	CString			tempid;
-	TCHAR			szSQL[1024] = {};
 
-	SQLCHAR IDName[MAX_ID_SIZE + 1] = {}, Nation;
-	char szKnightsName[MAX_ID_SIZE + 1] = {};
-	SQLSMALLINT	IDNum, Members;
-	SQLINTEGER Indexind = SQL_NTS, nPoints = 0;
-
-	int len = 0;
-
-	wsprintf(szSQL, TEXT("SELECT IDNum, Nation, IDName, Members, Points FROM KNIGHTS WHERE IDNum=%d"), index);
-
-	DBProcessNumber(17);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
-		{
-			retcode = SQLFetch(hstmt);
-			if (retcode == SQL_SUCCESS
-				|| retcode == SQL_SUCCESS_WITH_INFO)
-			{
-				SQLGetData(hstmt, 1, SQL_C_SSHORT, &IDNum, 0, &Indexind);
-				SQLGetData(hstmt, 2, SQL_C_TINYINT, &Nation, 0, &Indexind);
-				SQLGetData(hstmt, 3, SQL_C_CHAR, IDName, MAX_ID_SIZE + 1, &Indexind);
-				SQLGetData(hstmt, 4, SQL_C_SSHORT, &Members, 0, &Indexind);
-				SQLGetData(hstmt, 5, SQL_C_LONG, &nPoints, 0, &Indexind);
-
-				tempid = IDName;
-				tempid.TrimRight();
-
-				strcpy_s(szKnightsName, CT2A(tempid));
-
-				SetShort(buff, IDNum, buff_index);
-				SetByte(buff, Nation, buff_index);
-				SetShort(buff, (short) strlen(szKnightsName), buff_index);
-				SetString(buff, szKnightsName, (int) strlen(szKnightsName), buff_index);
-				SetShort(buff, Members, buff_index);
-				SetDWORD(buff, nPoints, buff_index);
-
-				retval = TRUE;
-			}
-
-		}
-		else
-		{
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_GameDB.Close();
-				if (!m_GameDB.IsOpen())
-				{
-					ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-					return FALSE;
-				}
-			}
-			retval = FALSE;
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-	else
-	{
-		return FALSE;
-	}
-
-	return retval;
-}
-
-BOOL CDBAgent::SetLogInInfo(const char* accountid, const char* charid, const char* serverip, int serverno, const char* clientip, BYTE bInit)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLINTEGER		cbParmRet = SQL_NTS;
-	BOOL			bSuccess = TRUE;
-
-	if (bInit == 0x01)
-	{
-		wsprintf(szSQL, TEXT("INSERT INTO CURRENTUSER (strAccountID, strCharID, nServerNo, strServerIP, strClientIP) VALUES (\'%hs\',\'%hs\',%d,\'%hs\',\'%hs\')"), accountid, charid, serverno, serverip, clientip);
-	}
-	else if (bInit == 0x02)
-	{
-		wsprintf(szSQL, TEXT("UPDATE CURRENTUSER SET nServerNo=%d, strServerIP=\'%hs\' WHERE strAccountID = \'%hs\'"), serverno, serverip, accountid);
-	}
-	else
-	{
-		return FALSE;
-	}
-
-	DBProcessNumber(18);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_AccountDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_ERROR)
-		{
-			bSuccess = FALSE;
-
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_AccountDB.Close();
-				if (!m_AccountDB.IsOpen())
-				{
-					ReConnectODBC(&m_AccountDB, m_pMain->m_strAccountDSN, m_pMain->m_strAccountUID, m_pMain->m_strAccountPWD);
-					return FALSE;
-				}
-			}
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-
-	return bSuccess;
-}
-
-int CDBAgent::AccountLogout(const char* accountid, int iLogoutCode)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-	SQLSMALLINT		sParmRet = 0;
-	SQLINTEGER		iUnk = 0;
-	SQLINTEGER		cbParmRet = SQL_NTS;
-
-	wsprintf(szSQL, TEXT("{call ACCOUNT_LOGOUT( \'%hs\', %d, ?, ?)}"), accountid, iLogoutCode);
-
-	DBProcessNumber(19);
-
-	CTime t = CTime::GetCurrentTime();
-	char strlog[256] = {};
-	sprintf(strlog, "[AccountLogout] acname=%s \r\n", accountid);
-	m_pMain->WriteLogFile(strlog);
-	//m_pMain->m_LogFile.Write(strlog, strlen(strlog));
-	TRACE(strlog);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_AccountDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_SMALLINT, 0, 0, &sParmRet, 0, &cbParmRet);
-		retcode = SQLBindParameter(hstmt, 2, SQL_PARAM_OUTPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &iUnk, 0, &cbParmRet);
-		if (retcode == SQL_SUCCESS)
-		{
-			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-			if (retcode == SQL_SUCCESS
-				|| retcode == SQL_SUCCESS_WITH_INFO)
-			{
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				if (sParmRet == 0)
-					return -1;
-				else
-					return sParmRet; // 1 == success
-			}
-			else
-			{
-				if (DisplayErrorMsg(hstmt) == -1)
-				{
-					m_AccountDB.Close();
-					if (!m_AccountDB.IsOpen())
-					{
-						ReConnectODBC(&m_AccountDB, m_pMain->m_strAccountDSN, m_pMain->m_strAccountUID, m_pMain->m_strAccountPWD);
-						return FALSE;
-					}
-				}
-
-				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-				return -1;
-			}
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-
-	return -1;
-}
-
-BOOL CDBAgent::CheckUserData(const char* accountid, const char* charid, int type, int nTimeNumber, int comparedata)
-{
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	BOOL			bData = TRUE, retval = FALSE;
-	TCHAR			szSQL[1024] = {};
-
-	SQLINTEGER Indexind = SQL_NTS, dwTime = 0, iData = 0;
-
-	if (type == 1)
-		wsprintf(szSQL, TEXT("SELECT dwTime, nMoney FROM WAREHOUSE WHERE strAccountID=\'%hs\'"), accountid);
-	else
-		wsprintf(szSQL, TEXT("SELECT dwTime, [Exp] FROM USERDATA WHERE strUserID=\'%hs\'"), charid);
-
-	DBProcessNumber(20);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
-	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
-		{
-			retcode = SQLFetch(hstmt);
-			if (retcode == SQL_SUCCESS
-				|| retcode == SQL_SUCCESS_WITH_INFO)
-			{
-				SQLGetData(hstmt, 1, SQL_C_LONG, &dwTime, 0, &Indexind);
-				SQLGetData(hstmt, 2, SQL_C_LONG, &iData, 0, &Indexind);	// type:1 -> Bank Money type:2 -> Exp
-
-				// check userdata have saved
-				if (nTimeNumber != dwTime
-					|| comparedata != iData)
-					retval = FALSE;
-				else
-					retval = TRUE;
-			}
-
-		}
-		else
-		{
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_GameDB.Close();
-				if (!m_GameDB.IsOpen())
-				{
-					ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-					return FALSE;
-				}
-			}
-			retval = FALSE;
-		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-	}
-	else
-	{
-		return FALSE;
-	}
-
-	return retval;
-}
-
+/// \brief loads knights ranking data by nation to handle KNIGHTS_ALLLIST_REQ
+/// \param nation 1 = karus, 2 = elmorad, 3 = battlezone
+/// \see KNIGHTS_ALLLIST_REQ
+/// \note most other functions in this file are db-ops only.  This does db-ops
+/// and socket IO.  Should likely be separated into separate functions
 void CDBAgent::LoadKnightsAllList(int nation)
 {
-	SQLHSTMT		hstmt = nullptr;
-	SQLRETURN		retcode;
-	BOOL			bData = TRUE;
-	int				count = 0;
-	CString			tempid;
-	TCHAR			szSQL[1024] = {};
-
-	char send_buff[512] = {},
-		temp_buff[512] = {};
-	int send_index = 0, temp_index = 0;
-
-	SQLCHAR bRanking = 0;
-	SQLSMALLINT	shKnights = 0;
-	SQLINTEGER Indexind = SQL_NTS, nPoints = 0;
-
+	uint32_t count = 0;
+	uint8_t retryCount = 0, maxRetry = 50;
+	int32_t sendIndex = 0, dbIndex = 0, maxBatchSize = 40;
+	char sendBuff[512] = {},
+		dbBuff[512] = {};
+	
+	db::SqlBuilder<model::Knights> sql;
+	sql.PostWhereClause = "ORDER BY [Points] DESC";
 	if (nation == 3)	// battle zone
 	{
-		wsprintf(szSQL, TEXT("SELECT IDNum, Points, Ranking FROM KNIGHTS WHERE Points <> 0 ORDER BY Points DESC"), nation);
+		sql.Where = "[Points] <> 0";
 	}
 	else
 	{
-		wsprintf(szSQL, TEXT("SELECT IDNum, Points, Ranking FROM KNIGHTS WHERE Nation=%d AND Points <> 0 ORDER BY Points DESC"), nation);
+		sql.Where = std::format("[Nation] = {} AND [Points] <> 0", nation);
 	}
 
-	DBProcessNumber(21);
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	db::ModelRecordSet<model::Knights> recordSet;
+	try
 	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_SUCCESS
-			|| retcode == SQL_SUCCESS_WITH_INFO)
+		DBProcessNumber(21);
+		ReConnectODBC(_gameConn1);
+		recordSet.open(sql);
+		while (recordSet.next())
 		{
-			while (bData)
+			count++;
+			model::Knights knights = recordSet.get();
+			SetShort(dbBuff, knights.ID, dbIndex);
+			SetDWORD(dbBuff, knights.Points, dbIndex);
+			SetByte(dbBuff, knights.Ranking, dbIndex);
+
+			// publish batch
+			if (count >= maxBatchSize)
 			{
-				retcode = SQLFetch(hstmt);
-				if (retcode == SQL_SUCCESS
-					|| retcode == SQL_SUCCESS_WITH_INFO)
+				SetByte(sendBuff, KNIGHTS_ALLLIST_REQ, sendIndex);
+				SetShort(sendBuff, -1, sendIndex);
+				SetByte(sendBuff, count, sendIndex);
+				SetString(sendBuff, dbBuff, dbIndex, sendIndex);
+
+				retryCount = 0;
+				do
 				{
-					SQLGetData(hstmt, 1, SQL_C_SSHORT, &shKnights, 0, &Indexind);
-					SQLGetData(hstmt, 2, SQL_C_LONG, &nPoints, 0, &Indexind);
-					SQLGetData(hstmt, 3, SQL_C_TINYINT, &bRanking, 0, &Indexind);
+					if (Main->LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
+						break;
 
-					SetShort(temp_buff, shKnights, temp_index);
-					SetDWORD(temp_buff, nPoints, temp_index);
-					SetByte(temp_buff, bRanking, temp_index);
-
-					count++;
-
-					// 40개 단위로 보낸다
-					if (count >= 40)
-					{
-						SetByte(send_buff, KNIGHTS_ALLLIST_REQ, send_index);
-						SetShort(send_buff, -1, send_index);
-						SetByte(send_buff, count, send_index);
-						SetString(send_buff, temp_buff, temp_index, send_index);
-
-						do
-						{
-							if (m_pMain->m_LoggerSendQueue.PutData(send_buff, send_index) == 1)
-								break;
-
-							count++;
-						}
-						while (count < 50);
-
-						if (count >= 50)
-							m_pMain->m_OutputList.AddString(_T("LoadKnightsAllList Packet Drop!!!"));
-
-						memset(send_buff, 0, sizeof(send_buff));
-						memset(temp_buff, 0, sizeof(temp_buff));
-						send_index = temp_index = 0;
-						count = 0;
-					}
-
-					bData = TRUE;
+					retryCount++;
 				}
-				else
+				while (retryCount < maxRetry);
+
+				if (retryCount >= maxRetry)
 				{
-					bData = FALSE;
-				}
-			}
-		}
-		else
-		{
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_GameDB.Close();
-				if (!m_GameDB.IsOpen())
-				{
-					ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
+					Main->OutputList.AddString(_T("Packet Drop: KNIGHTS_ALLLIST_REQ"));
 					return;
 				}
+
+				memset(sendBuff, 0, sizeof(sendBuff));
+				memset(dbBuff, 0, sizeof(dbBuff));
+				sendIndex = dbIndex = 0;
+				count = 0;
 			}
 		}
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.LoadKnightsAllList(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return;
+	}
 
-		// 40개를 보내지 못한 경우
-		if (count < 40)
+	// send remaining results
+	if (count < maxBatchSize)
+	{
+		SetByte(sendBuff, KNIGHTS_ALLLIST_REQ, sendIndex);
+		SetShort(sendBuff, -1, sendIndex);
+		SetByte(sendBuff, count, sendIndex);
+		SetString(sendBuff, dbBuff, dbIndex, sendIndex);
+
+		retryCount = 0;
+		do
 		{
-			SetByte(send_buff, KNIGHTS_ALLLIST_REQ, send_index);
-			SetShort(send_buff, -1, send_index);
-			SetByte(send_buff, count, send_index);
-			SetString(send_buff, temp_buff, temp_index, send_index);
+			if (Main->LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
+				break;
 
-			do
-			{
-				if (m_pMain->m_LoggerSendQueue.PutData(send_buff, send_index) == 1)
-					break;
-
-				count++;
-			}
-			while (count < 50);
-
-			if (count >= 50)
-				m_pMain->m_OutputList.AddString(_T("LoadKnightsAllList Packet Drop!!!"));
+			retryCount++;
 		}
+		while (retryCount < maxRetry);
 
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+		if (retryCount >= maxRetry)
+		{
+			Main->OutputList.AddString(_T("Packet Drop: KNIGHTS_ALLLIST_REQ"));
+		}
 	}
 }
 
+/// \brief Updates the IDC_DB_PROCESS text with the DB Process Number
+/// \note I don't actually see this on the UI, and I'm not sure how practical it is under load.
 void CDBAgent::DBProcessNumber(int number)
 {
 	CString strDBNum;
 	strDBNum.Format(_T(" %4d "), number);
 
-	m_pMain->GetDlgItem(IDC_DB_PROCESS)->SetWindowText(strDBNum);
-	m_pMain->GetDlgItem(IDC_DB_PROCESS)->UpdateWindow();
+	Main->GetDlgItem(IDC_DB_PROCESS)->SetWindowText(strDBNum);
+	Main->GetDlgItem(IDC_DB_PROCESS)->UpdateWindow();
 }
 
-BOOL CDBAgent::UpdateBattleEvent(const char* charid, int nation)
+/// \brief updates which nation won the war and which charId killed the commander
+/// \returns true if update successful, otherwise false
+bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 {
-	SQLHSTMT		hstmt;
-	SQLRETURN		retcode;
-	TCHAR			szSQL[1024] = {};
-
-	DBProcessNumber(22);
-
-	wsprintf(szSQL, TEXT("UPDATE BATTLE SET byNation=%d, strUserName=\'%hs\' WHERE sIndex=%d"), nation, charid, 1);
-
-	hstmt = nullptr;
-
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_GameDB.m_hdbc, &hstmt);
-	if (retcode == SQL_SUCCESS)
+	std::string query = "UPDATE BATTLE SET byNation = ?, strUserName = ? WHERE sIndex = 1";
+	try
 	{
-		retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
-		if (retcode == SQL_ERROR)
+		DBProcessNumber(22);
+		ReConnectODBC(_accountConn1);
+		nanodbc::statement stmt = nanodbc::statement(*_accountConn1->Conn, query);
+		stmt.bind(0, &nation);
+		stmt.bind(1, charId);
+		nanodbc::result result = stmt.execute();
+		// affected_rows will be -1 if unavailable should be 1 if available
+		if (result.affected_rows() == 0)
 		{
-			if (DisplayErrorMsg(hstmt) == -1)
-			{
-				m_GameDB.Close();
-				if (!m_GameDB.IsOpen())
-				{
-					ReConnectODBC(&m_GameDB, m_pMain->m_strGameDSN, m_pMain->m_strGameUID, m_pMain->m_strGamePWD);
-					return 0;
-				}
-			}
-
-			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-			return FALSE;
+			LogFileWrite("UpdateBattleEvent(): No rows affected");
+			return false;
 		}
-
-		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+	}
+	catch (nanodbc::database_error dbErr)
+	{
+		std::string logLine = "DBProcess.UpdateBattleEvent(): ";
+		logLine += dbErr.what();
+		logLine += "\n";
+		LogFileWrite(logLine);
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-BOOL CDBAgent::CheckCouponEvent(const char* accountid)
+/* TODO: Proc does not exist
+BOOL CDBAgent::CheckCouponEvent(const char* accountId)
 {
 	SQLHSTMT		hstmt = nullptr;
 	SQLRETURN		retcode;
@@ -1949,11 +1509,11 @@ BOOL CDBAgent::CheckCouponEvent(const char* accountid)
 	SQLINTEGER		Indexind = SQL_NTS;
 	SQLSMALLINT		sRet = 0;
 
-	wsprintf(szSQL, TEXT("{call CHECK_COUPON_EVENT (\'%hs\', ?)}"), accountid);
+	wsprintf(szSQL, TEXT("{call CHECK_COUPON_EVENT (\'%hs\', ?)}"), accountId);
 
 	hstmt = nullptr;
 
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_AccountDB.m_hdbc, &hstmt);
+	retcode = SQLAllocHandle(SQL_HANDLE_STMT, accountConn1.m_hdbc, &hstmt);
 	if (retcode != SQL_SUCCESS)
 		return FALSE;
 
@@ -1977,10 +1537,10 @@ BOOL CDBAgent::CheckCouponEvent(const char* accountid)
 	{
 		if (DisplayErrorMsg(hstmt) == -1)
 		{
-			m_AccountDB.Close();
-			if (!m_AccountDB.IsOpen())
+			accountConn1.Close();
+			if (!accountConn1.IsOpen())
 			{
-				ReConnectODBC(&m_AccountDB, m_pMain->m_strAccountDSN, m_pMain->m_strAccountUID, m_pMain->m_strAccountPWD);
+				ReConnectODBC(&accountConn1, Main->m_strAccountDSN, Main->m_strAccountUID, Main->m_strAccountPWD);
 				return FALSE;
 			}
 		}
@@ -1991,9 +1551,10 @@ BOOL CDBAgent::CheckCouponEvent(const char* accountid)
 	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
 	return retval;
-}
+}*/
 
-BOOL CDBAgent::UpdateCouponEvent(const char* accountid, char* charid, char* cpid, int itemid, int count)
+/*  TODO:  Proc does not exist
+BOOL CDBAgent::UpdateCouponEvent(const char* accountId, char* charId, char* cpid, int itemId, int count)
 {
 	SQLHSTMT		hstmt = nullptr;
 	SQLRETURN		retcode;
@@ -2002,11 +1563,11 @@ BOOL CDBAgent::UpdateCouponEvent(const char* accountid, char* charid, char* cpid
 	SQLINTEGER		Indexind = SQL_NTS;
 	SQLSMALLINT		sRet = 0;
 
-	wsprintf(szSQL, TEXT("{call UPDATE_COUPON_EVENT (\'%hs\', \'%hs\', \'%hs\', %d, %d)}"), accountid, charid, cpid, itemid, count);
+	wsprintf(szSQL, TEXT("{call UPDATE_COUPON_EVENT (\'%hs\', \'%hs\', \'%hs\', %d, %d)}"), accountId, charId, cpid, itemId, count);
 
 	hstmt = nullptr;
 
-	retcode = SQLAllocHandle(SQL_HANDLE_STMT, m_AccountDB.m_hdbc, &hstmt);
+	retcode = SQLAllocHandle(SQL_HANDLE_STMT, accountConn1.m_hdbc, &hstmt);
 	if (retcode != SQL_SUCCESS)
 		return FALSE;
 
@@ -2022,10 +1583,10 @@ BOOL CDBAgent::UpdateCouponEvent(const char* accountid, char* charid, char* cpid
 	{
 		if (DisplayErrorMsg(hstmt) == -1)
 		{
-			m_AccountDB.Close();
-			if (!m_AccountDB.IsOpen())
+			accountConn1.Close();
+			if (!accountConn1.IsOpen())
 			{
-				ReConnectODBC(&m_AccountDB, m_pMain->m_strAccountDSN, m_pMain->m_strAccountUID, m_pMain->m_strAccountPWD);
+				ReConnectODBC(&accountConn1, Main->m_strAccountDSN, Main->m_strAccountUID, Main->m_strAccountPWD);
 				return FALSE;
 			}
 		}
@@ -2036,3 +1597,49 @@ BOOL CDBAgent::UpdateCouponEvent(const char* accountid, char* charid, char* cpid
 	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 	return retval;
 }
+*/
+
+/* TODO: Proc doesn't exist
+BOOL CDBAgent::DeleteChar(int index, char* id, char* charId, char* socno)
+{
+	SQLHSTMT		hstmt = nullptr;
+	SQLRETURN		retcode;
+	TCHAR			szSQL[1024] = {};
+	SQLSMALLINT		sParmRet;
+	SQLINTEGER		cbParmRet = SQL_NTS;
+
+	wsprintf(szSQL, TEXT("{ call DELETE_CHAR ( \'%hs\', %d, \'%hs\', \'%hs\', ? )}"), id, index, charId, socno);
+
+	DBProcessNumber(7);
+
+	retcode = SQLAllocHandle(SQL_HANDLE_STMT, gameConn1.m_hdbc, &hstmt);
+	if (retcode == SQL_SUCCESS)
+	{
+		retcode = SQLBindParameter(hstmt, 1, SQL_PARAM_OUTPUT, SQL_C_SSHORT, SQL_INTEGER, 0, 0, &sParmRet, 0, &cbParmRet);
+		if (retcode == SQL_SUCCESS)
+		{
+			retcode = SQLExecDirect(hstmt, (SQLTCHAR*) szSQL, SQL_NTS);
+			if (retcode == SQL_ERROR)
+			{
+				if (DisplayErrorMsg(hstmt) == -1)
+				{
+					gameConn1.Close();
+
+					if (!gameConn1.IsOpen())
+					{
+						ReConnectODBC(&gameConn1, Main->m_strGameDSN, Main->m_strGameUID, Main->m_strGamePWD);
+						return FALSE;
+					}
+				}
+
+				SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+				return FALSE;
+			}
+
+			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+			return sParmRet;
+		}
+	}
+
+	return FALSE;
+}*/

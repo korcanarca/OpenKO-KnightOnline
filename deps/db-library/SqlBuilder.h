@@ -16,8 +16,15 @@ namespace db
 		/// \brief Limits the size of the result set.  Defaults to 0 for no limit
 		int64_t Limit = 0;
 
-		/// \brief adds an "ORDER BY" clause to SelectString()
-		std::string OrderBy;
+		/// \brief adds additional SQL clause after any WHERE statements, 
+		/// such as an "ORDER BY"
+		std::string PostWhereClause;
+
+		/// \brief adds a WHERE statement manually specified by the caller. Takes
+		/// priority over IsWherePK.  Caller should include "WHERE" keyword when
+		/// setting this string
+		/// \see IsWherePK
+		std::string Where;
 		
 		/// \brief will cause SelectString() to use a WHERE statement using PK columns
 		bool IsWherePK = false;
@@ -73,12 +80,12 @@ namespace db
 			}
 
 			query += " FROM [" + ModelType::TableName() + ']';
-			if (!OrderBy.empty())
-			{
-				query += " " + OrderBy;
-			}
 
-			if (IsWherePK && !ModelType::PrimaryKey().empty())
+			if (!Where.empty())
+			{
+				query += " " + Where;
+			}
+			else if (IsWherePK && !ModelType::PrimaryKey().empty())
 			{
 				query += " WHERE ";
 				i = 0;
@@ -91,6 +98,11 @@ namespace db
 				}
 			}
 
+			if (!PostWhereClause.empty())
+			{
+				query += " " + PostWhereClause;
+			}
+
 #if defined(_DEBUG)
 			std::cout << "using query: " << query << '\n';
 #endif
@@ -101,6 +113,27 @@ namespace db
 		std::string SelectCountString()
 		{
 			std::string query = "SELECT COUNT(*) FROM [" + ModelType::TableName() + ']';
+			if (!Where.empty())
+			{
+				query += " " + Where;
+			}
+			else if (IsWherePK && !ModelType::PrimaryKey().empty())
+			{
+				query += " WHERE ";
+				short i = 0;
+				for (const std::string& col : ModelType::PrimaryKey())
+				{
+					if (i > 0)
+						query += " AND ";
+					query += '[' + col + "] = ?";
+					i++;
+				}
+			}
+			
+			if (!PostWhereClause.empty())
+			{
+				query += " " + PostWhereClause;
+			}
 #if defined(_DEBUG)
 			std::cout << "using query: " << query << '\n';
 #endif
@@ -129,7 +162,8 @@ namespace db
 			
 			return insertQuery;
 		}
-		
+
+		// untested but should be almost right if needed
 		// std::string UpdateString()
 		// {
 		// 	std::string updateQuery = "UPDATE [" + ModelType::TableName() + "] SET ";
@@ -142,10 +176,19 @@ namespace db
 		// 		}
 		// 		updateQuery += '[' + colName + "] = ?";
 		// 	}
+		// if (!Where.empty())
+		// {
+		// 	query += " " + Where;
+		// }
+		// if (!PostWhereClause.empty())
+		// {
+		// 	query += " " + PostWhereClause;
+		// }
 		// }
 
 		/// \brief returns a select query built using the table's PK.  Delete statements
-		/// not using the PK should be carefully hand coded
+		/// not using the PK should be carefully hand coded.
+		/// \note does not support manual use of Where
 		std::string DeleteByIdString()
 		{
 			std::string query;

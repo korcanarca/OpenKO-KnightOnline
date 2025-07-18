@@ -1,11 +1,20 @@
 ﻿#ifndef _DEFINE_H
 #define _DEFINE_H
 
+#if defined(_DEBUG)
+#include <iostream>
+#endif
+
 #include <shared/globals.h>
 #include <shared/StringConversion.h>
 #include <shared/_USER_DATA.h>
 
 constexpr int MAX_USER			= 3000;
+
+/// \brief AUTOSAVE_DELTA is the amount of time required since last save to trigger a UserDataSave()
+constexpr int AUTOSAVE_DELTA = 360000;
+
+constexpr long DB_PROCESS_TIMEOUT = 10;
 
 #define MAX_ITEM			28
 
@@ -137,6 +146,16 @@ typedef union {
 #define UPDATE_LOGOUT			0x01
 #define UPDATE_ALL_SAVE			0x02
 #define UPDATE_PACKET_SAVE		0x03
+
+////////////////////////////////////////////////////////////////
+// WIZ_NEW_CHAR Results
+////////////////////////////////////////////////////////////////
+#define NEW_CHAR_ERROR			-1
+#define NEW_CHAR_SUCCESS		0
+#define NEW_CHAR_NO_FREE_SLOT	1
+#define NEW_CHAR_INVALID_RACE	2
+#define NEW_CHAR_NAME_IN_USE	3
+#define NEW_CHAR_SYNC_ERROR		4
 
 
 // Reply packet define...
@@ -298,11 +317,23 @@ inline void LogFileWrite(LPCTSTR logstr)
 #if defined(_UNICODE)
 	const std::string utf8 = WideToUtf8(logstr, wcslen(logstr));
 	file.Write(utf8.c_str(), static_cast<int>(utf8.size()));
+#if defined(_DEBUG)
+	std::cout << "LogFileWrite: " << utf8 << std::endl;
+#endif
 #else
 	file.Write(logstr, strlen(logstr));
+#if defined(_DEBUG)
+	std::cout << "LogFileWrite: " << logstr << std::endl;
+#endif
 #endif
 
 	file.Close();
+}
+
+inline void LogFileWrite(const std::string& logStr)
+{
+	CString clog = logStr.c_str();
+	LogFileWrite(clog);
 }
 
 inline int DisplayErrorMsg(SQLHANDLE hstmt)
@@ -326,6 +357,22 @@ inline int DisplayErrorMsg(SQLHANDLE hstmt)
 		return -1;
 	else
 		return 0;
+}
+
+namespace ini
+{
+	// ODBC Config Section
+	static const std::string ODBC = "ODBC";
+	static const std::string GAME_DSN = "GAME_DSN";
+	static const std::string GAME_UID = "GAME_UID";
+	static const std::string GAME_PWD = "GAME_PWD";
+	static const std::string ACCOUNT_DSN = "ACCOUNT_DSN";
+	static const std::string ACCOUNT_UID = "ACCOUNT_UID";
+	static const std::string ACCOUNT_PWD = "ACCOUNT_PWD";
+
+	// ZONE_INFO section
+	static const std::string ZONE_INFO = "ZONE_INFO";
+	static const std::string GROUP_INFO = "GROUP_INFO";
 }
 
 #endif

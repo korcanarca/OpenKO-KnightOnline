@@ -118,11 +118,12 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	// without a procedure.
 	db::SqlBuilder<model::TbUser> sql;
 	sql.IsWherePK = true;
-	nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
-	stmt.bind(0, accountId);
+	
 	try
 	{
 		ReConnectODBC();
+		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
+		stmt.bind(0, accountId);
 		db::ModelRecordSet<model::TbUser> recordSet;
 		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
 		recordSet.open(prepStmt);
@@ -156,17 +157,16 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 /// \returns TRUE on success, FALSE on failure
 BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* compressName, int historyVersion)
 {
-
 	db::SqlBuilder<model::Version> sql;
 	std::string insert = sql.InsertString();
-	nanodbc::statement stmt = nanodbc::statement(*conn->Conn, insert);
-	stmt.bind(0, &version);
-	stmt.bind(1, fileName);
-	stmt.bind(2, compressName);
-	stmt.bind(3, &historyVersion);
 	try
 	{
 		ReConnectODBC();
+		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, insert);
+		stmt.bind(0, &version);
+		stmt.bind(1, fileName);
+		stmt.bind(2, compressName);
+		stmt.bind(3, &historyVersion);
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
 		{
@@ -191,11 +191,11 @@ BOOL CDBProcess::DeleteVersion(int version)
 {
 	db::SqlBuilder<model::Version> sql;
 	std::string deleteQuery = sql.DeleteByIdString();
-	nanodbc::statement stmt = nanodbc::statement(*conn->Conn, deleteQuery);
-	stmt.bind(0, &version);
 	try
 	{
 		ReConnectODBC();
+		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, deleteQuery);
+		stmt.bind(0, &version);
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
 		{
@@ -252,11 +252,11 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 {
 	db::SqlBuilder<model::CurrentUser> sql;
 	sql.IsWherePK = true;
-	nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
-	stmt.bind(0, accountId);
 	try
 	{
 		ReConnectODBC();
+		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
+		stmt.bind(0, accountId);
 		db::ModelRecordSet<model::CurrentUser> recordSet;
 		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
 		recordSet.open(prepStmt);
