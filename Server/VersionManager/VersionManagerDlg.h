@@ -14,11 +14,8 @@
 #include <vector>
 #include <string>
 
-#include <shared/STLMap.h>
-
 /////////////////////////////////////////////////////////////////////////////
 // CVersionManagerDlg dialog
-typedef CSTLMap <model::Version>	VersionInfoList;
 typedef std::vector<_SERVER_INFO*>	ServerInfoList;
 
 namespace recordset_loader
@@ -28,49 +25,70 @@ namespace recordset_loader
 
 class CVersionManagerDlg : public CDialog
 {
-// Construction
 public:
-	BOOL GetInfoFromIni();
+	const char* FtpUrl() const
+	{
+		return _ftpUrl;
+	}
+
+	const char* FtpPath() const
+	{
+		return _ftpPath;
+	}
+
+	int LastVersion() const
+	{
+		return _lastVersion;
+	}
 
 	CVersionManagerDlg(CWnd* parent = nullptr);	// standard constructor
 	~CVersionManagerDlg();
+	BOOL GetInfoFromIni();
+	BOOL LoadVersionList();
 
-	static CIOCPort		IocPort;
-	char				FtpUrl[256];
-	char				FilePath[256];
+	static CIOCPort	 IocPort;
 
-	/// \brief DefaultPath loaded from CONFIGURATION.DEFAULT_PATH
-	std::string			DefaultPath;
-	int					LastVersion;
-	VersionInfoList		VersionList;
-	ServerInfoList		ServerList;
-	int					ServerCount;
-	_NEWS				News;
-	CDBProcess			DbProcess;
+	VersionInfoList	VersionList;
+	ServerInfoList	ServerList;
+	_NEWS			News;
+	CDBProcess		DbProcess;
 
+protected:
 // Dialog Data
 	//{{AFX_DATA(CVersionManagerDlg)
 	enum { IDD = IDD_VERSIONMANAGER_DIALOG };
-	CListBox	OutputList;
+	CListBox _outputList;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CVersionManagerDlg)
 	BOOL PreTranslateMessage(MSG* msg) override;
 	BOOL DestroyWindow() override;
+
+public:
 	void ReportTableLoadError(const recordset_loader::Error& err, const char* source);
 
 	/// \brief clears the OutputList text area and regenerates default output
-	/// \see OutputList
+	/// \see _outputList
 	void ResetOutputList();
-	
+
+	// \brief updates the last/latest version and resets the output list
+	void SetLastVersion(int lastVersion);
+
 protected:
 	virtual void DoDataExchange(CDataExchange* data);	// DDX/DDV support
 	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
-	HICON Icon;
+	HICON			_icon;
+
+	char			_ftpUrl[256];
+	char			_ftpPath[256];
+
+	/// \brief DefaultPath loaded from CONFIGURATION.DEFAULT_PATH
+	std::string		_defaultPath;
+	int				_lastVersion;
 
 	// Generated message map functions
 	//{{AFX_MSG(CVersionManagerDlg)

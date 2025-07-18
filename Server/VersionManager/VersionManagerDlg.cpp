@@ -18,11 +18,10 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-#include "db-library/RecordSetLoader.h"
+// NOTE: Explicitly handled under DEBUG_NEW override
+#include <db-library/RecordSetLoader.h>
 
 import VersionManagerBinder;
-
-using namespace db;
 
 CIOCPort CVersionManagerDlg::IocPort;
 
@@ -37,25 +36,25 @@ CVersionManagerDlg::CVersionManagerDlg(CWnd* parent)
 		// NOTE: the ClassWizard will add member initialization here
 	//}}AFX_DATA_INIT
 
-	memset(FtpUrl, 0, sizeof(FtpUrl));
-	memset(FilePath, 0, sizeof(FilePath));
-	LastVersion = 0;
+	memset(_ftpUrl, 0, sizeof(_ftpUrl));
+	memset(_ftpPath, 0, sizeof(_ftpPath));
+	_lastVersion = 0;
 
-	Icon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	_icon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
-	ConnectionManager::Create();
+	db::ConnectionManager::Create();
 }
 
 CVersionManagerDlg::~CVersionManagerDlg()
 {
-	ConnectionManager::Destroy();
+	db::ConnectionManager::Destroy();
 }
 
 void CVersionManagerDlg::DoDataExchange(CDataExchange* data)
 {
 	CDialog::DoDataExchange(data);
 	//{{AFX_DATA_MAP(CVersionManagerDlg)
-	DDX_Control(data, IDC_LIST1, OutputList);
+	DDX_Control(data, IDC_LIST1, _outputList);
 	//}}AFX_DATA_MAP
 }
 
@@ -76,8 +75,8 @@ BOOL CVersionManagerDlg::OnInitDialog()
 
 	// Set the icon for this dialog.  The framework does this automatically
 	//  when the application's main window is not a dialog
-	SetIcon(Icon, TRUE);			// Set big icon
-	SetIcon(Icon, FALSE);		// Set small icon
+	SetIcon(_icon, TRUE);			// Set big icon
+	SetIcon(_icon, FALSE);		// Set small icon
 	
 	IocPort.Init(MAX_USER, CLIENT_SOCKSIZE, 1);
 
@@ -105,7 +104,7 @@ BOOL CVersionManagerDlg::OnInitDialog()
 		return FALSE;
 	}
 
-	if (!DbProcess.LoadVersionList())
+	if (!LoadVersionList())
 	{
 		AfxMessageBox(_T("Load Version List Fail!!"));
 		AfxPostQuitMessage(0);
@@ -126,8 +125,8 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 
 	CIni ini(iniPath);
 
-	ini.GetString("DOWNLOAD", "URL", "127.0.0.1", FtpUrl, _countof(FtpUrl));
-	ini.GetString("DOWNLOAD", "PATH", "/", FilePath, _countof(FilePath));
+	ini.GetString("DOWNLOAD", "URL", "127.0.0.1", _ftpUrl, _countof(_ftpUrl));
+	ini.GetString("DOWNLOAD", "PATH", "/", _ftpPath, _countof(_ftpPath));
 	
 	// TODO: KN_online should be Knight_Account
 	std::string datasourceName = ini.GetString(ini::ODBC, ini::DSN, "KN_online");
@@ -135,15 +134,15 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 	std::string datasourcePass = ini.GetString(ini::ODBC, ini::PWD, "knight");
 
 	// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
-	ConnectionManager::SetDatasourceConfig(
+	db::ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 
-	DefaultPath = ini.GetString(ini::CONFIGURATION, ini::DEFAULT_PATH, "");
-	ServerCount = ini.GetInt(ini::SERVER_LIST, ini::COUNT, 1);
+	_defaultPath = ini.GetString(ini::CONFIGURATION, ini::DEFAULT_PATH, "");
+	int serverCount = ini.GetInt(ini::SERVER_LIST, ini::COUNT, 1);
 
-	if (strlen(FtpUrl) == 0
-		|| strlen(FilePath) == 0)
+	if (strlen(_ftpUrl) == 0
+		|| strlen(_ftpPath) == 0)
 		return FALSE;
 
 	if (datasourceName.length() == 0
@@ -152,13 +151,13 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 		|| datasourcePass.length() == 0)
 		return FALSE;
 
-	if (ServerCount <= 0)
+	if (serverCount <= 0)
 		return FALSE;
 
 	char key[20] = {};
-	ServerList.reserve(20);
+	ServerList.reserve(serverCount);
 
-	for (int i = 0; i < ServerCount; i++)
+	for (int i = 0; i < serverCount; i++)
 	{
 		_SERVER_INFO* pInfo = new _SERVER_INFO;
 
@@ -219,6 +218,25 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 	return TRUE;
 }
 
+BOOL CVersionManagerDlg::LoadVersionList()
+{
+	VersionInfoList versionList;
+	if (!DbProcess.LoadVersionList(&versionList))
+		return FALSE;
+
+	VersionList.Swap(versionList);
+
+	_lastVersion = 0;
+
+	for (const auto& [_, pInfo] : versionList)
+	{
+		if (_lastVersion < pInfo->Number)
+			_lastVersion = pInfo->Number;
+	}
+
+	return TRUE;
+}
+
 // If you add a minimize button to your dialog, you will need the code below
 //  to draw the icon.  For MFC applications using the document/view model,
 //  this is automatically done for you by the framework.
@@ -240,7 +258,7 @@ void CVersionManagerDlg::OnPaint()
 		int y = (rect.Height() - cyIcon + 1) / 2;
 
 		// Draw the icon
-		dc.DrawIcon(x, y, Icon);
+		dc.DrawIcon(x, y, _icon);
 	}
 	else
 	{
@@ -252,7 +270,7 @@ void CVersionManagerDlg::OnPaint()
 //  the minimized window.
 HCURSOR CVersionManagerDlg::OnQueryDragIcon()
 {
-	return (HCURSOR) Icon;
+	return (HCURSOR) _icon;
 }
 
 BOOL CVersionManagerDlg::PreTranslateMessage(MSG* msg)
@@ -281,10 +299,10 @@ BOOL CVersionManagerDlg::DestroyWindow()
 
 void CVersionManagerDlg::OnVersionSetting() 
 {
-	CSettingDlg	setdlg(LastVersion, this);
+	CSettingDlg	setdlg(_lastVersion, this);
 
-	CString conv = DefaultPath.c_str();
-	_tcscpy_s(setdlg.DefaultPath, conv);
+	CString conv = _defaultPath.c_str();
+	_tcscpy_s(setdlg._defaultPath, conv);
 	if (setdlg.DoModal() != IDOK)
 		return;
 
@@ -292,7 +310,7 @@ void CVersionManagerDlg::OnVersionSetting()
 	iniPath /= L"Version.ini";
 
 	CIni ini(iniPath);
-	DefaultPath = ini.GetString(ini::CONFIGURATION, ini::DEFAULT_PATH, "");
+	_defaultPath = ini.GetString(ini::CONFIGURATION, ini::DEFAULT_PATH, "");
 	ini.Save();
 }
 
@@ -303,20 +321,27 @@ void CVersionManagerDlg::ReportTableLoadError(const recordset_loader::Error& err
 	AfxMessageBox(msg);
 }
 
-/// \brief clears the OutputList text area and regenerates default output
-/// \see OutputList
+/// \brief clears the _outputList text area and regenerates default output
+/// \see _outputList
 void CVersionManagerDlg::ResetOutputList()
 {
-	OutputList.ResetContent();
+	_outputList.ResetContent();
 
 	// print the ODBC connection string
 	// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
-	std::string odbcString = ConnectionManager::OdbcConnString(modelUtil::DbType::GAME);
-	CString strConnection = odbcString.c_str();
-	OutputList.AddString(strConnection);
+	std::string odbcString = db::ConnectionManager::OdbcConnString(modelUtil::DbType::GAME);
+	CString strConnection(CA2T(odbcString.c_str()));
+	_outputList.AddString(strConnection);
 
 	// print the current version
 	CString version;
-	version.Format(_T("Latest Version : %d"), LastVersion);
-	OutputList.AddString(version);
+	version.Format(_T("Latest Version : %d"), _lastVersion);
+	_outputList.AddString(version);
+}
+
+// \brief updates the last/latest version and resets the output list
+void CVersionManagerDlg::SetLastVersion(int lastVersion)
+{
+	_lastVersion = lastVersion;
+	ResetOutputList();
 }

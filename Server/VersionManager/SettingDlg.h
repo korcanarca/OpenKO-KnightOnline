@@ -22,6 +22,7 @@ class CSettingDlg : public CDialog
 {
 // Construction
 public:
+	friend class CVersionManagerDlg;
 	
 	/// \brief determines if a string contains DBCS characters.
 	/// \details a DBCS character is a lead byte for the system default Windows ANSI code page (CP_ACP).
@@ -57,50 +58,14 @@ public:
 	/// \brief Dialog identifier
 	enum { IDD = IDD_SETTING };
 
-	/// \brief Base Path text input box in the configuration section
-	CEdit				BasePathInput;
-
-	/// \brief File List text area box in the File Compress section
-	CListBox			FileListTextArea;
-
-	/// \brief Progress Bar that appears below the text area
-	CProgressCtrl		ProgressBar;
-
-	/// \brief binds to the version input box in the configuration section
-	UINT				LastVersion;
-
-	/// \brief "CurrentVer." checkbox in the File Compress section
-	/// \details Causes RepackingVersionList to be built if empty
-	/// \todo update corresponding label to something more useful
-	BOOL				IsRepackage;
-
-	/// \brief "All File Add" checkbox in the File Compress section
-	/// \details causes the Add button to add all files in the BasePath
-	/// directory to the database as patches
-	BOOL				IsAddAllFiles;
-
-	//}}AFX_DATA
-
-	/// \brief Default path copied from Main->Default path on SettingDlg create
-	TCHAR				DefaultPath[_MAX_PATH];
-
-	/// \brief reference back to the main instance of VersionManagerDlg
-	CVersionManagerDlg* Main;
-
-	/// \brief zip file management class
-	CZipArchive			ZipArchive;
-
-	/// \brief versions marked as packaged
-	HistoryList			RepackingVersionList;
-
 // Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CSettingDlg)
 
 	/// \brief destroys class resources when the window is being closed
 	BOOL DestroyWindow() override;
-protected:
 
+protected:
 	/// \brief performs MFC data exchange
 	/// \see https://learn.microsoft.com/en-us/cpp/mfc/dialog-data-exchange?view=msvc-170
 	void DoDataExchange(CDataExchange* data) override;    // DDX/DDV support
@@ -151,6 +116,43 @@ protected:
 
 	// event mapping macro
 	DECLARE_MESSAGE_MAP()
+
+protected:
+	/// \brief Base Path text input box in the configuration section
+	CEdit				_basePathInput;
+
+	/// \brief File List text area box in the File Compress section
+	CListBox			_fileListTextArea;
+
+	/// \brief Progress Bar that appears below the text area
+	CProgressCtrl		_progressBar;
+
+	/// \brief binds to the version input box in the configuration section
+	int					_lastVersion;
+
+	/// \brief "CurrentVer." checkbox in the File Compress section
+	/// \details Causes RepackingVersionList to be built if empty
+	/// \todo update corresponding label to something more useful
+	BOOL				_isRepackage;
+
+	/// \brief "All File Add" checkbox in the File Compress section
+	/// \details causes the Add button to add all files in the BasePath
+	/// directory to the database as patches
+	BOOL				_isAddAllFiles;
+
+	//}}AFX_DATA
+
+	/// \brief Default path copied from _main->_defaultPath on SettingDlg create
+	TCHAR				_defaultPath[_MAX_PATH];
+
+	/// \brief reference back to the main instance of VersionManagerDlg
+	CVersionManagerDlg* _main;
+
+	/// \brief zip file management class
+	CZipArchive			_zipArchive;
+
+	/// \brief versions marked as packaged
+	HistoryList			_repackingVersionList;
 };
 
 //{{AFX_INSERT_LOCATION}}

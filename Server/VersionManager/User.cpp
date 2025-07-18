@@ -21,8 +21,8 @@ static char THIS_FILE[] = __FILE__;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-CUser::CUser(CVersionManagerDlg* pMain)
-	: m_pMain(pMain)
+CUser::CUser(CVersionManagerDlg* main)
+	: _main(main)
 {
 }
 
@@ -45,18 +45,18 @@ void CUser::Parsing(int len, char* pData)
 	{
 		case LS_VERSION_REQ:
 			SetByte(buff, LS_VERSION_REQ, send_index);
-			SetShort(buff, m_pMain->LastVersion, send_index);
+			SetShort(buff, _main->LastVersion(), send_index);
 			Send(buff, send_index);
 			break;
 
 		case LS_SERVERLIST:
 			// 기범이가 ^^;
-			m_pMain->DbProcess.LoadUserCountList();
+			_main->DbProcess.LoadUserCountList();
 
 			SetByte(buff, LS_SERVERLIST, send_index);
-			SetByte(buff, m_pMain->ServerCount, send_index);
+			SetByte(buff, static_cast<BYTE>(_main->ServerList.size()), send_index);
 
-			for (const _SERVER_INFO* pInfo : m_pMain->ServerList)
+			for (const _SERVER_INFO* pInfo : _main->ServerList)
 			{
 				SetString2(buff, pInfo->strServerIP, (short) strlen(pInfo->strServerIP), send_index);
 				SetString2(buff, pInfo->strServerName, (short) strlen(pInfo->strServerName), send_index);
@@ -78,12 +78,6 @@ void CUser::Parsing(int len, char* pData)
 		case LS_LOGIN_REQ:
 			LogInReq(pData + index);
 			break;
-
-#if defined(USE_MGAME_LOGIN)
-		// Note: We do not implement this Stored Proc.
-		case LS_MGAME_LOGIN:
-			break;
-#endif
 
 		case LS_NEWS:
 			NewsReq(pData + index);
@@ -115,12 +109,12 @@ void CUser::LogInReq(char* pBuf)
 
 	GetString(pwd, pBuf, pwdlen, index);
 
-	result = m_pMain->DbProcess.AccountLogin(accountid, pwd);
+	result = _main->DbProcess.AccountLogin(accountid, pwd);
 	SetByte(send_buff, LS_LOGIN_REQ, send_index);
 
 	if (result == AUTH_OK)
 	{
-		bCurrentuser = m_pMain->DbProcess.IsCurrentUser(accountid, serverip, serverno);
+		bCurrentuser = _main->DbProcess.IsCurrentUser(accountid, serverip, serverno);
 		if (bCurrentuser)
 		{
 			// Kick out
@@ -134,7 +128,7 @@ void CUser::LogInReq(char* pBuf)
 		{
 			SetByte(send_buff, result, send_index);
 
-			if (!m_pMain->DbProcess.LoadPremiumServiceUser(accountid, &sPremiumTimeDaysRemaining))
+			if (!_main->DbProcess.LoadPremiumServiceUser(accountid, &sPremiumTimeDaysRemaining))
 				sPremiumTimeDaysRemaining = -1;
 
 			SetShort(send_buff, sPremiumTimeDaysRemaining, send_index);
@@ -160,7 +154,7 @@ void CUser::SendDownloadInfo(int version)
 	std::set<std::string> downloadset;
 	char buff[2048];
 
-	for (const auto& [_, pInfo] : m_pMain->VersionList)
+	for (const auto& [_, pInfo] : _main->VersionList)
 	{
 		if (pInfo->Number > version)
 			downloadset.insert(pInfo->CompressName);
@@ -168,9 +162,9 @@ void CUser::SendDownloadInfo(int version)
 
 	SetByte(buff, LS_DOWNLOADINFO_REQ, send_index);
 
-	SetString2(buff, m_pMain->FtpUrl, (short) strlen(m_pMain->FtpUrl), send_index);
-	SetString2(buff, m_pMain->FilePath, (short) strlen(m_pMain->FilePath), send_index);
-	SetShort(buff, downloadset.size(), send_index);
+	SetString2(buff, _main->FtpUrl(), (short) strlen(_main->FtpUrl()), send_index);
+	SetString2(buff, _main->FtpPath(), (short) strlen(_main->FtpPath()), send_index);
+	SetShort(buff, static_cast<int>(downloadset.size()), send_index);
 
 	for (const std::string& filename : downloadset)
 		SetString2(buff, filename.c_str(), (short) filename.size(), send_index);
@@ -189,8 +183,9 @@ void CUser::NewsReq(char* pBuf)
 	SetByte(send_buff, LS_NEWS, send_index);
 	SetString2(send_buff, szHeader, _countof(szHeader) - 1, send_index);
 
-	if (m_pMain->News.Size > 0)
-		SetString2(send_buff, m_pMain->News.Content, m_pMain->News.Size, send_index);
+	const _NEWS& news = _main->News;
+	if (news.Size > 0)
+		SetString2(send_buff, news.Content, news.Size, send_index);
 	else
 		SetString2(send_buff, szEmpty, _countof(szEmpty) - 1, send_index);
 

@@ -9,6 +9,7 @@
 
 #include <shared/globals.h>
 #include <shared/StringConversion.h>
+#include <shared/STLMap.h>
 
 constexpr int MAX_USER			= 3000;
 
@@ -77,6 +78,8 @@ struct _SERVER_INFO
 	short	sUserLimit			= 0;
 	short	sServerID			= 1;
 };
+
+typedef CSTLMap <model::Version>	VersionInfoList;
 
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////

@@ -56,7 +56,7 @@ public:
 
 	/// \brief loads the VERSION table into VersionManagerDlg.VersionList
 	/// \returns TRUE if successful, FALSE otherwise
-	BOOL LoadVersionList();
+	BOOL LoadVersionList(VersionInfoList* versionList);
 
 	/// \brief updates the server's concurrent user counts
 	/// \return TRUE on success, FALSE on failure
@@ -65,9 +65,10 @@ public:
 	CDBProcess(CVersionManagerDlg* main);
 	virtual ~CDBProcess();
 
-	/// \brief reference back to the main VersionManagerDlg instance
-	CVersionManagerDlg* Main;
 private:
+	/// \brief reference back to the main VersionManagerDlg instance
+	CVersionManagerDlg* _main;
+
 	std::shared_ptr<db::ConnectionManager::Connection> conn;
 };
 

@@ -28,7 +28,7 @@ import StoredProc;
 //////////////////////////////////////////////////////////////////////
 
 CDBProcess::CDBProcess(CVersionManagerDlg* main)
-	: Main(main)
+	: _main(main)
 {
 }
 
@@ -87,21 +87,13 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 
 /// \brief loads the VERSION table into VersionManagerDlg.VersionList
 /// \returns TRUE if successful, FALSE otherwise
-BOOL CDBProcess::LoadVersionList()
+BOOL CDBProcess::LoadVersionList(VersionInfoList* versionList)
 {
-	recordset_loader::STLMap loader(Main->VersionList);
+	recordset_loader::STLMap loader(*versionList);
 	if (!loader.Load_ForbidEmpty())
 	{
-		Main->ReportTableLoadError(loader.GetError(), __func__);
+		_main->ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
-	}
-
-	Main->LastVersion = 0;
-
-	for (const auto& [_, pInfo] : Main->VersionList)
-	{
-		if (Main->LastVersion < pInfo->Number)
-			Main->LastVersion = pInfo->Number;
 	}
 
 	return TRUE;
@@ -225,8 +217,12 @@ BOOL CDBProcess::LoadUserCountList()
 		while (recordSet.next())
 		{
 			model::Concurrent concurrent = recordSet.get();
-			if (concurrent.ServerId - 1 < Main->ServerCount)
-				Main->ServerList[concurrent.ServerId - 1]->sUserCount = concurrent.Zone1Count + concurrent.Zone2Count + concurrent.Zone3Count;
+
+			int serverId = concurrent.ServerId - 1;
+			if (serverId >= static_cast<int>(_main->ServerList.size()))
+				continue;
+
+			_main->ServerList[serverId]->sUserCount = concurrent.Zone1Count + concurrent.Zone2Count + concurrent.Zone3Count;
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
