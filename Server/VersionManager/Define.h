@@ -258,19 +258,19 @@ inline int DisplayErrorMsg(SQLHANDLE hstmt)
 namespace ini
 {
 	// ODBC Config Section
-	static const std::string ODBC = "ODBC";
-	static const std::string DSN = "DSN";
-	static const std::string UID = "UID";
-	static const std::string PWD = "PWD";
-	static const std::string TABLE = "TABLE";
+	static constexpr char ODBC[] = "ODBC";
+	static constexpr char DSN[] = "DSN";
+	static constexpr char UID[] = "UID";
+	static constexpr char PWD[] = "PWD";
+	static constexpr char TABLE[] = "TABLE";
 
 	// CONFIGURATION section
-	static const std::string CONFIGURATION = "CONFIGURATION";
-	static const std::string DEFAULT_PATH = "DEFAULT_PATH";
+	static constexpr char CONFIGURATION[] = "CONFIGURATION";
+	static constexpr char DEFAULT_PATH[] = "DEFAULT_PATH";
 
 	// SERVER_LIST section
-	static const std::string SERVER_LIST = "SERVER_LIST";
-	static const std::string COUNT = "COUNT";
+	static constexpr char SERVER_LIST[] = "SERVER_LIST";
+	static constexpr char COUNT[] = "COUNT";
 }
 
 #endif

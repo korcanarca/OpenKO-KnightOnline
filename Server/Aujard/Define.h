@@ -362,17 +362,17 @@ inline int DisplayErrorMsg(SQLHANDLE hstmt)
 namespace ini
 {
 	// ODBC Config Section
-	static const std::string ODBC = "ODBC";
-	static const std::string GAME_DSN = "GAME_DSN";
-	static const std::string GAME_UID = "GAME_UID";
-	static const std::string GAME_PWD = "GAME_PWD";
-	static const std::string ACCOUNT_DSN = "ACCOUNT_DSN";
-	static const std::string ACCOUNT_UID = "ACCOUNT_UID";
-	static const std::string ACCOUNT_PWD = "ACCOUNT_PWD";
+	static constexpr char ODBC[] = "ODBC";
+	static constexpr char GAME_DSN[] = "GAME_DSN";
+	static constexpr char GAME_UID[] = "GAME_UID";
+	static constexpr char GAME_PWD[] = "GAME_PWD";
+	static constexpr char ACCOUNT_DSN[] = "ACCOUNT_DSN";
+	static constexpr char ACCOUNT_UID[] = "ACCOUNT_UID";
+	static constexpr char ACCOUNT_PWD[] = "ACCOUNT_PWD";
 
 	// ZONE_INFO section
-	static const std::string ZONE_INFO = "ZONE_INFO";
-	static const std::string GROUP_INFO = "GROUP_INFO";
+	static constexpr char ZONE_INFO[] = "ZONE_INFO";
+	static constexpr char GROUP_INFO[] = "GROUP_INFO";
 }
 
 #endif
