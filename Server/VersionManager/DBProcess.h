@@ -10,7 +10,7 @@
 #endif // _MSC_VER > 1000
 #include <memory>
 
-#include "db-library/ConnectionManager.h"
+#include <db-library/ConnectionManager.h>
 
 class CVersionManagerDlg;
 

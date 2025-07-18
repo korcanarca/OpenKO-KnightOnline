@@ -10,8 +10,8 @@
 #include <nanodbc/nanodbc.h>
 
 #include "AujardDlg.h"
-#include "db-library/ModelRecordSet.h"
-#include "db-library/SqlBuilder.h"
+#include <db-library/ModelRecordSet.h>
+#include <db-library/SqlBuilder.h>
 
 #ifdef _DEBUG
 #undef THIS_FILE
