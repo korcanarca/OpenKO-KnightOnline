@@ -1,4 +1,4 @@
-﻿// DBAgent.h: interface for the CDBAgent class.
+﻿// _dbAgent.h: interface for the CDBAgent class.
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -9,11 +9,9 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#pragma warning(disable : 4786)
-
 #include <memory>
 
-#include "define.h"
+#include "Define.h"
 #include <vector>
 
 #include "db-library/ConnectionManager.h"
@@ -166,11 +164,11 @@ public:
 	virtual ~CDBAgent();
 
 	UserDataArray	UserData;
-
-	/// \brief reference back to the main AujardDlg instance
-	CAujardDlg* Main;
 	
 private:
+	/// \brief reference back to the main AujardDlg instance
+	CAujardDlg* _main;
+
 	std::shared_ptr<db::ConnectionManager::Connection> _gameConn1;
 	std::shared_ptr<db::ConnectionManager::Connection> _accountConn1;
 	std::shared_ptr<db::ConnectionManager::Connection> _accountConn2;

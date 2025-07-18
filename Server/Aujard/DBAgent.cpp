@@ -1,4 +1,4 @@
-﻿// DBAgent.cpp: implementation of the CDBAgent class.
+﻿// _dbAgent.cpp: implementation of the CDBAgent class.
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -40,9 +40,9 @@ CDBAgent::~CDBAgent()
 /// \returns true is successful, false otherwise
 bool CDBAgent::DatabaseInit()
 {
-	//	Main DB Connecting..
+	//	_main DB Connecting..
 	/////////////////////////////////////////////////////////////////////////////////////
-	Main = (CAujardDlg*) AfxGetApp()->GetMainWnd();
+	_main = (CAujardDlg*) AfxGetApp()->GetMainWnd();
 
 	// initialize each connection inside its own try/catch block so we can catch
 	// exceptions per-connection
@@ -237,7 +237,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.LoadUserData(): ";
+		std::string logLine = "_dbAgent.LoadUserData(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -310,7 +310,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 
 		serial = GetInt64(strSerial, serial_index);		// item serial number
 
-		pTable = Main->ItemArray.GetData(itemId);
+		pTable = _main->ItemArray.GetData(itemId);
 
 		if (pTable != nullptr)
 		{
@@ -459,10 +459,10 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 {
 	_USER_DATA* user = UserData[userId];
 	if (user == nullptr)
-		return -1;
+		return false;
 
 	if (_strnicmp(user->m_id, charId, MAX_ID_SIZE) != 0)
-		return -1;
+		return false;
 
 	if (updateType == UPDATE_PACKET_SAVE)
 		user->m_dwTime++;
@@ -510,7 +510,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	{
 		if (user->m_sItemArray[i].nNum > 0)
 		{
-			if (Main->ItemArray.GetData(user->m_sItemArray[i].nNum) == nullptr)
+			if (_main->ItemArray.GetData(user->m_sItemArray[i].nNum) == nullptr)
 				TRACE(_T("Item Drop Saved({}) : %d (%hs)\n"), i, user->m_sItemArray[i].nNum, user->m_id);
 		}
 
@@ -548,7 +548,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.LoadUserData(): ";
+		std::string logLine = "_dbAgent.LoadUserData(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -573,7 +573,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.AccountLogInReq(): ";
+		std::string logLine = "_dbAgent.AccountLogInReq(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -599,7 +599,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.NationSelect(): ";
+		std::string logLine = "_dbAgent.NationSelect(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -632,7 +632,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.CreateNewChar(): ";
+		std::string logLine = "_dbAgent.CreateNewChar(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -690,7 +690,7 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.LoadCharInfo(): ";
+		std::string logLine = "_dbAgent.LoadCharInfo(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -779,7 +779,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.GetAllCharID(): ";
+		std::string logLine = "_dbAgent.GetAllCharID(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -823,7 +823,7 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.CreateKnights(): ";
+		std::string logLine = "_dbAgent.CreateKnights(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -854,7 +854,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.UpdateKnights(): ";
+		std::string logLine = "_dbAgent.UpdateKnights(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -879,7 +879,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.DeleteKnights(): ";
+		std::string logLine = "_dbAgent.DeleteKnights(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -932,7 +932,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 
 			// check if the user is online
 			userId = -1;
-			_USER_DATA* pUser = Main->GetUserPtr(charId, userId);
+			_USER_DATA* pUser = _main->GetUserPtr(charId, userId);
 			if (pUser != nullptr)
 				SetByte(buffOut, 1, tempIndex);
 			else
@@ -946,7 +946,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.LoadKnightsAllMembers(): ";
+		std::string logLine = "_dbAgent.LoadKnightsAllMembers(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -1052,7 +1052,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 
 		serialNumber = GetInt64(serial, serialIndex);
 
-		itemData = Main->ItemArray.GetData(itemId);
+		itemData = _main->ItemArray.GetData(itemId);
 		if (itemData != nullptr)
 		{
 			user->m_sWarehouseArray[i].nNum = itemId;
@@ -1140,7 +1140,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.UpdateWarehouseData(): ";
+		std::string logLine = "_dbAgent.UpdateWarehouseData(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -1284,7 +1284,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.AccountLogout(): ";
+		std::string logLine = "_dbAgent.AccountLogout(): ";
 		logLine += dbErr.what();
 		logLine += "\n";
 		LogFileWrite(logLine);
@@ -1360,8 +1360,8 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 /// and socket IO.  Should likely be separated into separate functions
 void CDBAgent::LoadKnightsAllList(int nation)
 {
-	uint32_t count = 0;
-	uint8_t retryCount = 0, maxRetry = 50;
+	int32_t count = 0;
+	int8_t retryCount = 0, maxRetry = 50;
 	int32_t sendIndex = 0, dbIndex = 0, maxBatchSize = 40;
 	char sendBuff[512] = {},
 		dbBuff[512] = {};
@@ -1402,7 +1402,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 				retryCount = 0;
 				do
 				{
-					if (Main->LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
+					if (_main->LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
 						break;
 
 					retryCount++;
@@ -1411,7 +1411,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 
 				if (retryCount >= maxRetry)
 				{
-					Main->OutputList.AddString(_T("Packet Drop: KNIGHTS_ALLLIST_REQ"));
+					_main->OutputList.AddString(_T("Packet Drop: KNIGHTS_ALLLIST_REQ"));
 					return;
 				}
 
@@ -1442,7 +1442,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 		retryCount = 0;
 		do
 		{
-			if (Main->LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
+			if (_main->LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
 				break;
 
 			retryCount++;
@@ -1451,7 +1451,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 
 		if (retryCount >= maxRetry)
 		{
-			Main->OutputList.AddString(_T("Packet Drop: KNIGHTS_ALLLIST_REQ"));
+			_main->OutputList.AddString(_T("Packet Drop: KNIGHTS_ALLLIST_REQ"));
 		}
 	}
 }
@@ -1463,8 +1463,8 @@ void CDBAgent::DBProcessNumber(int number)
 	CString strDBNum;
 	strDBNum.Format(_T(" %4d "), number);
 
-	Main->GetDlgItem(IDC_DB_PROCESS)->SetWindowText(strDBNum);
-	Main->GetDlgItem(IDC_DB_PROCESS)->UpdateWindow();
+	_main->GetDlgItem(IDC_DB_PROCESS)->SetWindowText(strDBNum);
+	_main->GetDlgItem(IDC_DB_PROCESS)->UpdateWindow();
 }
 
 /// \brief updates which nation won the war and which charId killed the commander
@@ -1540,7 +1540,7 @@ BOOL CDBAgent::CheckCouponEvent(const char* accountId)
 			accountConn1.Close();
 			if (!accountConn1.IsOpen())
 			{
-				ReConnectODBC(&accountConn1, Main->m_strAccountDSN, Main->m_strAccountUID, Main->m_strAccountPWD);
+				ReConnectODBC(&accountConn1, _main->m_strAccountDSN, _main->m_strAccountUID, _main->m_strAccountPWD);
 				return FALSE;
 			}
 		}
@@ -1586,7 +1586,7 @@ BOOL CDBAgent::UpdateCouponEvent(const char* accountId, char* charId, char* cpid
 			accountConn1.Close();
 			if (!accountConn1.IsOpen())
 			{
-				ReConnectODBC(&accountConn1, Main->m_strAccountDSN, Main->m_strAccountUID, Main->m_strAccountPWD);
+				ReConnectODBC(&accountConn1, _main->m_strAccountDSN, _main->m_strAccountUID, _main->m_strAccountPWD);
 				return FALSE;
 			}
 		}
@@ -1627,7 +1627,7 @@ BOOL CDBAgent::DeleteChar(int index, char* id, char* charId, char* socno)
 
 					if (!gameConn1.IsOpen())
 					{
-						ReConnectODBC(&gameConn1, Main->m_strGameDSN, Main->m_strGameUID, Main->m_strGamePWD);
+						ReConnectODBC(&gameConn1, _main->m_strGameDSN, _main->m_strGameUID, _main->m_strGamePWD);
 						return FALSE;
 					}
 				}

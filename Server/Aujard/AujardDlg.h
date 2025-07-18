@@ -163,30 +163,35 @@ public:
 	CSharedMemQueue		LoggerSendQueue;
 	CSharedMemQueue		LoggerRecvQueue;
 
-	HANDLE				ReadQueue;
-	HANDLE				SharedMemoryHandle;
-	char*				SharedMemoryFile;
-
-	CDBAgent			DBAgent;
-
 	ItemtableArray		ItemArray;
 
-	int					ServerId;
-	int					ZoneId;
 
-	CFile					LogFile;
-
-	int PacketCount;		// packet의 수를 체크
-	int SendPacketCount;	// packet의 수를 체크
-	int RecvPacketCount;	// packet의 수를 체크
-	int LogFileDay;
-
-// Dialog Data
+	// Dialog Data
 	//{{AFX_DATA(CAujardDlg)
 	enum { IDD = IDD_AUJARD_DIALOG };
 	CListBox	OutputList;
 	CString	    DBProcessNum;
 	//}}AFX_DATA
+
+protected:
+	static CAujardDlg*	_instance;
+
+	CDBAgent			_dbAgent;
+	CFile				_logFile;
+
+	HANDLE				_readQueueThread;
+	HANDLE				_sharedMemoryHandle;
+	char*				_sharedMemoryFile;
+
+	int					_serverId;
+	int					_zoneId;
+
+	int					_packetCount;		// packet의 수를 체크
+	int					_sendPacketCount;	// packet의 수를 체크
+	int					_recvPacketCount;	// packet의 수를 체크
+	int					_logFileDay;
+
+	HICON				_icon;
 
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CAujardDlg)
@@ -195,33 +200,27 @@ public:
 	BOOL DestroyWindow() override;
 	
 	BOOL PreTranslateMessage(MSG* msg) override;
+
 protected:
-	
 	/// \brief handles user logout functions
 	/// \param userId user index for UserData
 	/// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE
 	/// \param forceLogout should be set to true in panic situations
 	/// \see UserLogOut(), AllSaveRoutine(), HandleUserUpdate()
-	bool HandleUserLogout(int userId, byte saveType, bool forceLogout = false);
+	bool HandleUserLogout(int userId, BYTE saveType, bool forceLogout = false);
 
 	/// \brief handles user update functions and retry logic
 	/// \param userId user index for UserData
 	/// \param user reference to user object
 	/// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
 	/// \see UserDataSave(), HandleUserLogout()
-	bool HandleUserUpdate(int userId, const _USER_DATA& user, byte saveType);
+	bool HandleUserUpdate(int userId, const _USER_DATA& user, BYTE saveType);
 
 	/// \brief performs MFC data exchange
 	/// \see https://learn.microsoft.com/en-us/cpp/mfc/dialog-data-exchange?view=msvc-170
 	void DoDataExchange(CDataExchange* data) override;	// DDX/DDV support
 
 	//}}AFX_VIRTUAL
-
-// Implementation
-
-	HICON _icon;
-
-	static CAujardDlg* _instance;
 
 	// Generated message map functions
 	//{{AFX_MSG(CAujardDlg)

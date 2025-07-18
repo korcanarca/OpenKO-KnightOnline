@@ -104,7 +104,7 @@ typedef union {
 #define WIZ_DATASAVE			0x37	// User GameData DB Save Request
 #define WIZ_KNIGHTS_PROCESS		0x3C	// Knights Related Packet..
 #define WIZ_CLAN_PROCESS		0x4E	// Clans Related Packet..
-#define WIZ_LOGIN_INFO			0x50	// define for DBAgent Communication
+#define WIZ_LOGIN_INFO			0x50	// define for _dbAgent Communication
 #define WIZ_KICKOUT				0x51	// Account ID forbid duplicate connection
 #define WIZ_BATTLE_EVENT		0x57	// Battle Event Result
 
@@ -332,7 +332,7 @@ inline void LogFileWrite(LPCTSTR logstr)
 
 inline void LogFileWrite(const std::string& logStr)
 {
-	CString clog = logStr.c_str();
+	CString clog(CA2T(logStr.c_str()));
 	LogFileWrite(clog);
 }
 

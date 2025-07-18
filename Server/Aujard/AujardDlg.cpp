@@ -26,8 +26,6 @@ import AujardBinder;
 import AujardModel;
 namespace model = aujard_model;
 
-using namespace db;
-
 WORD g_increase_serial = 50001;
 
 CRITICAL_SECTION g_LogFileWrite;
@@ -130,16 +128,16 @@ CAujardDlg::CAujardDlg(CWnd* parent /*=nullptr*/)
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	_icon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
-	SendPacketCount = 0;
-	PacketCount = 0;
-	RecvPacketCount = 0;
+	_sendPacketCount = 0;
+	_packetCount = 0;
+	_recvPacketCount = 0;
 
-	ConnectionManager::Create();
+	db::ConnectionManager::Create();
 }
 
 CAujardDlg::~CAujardDlg()
 {
-	ConnectionManager::Destroy();
+	db::ConnectionManager::Destroy();
 }
 
 /// \brief performs MFC data exchange
@@ -181,10 +179,10 @@ BOOL CAujardDlg::OnInitDialog()
 	CTime time = CTime::GetCurrentTime();
 	TCHAR strLogFile[50] = {};
 	wsprintf(strLogFile, _T("AujardLog-%04d-%02d-%02d.txt"), time.GetYear(), time.GetMonth(), time.GetDay());
-	LogFile.Open(strLogFile, CFile::modeWrite | CFile::modeCreate | CFile::modeNoTruncate | CFile::shareDenyNone);
-	LogFile.SeekToEnd();
+	_logFile.Open(strLogFile, CFile::modeWrite | CFile::modeCreate | CFile::modeNoTruncate | CFile::shareDenyNone);
+	_logFile.SeekToEnd();
 
-	LogFileDay = time.GetDay();
+	_logFileDay = time.GetDay();
 
 	InitializeCriticalSection(&g_LogFileWrite);
 
@@ -213,7 +211,7 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourceUser = ini.GetString(ini::ODBC, ini::ACCOUNT_UID, "knight");
 	datasourcePass = ini.GetString(ini::ODBC, ini::ACCOUNT_PWD, "knight");
 
-	ConnectionManager::SetDatasourceConfig(
+	db::ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::ACCOUNT,
 		datasourceName, datasourceUser, datasourcePass);
 
@@ -221,17 +219,17 @@ BOOL CAujardDlg::OnInitDialog()
 	datasourceUser = ini.GetString(ini::ODBC, ini::GAME_UID, "knight");
 	datasourcePass = ini.GetString(ini::ODBC, ini::GAME_PWD, "knight");
 
-	ConnectionManager::SetDatasourceConfig(
+	db::ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
 
-	ServerId = ini.GetInt(ini::ZONE_INFO, ini::GROUP_INFO, 1);
-	ZoneId = ini.GetInt(ini::ZONE_INFO, ini::ZONE_INFO, 1);
+	_serverId = ini.GetInt(ini::ZONE_INFO, ini::GROUP_INFO, 1);
+	_zoneId = ini.GetInt(ini::ZONE_INFO, ini::ZONE_INFO, 1);
 
 	// Trigger a save to flush defaults to file.
 	ini.Save();
 
-	if (!DBAgent.DatabaseInit())
+	if (!_dbAgent.DatabaseInit())
 	{
 		AfxPostQuitMessage(0);
 		return FALSE;
@@ -250,12 +248,12 @@ BOOL CAujardDlg::OnInitDialog()
 	SetTimer(PACKET_CHECK, 120000, nullptr);
 
 	DWORD id;
-	ReadQueue = ::CreateThread(nullptr, 0, ReadQueueThread, this, 0, &id);
+	_readQueueThread = ::CreateThread(nullptr, 0, ReadQueueThread, this, 0, &id);
 
 	CTime cur = CTime::GetCurrentTime();
 	CString starttime;
 	starttime.Format(_T("Aujard Start : %02d/%02d %02d:%02d\r\n"), cur.GetMonth(), cur.GetDay(), cur.GetHour(), cur.GetMinute());
-	LogFile.Write(starttime, starttime.GetLength());
+	_logFile.Write(starttime, starttime.GetLength());
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -304,14 +302,14 @@ BOOL CAujardDlg::DestroyWindow()
 //	KillTimer(SERIAL_TIME);
 	KillTimer(PACKET_CHECK);
 
-	if (ReadQueue != nullptr)
-		::TerminateThread(ReadQueue, 0);
+	if (_readQueueThread != nullptr)
+		::TerminateThread(_readQueueThread, 0);
 
 	if (!ItemArray.IsEmpty())
 		ItemArray.DeleteAllData();
 
-	if (LogFile.m_hFile != CFile::hFileNull)
-		LogFile.Close();
+	if (_logFile.m_hFile != CFile::hFileNull)
+		_logFile.Close();
 
 	DeleteCriticalSection(&g_LogFileWrite);
 
@@ -323,31 +321,28 @@ BOOL CAujardDlg::DestroyWindow()
 /// \brief initializes shared memory with other server applications
 BOOL CAujardDlg::InitSharedMemory()
 {
-	CString logstr;
-
 	DWORD filesize = MAX_USER * ALLOCATED_USER_DATA_BLOCK;
 
-	SharedMemoryHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, _T("KNIGHT_DB"));
-	if (SharedMemoryHandle == nullptr)
+	_sharedMemoryHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, TRUE, _T("KNIGHT_DB"));
+	if (_sharedMemoryHandle == nullptr)
 	{
-		logstr = _T("Shared Memory Load Fail!!");
-		SharedMemoryHandle = INVALID_HANDLE_VALUE;
+		_sharedMemoryHandle = INVALID_HANDLE_VALUE;
 		return FALSE;
 	}
 
-	logstr = _T("Shared Memory Load Success!!");
+	CString logstr = _T("Shared Memory Load Success!!");
 	OutputList.AddString(logstr);
 
-	SharedMemoryFile = (char*) MapViewOfFile(SharedMemoryHandle, FILE_MAP_WRITE, 0, 0, 0);
-	if (SharedMemoryFile == nullptr)
+	_sharedMemoryFile = (char*) MapViewOfFile(_sharedMemoryHandle, FILE_MAP_WRITE, 0, 0, 0);
+	if (_sharedMemoryFile == nullptr)
 		return FALSE;
 
-	DBAgent.UserData.reserve(MAX_USER);
+	_dbAgent.UserData.reserve(MAX_USER);
 
 	for (int i = 0; i < MAX_USER; i++)
 	{
-		_USER_DATA* pUser = (_USER_DATA*) (SharedMemoryFile + i * ALLOCATED_USER_DATA_BLOCK);
-		DBAgent.UserData.push_back(pUser);
+		_USER_DATA* pUser = (_USER_DATA*) (_sharedMemoryFile + i * ALLOCATED_USER_DATA_BLOCK);
+		_dbAgent.UserData.push_back(pUser);
 	}
 
 	return TRUE;
@@ -400,7 +395,7 @@ void CAujardDlg::SelectCharacter(char* buffer)
 	WriteLogFile(logStr);
 	//m_LogFile.Write(logstr, strlen(logstr));
 
-	RecvPacketCount++;		// packet count
+	_recvPacketCount++;		// packet count
 
 	if (userId < 0
 		|| userId >= MAX_USER)
@@ -423,13 +418,13 @@ void CAujardDlg::SelectCharacter(char* buffer)
 		return;
 	}
 
-	if (!DBAgent.LoadUserData(accountId, charId, userId))
+	if (!_dbAgent.LoadUserData(accountId, charId, userId))
 		goto fail_return;
 
-	if (!DBAgent.LoadWarehouseData(accountId, userId))
+	if (!_dbAgent.LoadWarehouseData(accountId, userId))
 		goto fail_return;
 
-	user = DBAgent.UserData[userId];
+	user = _dbAgent.UserData[userId];
 	if (user == nullptr)
 		goto fail_return;
 
@@ -446,13 +441,13 @@ void CAujardDlg::SelectCharacter(char* buffer)
 	SetByte(sendBuff, 0x01, sendIndex);
 	SetByte(sendBuff, init, sendIndex);
 
-	PacketCount++;		// packet count
+	_packetCount++;		// packet count
 
 	do
 	{
 		if (LoggerSendQueue.PutData(sendBuff, sendIndex) == 1)
 		{
-			SendPacketCount++;
+			_sendPacketCount++;
 			break;
 		}
 
@@ -522,12 +517,12 @@ void CAujardDlg::UserLogOut(char* buffer)
 /// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE
 /// \param forceLogout should be set to true in panic situations
 /// \see UserLogOut(), AllSaveRoutine(), HandleUserUpdate()
-bool CAujardDlg::HandleUserLogout(int userId, byte saveType, bool forceLogout)
+bool CAujardDlg::HandleUserLogout(int userId, BYTE saveType, bool forceLogout)
 {
 	int logoutResult = 1;
 
 	// make sure UserData[userId] value is valid
-	_USER_DATA* pUser = DBAgent.UserData[userId];
+	_USER_DATA* pUser = _dbAgent.UserData[userId];
 	if (pUser == nullptr || std::strlen(pUser->m_id) == 0)
 	{
 		LogFileWrite(std::format("Invalid logout: UserData[{}] is not in use\r\n", userId));
@@ -536,30 +531,28 @@ bool CAujardDlg::HandleUserLogout(int userId, byte saveType, bool forceLogout)
 
 	// only call AccountLogout for non-zone change logouts
 	if (pUser->m_bLogout != 2 || forceLogout)
-		logoutResult = DBAgent.AccountLogout(pUser->m_Accountid);
+		logoutResult = _dbAgent.AccountLogout(pUser->m_Accountid);
 
 	// update UserData (USERDATA/WAREHOUSE)
 	bool userdataSuccess = HandleUserUpdate(userId, *pUser, saveType);
 	
 	// reset the object stored in UserData[userId] 
-	DBAgent.ResetUserData(userId);
+	_dbAgent.ResetUserData(userId);
 	
 	// Log results
-	bool success = userdataSuccess && logoutResult;
-	if (!success)
+	if (!userdataSuccess || !logoutResult)
 	{
 		LogFileWrite(std::format("Invalid Logout : {}, {} (UserData: {}, Logout: {}) \r\n",
 			pUser->m_Accountid, pUser->m_id, userdataSuccess, logoutResult));
-	}
-	else
-	{
-#if define(_DEBUG)
-		LogFileWrite(std::format("Logout : {}, {} (UserData: {}, Logout: {})\r\n",
-			pUser->m_Accountid, pUser->m_id, userdataSuccess, logoutResult));
-#endif
+		return false;
 	}
 
-	return success;
+#if defined(_DEBUG)
+	LogFileWrite(std::format("Logout : {}, {} (UserData: {}, Logout: {})\r\n",
+		pUser->m_Accountid, pUser->m_id, userdataSuccess, logoutResult));
+#endif
+
+	return true;
 }
 
 /// \brief handles user update functions and retry logic
@@ -567,7 +560,7 @@ bool CAujardDlg::HandleUserLogout(int userId, byte saveType, bool forceLogout)
 /// \param user reference to user object
 /// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
 /// \see UserDataSave(), HandleUserLogout()
-bool CAujardDlg::HandleUserUpdate(int userId, const _USER_DATA& user, byte saveType)
+bool CAujardDlg::HandleUserUpdate(int userId, const _USER_DATA& user, BYTE saveType)
 {
 	DWORD sleepTime = 10;
 	int updateWarehouseResult = 0, updateUserResult = 0,
@@ -575,9 +568,9 @@ bool CAujardDlg::HandleUserUpdate(int userId, const _USER_DATA& user, byte saveT
 	char logStr[256] = {};
 
 	// attempt updates
-	updateUserResult = DBAgent.UpdateUser(user.m_id, userId, saveType);
+	updateUserResult = _dbAgent.UpdateUser(user.m_id, userId, saveType);
 	Sleep(sleepTime);
-	updateWarehouseResult = DBAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
+	updateWarehouseResult = _dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
 
 	// TODO:  Seems like the following two loops could/should just be combined
 	// retry handling for update user/warehouse
@@ -592,18 +585,18 @@ bool CAujardDlg::HandleUserUpdate(int userId, const _USER_DATA& user, byte saveT
 		// only retry the calls that fail - they're both updating using UserData[userId]->dwTime, so they should sync fine
 		if (!updateUserResult)
 		{
-			updateUserResult = DBAgent.UpdateUser(user.m_id, userId, saveType);
+			updateUserResult = _dbAgent.UpdateUser(user.m_id, userId, saveType);
 		}
 		Sleep(sleepTime);
 		if (!updateWarehouseResult)
 		{
-			updateWarehouseResult = DBAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
+			updateWarehouseResult = _dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
 		}
 	}
 	
 	// Verify saved data/timestamp
-	updateWarehouseResult = DBAgent.CheckUserData(user.m_Accountid, user.m_id, 1, user.m_dwTime, user.m_iBank);
-	updateUserResult = DBAgent.CheckUserData(user.m_Accountid, user.m_id, 2, user.m_dwTime, user.m_iExp);
+	updateWarehouseResult = _dbAgent.CheckUserData(user.m_Accountid, user.m_id, 1, user.m_dwTime, user.m_iBank);
+	updateUserResult = _dbAgent.CheckUserData(user.m_Accountid, user.m_id, 2, user.m_dwTime, user.m_iExp);
 	for (retryCount = 0; !updateWarehouseResult || !updateUserResult; retryCount++)
 	{
 		if (retryCount >= maxRetry)
@@ -622,14 +615,14 @@ bool CAujardDlg::HandleUserUpdate(int userId, const _USER_DATA& user, byte saveT
 		}
 		if (!updateWarehouseResult)
 		{
-			DBAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
-			updateWarehouseResult = DBAgent.CheckUserData(user.m_Accountid, user.m_id, 1, user.m_dwTime, user.m_iBank);
+			_dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
+			updateWarehouseResult = _dbAgent.CheckUserData(user.m_Accountid, user.m_id, 1, user.m_dwTime, user.m_iBank);
 		}
 		Sleep(sleepTime);
 		if (!updateUserResult)
 		{
-			DBAgent.UpdateUser(user.m_id, userId, saveType);
-			updateUserResult = DBAgent.CheckUserData(user.m_Accountid, user.m_id, 2, user.m_dwTime, user.m_iExp);
+			_dbAgent.UpdateUser(user.m_id, userId, saveType);
+			updateUserResult = _dbAgent.CheckUserData(user.m_Accountid, user.m_id, 2, user.m_dwTime, user.m_iExp);
 		}
 	}
 
@@ -655,7 +648,7 @@ void CAujardDlg::AccountLogIn(char* buffer)
 	passwordLen = GetShort(buffer, index);
 	GetString(password, buffer, passwordLen, index);
 
-	nation = DBAgent.AccountLogInReq(accountId, password);
+	nation = _dbAgent.AccountLogInReq(accountId, password);
 
 	SetByte(sendBuff, WIZ_LOGIN, sendIndex);
 	SetShort(sendBuff, userId, sendIndex);
@@ -689,7 +682,7 @@ void CAujardDlg::SelectNation(char* buffer)
 	GetString(accountId, buffer, accountIdLen, index);
 	nation = GetByte(buffer, index);
 
-	bool result = DBAgent.NationSelect(accountId, nation);
+	bool result = _dbAgent.NationSelect(accountId, nation);
 
 	SetByte(sendBuff, WIZ_SEL_NATION, sendIndex);
 	SetShort(sendBuff, userId, sendIndex);
@@ -739,7 +732,7 @@ void CAujardDlg::CreateNewChar(char* buffer)
 	intel = GetByte(buffer, index);
 	cha = GetByte(buffer, index);
 
-	result = DBAgent.CreateNewChar(accountId, charIndex, charId, race, Class, hair, face, str, sta, dex, intel, cha);
+	result = _dbAgent.CreateNewChar(accountId, charIndex, charId, race, Class, hair, face, str, sta, dex, intel, cha);
 
 	SetByte(sendBuff, WIZ_NEW_CHAR, sendIndex);
 	SetShort(sendBuff, userId, sendIndex);
@@ -781,7 +774,7 @@ void CAujardDlg::DeleteChar(char* buffer)
 	GetString(socNo, buffer, socNoLen, index);
 
 	// Not implemented.  Allow result to default to 0.
-	//result = DBAgent.DeleteChar(charindex, accountid, charid, socno);
+	//result = _dbAgent.DeleteChar(charindex, accountid, charid, socno);
 
 	TRACE(_T("*** DeleteChar == charid=%hs, socno=%hs ***\n"), charId, socNo);
 
@@ -826,10 +819,10 @@ void CAujardDlg::AllCharInfoReq(char* buffer)
 
 	SetByte(charBuff, 0x01, charBuffIndex);	// result
 
-	DBAgent.GetAllCharID(accountId, charId1, charId2, charId3);
-	DBAgent.LoadCharInfo(charId1, charBuff, charBuffIndex);
-	DBAgent.LoadCharInfo(charId2, charBuff, charBuffIndex);
-	DBAgent.LoadCharInfo(charId3, charBuff, charBuffIndex);
+	_dbAgent.GetAllCharID(accountId, charId1, charId2, charId3);
+	_dbAgent.LoadCharInfo(charId1, charBuff, charBuffIndex);
+	_dbAgent.LoadCharInfo(charId2, charBuff, charBuffIndex);
+	_dbAgent.LoadCharInfo(charId3, charBuff, charBuffIndex);
 
 	SetByte(sendBuff, WIZ_ALLCHAR_INFO_REQ, sendIndex);
 	SetShort(sendBuff, userId, sendIndex);
@@ -915,9 +908,9 @@ void CAujardDlg::AllSaveRoutine()
 	OutputList.AddString(msgStr);
 	TRACE(_T("Dead Time : %04d/%02d/%02d %02d:%02d\n"), cur.GetYear(), cur.GetMonth(), cur.GetDay(), cur.GetHour(), cur.GetMinute());
 	
-	for (int userId = 0; userId < DBAgent.UserData.size(); userId++)
+	for (int userId = 0; userId < static_cast<int>(_dbAgent.UserData.size()); userId++)
 	{
-		_USER_DATA* pUser = DBAgent.UserData[userId];
+		_USER_DATA* pUser = _dbAgent.UserData[userId];
 		if (pUser == nullptr || strlen(pUser->m_id) == 0)
 		{
 #if defined(_DEBUG)
@@ -957,7 +950,7 @@ void CAujardDlg::ConCurrentUserCount()
 
 	for (int userId = 0; userId < MAX_USER; userId++)
 	{
-		_USER_DATA* pUser = DBAgent.UserData[userId];
+		_USER_DATA* pUser = _dbAgent.UserData[userId];
 		if (pUser == nullptr)
 			continue;
 
@@ -967,9 +960,9 @@ void CAujardDlg::ConCurrentUserCount()
 		t_count++;
 	}
 
-	TRACE(_T("*** ConCurrentUserCount : server=%d, zone=%d, usercount=%d ***\n"), ServerId, ZoneId, t_count);
+	TRACE(_T("*** ConCurrentUserCount : server=%d, zone=%d, usercount=%d ***\n"), _serverId, _zoneId, t_count);
 
-	DBAgent.UpdateConCurrentUserCount(ServerId, ZoneId, t_count);
+	_dbAgent.UpdateConCurrentUserCount(_serverId, _zoneId, t_count);
 }
 
 /// \brief handles a WIZ_DATASAVE request
@@ -993,7 +986,7 @@ void CAujardDlg::UserDataSave(char* buffer)
 		|| strlen(charId) == 0)
 		return;
 	
-	_USER_DATA* pUser = DBAgent.UserData[userId];
+	_USER_DATA* pUser = _dbAgent.UserData[userId];
 	if (pUser == nullptr)
 		return;
 
@@ -1013,7 +1006,7 @@ _USER_DATA* CAujardDlg::GetUserPtr(const char* charId, int& userId)
 {
 	for (int i = 0; i < MAX_USER; i++)
 	{
-		_USER_DATA* pUser = DBAgent.UserData[i];
+		_USER_DATA* pUser = _dbAgent.UserData[i];
 		if (!pUser)
 			continue;
 
@@ -1077,7 +1070,7 @@ void CAujardDlg::KnightsPacket(char* buffer)
 
 		case KNIGHTS_ALLLIST_REQ:
 			nation = GetByte(buffer, index);
-			DBAgent.LoadKnightsAllList(nation);
+			_dbAgent.LoadKnightsAllList(nation);
 			break;
 
 		default:
@@ -1109,7 +1102,7 @@ void CAujardDlg::CreateKnights(char* buffer)
 		|| userId >= MAX_USER)
 		return;
 
-	result = DBAgent.CreateKnights(knightsId, nation, knightsName, chiefName, community);
+	result = _dbAgent.CreateKnights(knightsId, nation, knightsName, chiefName, community);
 
 	TRACE(_T("CreateKnights - nid=%d, index=%d, result=%d \n"), userId, knightsId, result);
 
@@ -1153,11 +1146,11 @@ void CAujardDlg::JoinKnights(char* buffer)
 		|| userId >= MAX_USER)
 		return;
 
-	_USER_DATA* pUser = DBAgent.UserData[userId];
+	_USER_DATA* pUser = _dbAgent.UserData[userId];
 	if (pUser == nullptr)
 		return;
 
-	result = DBAgent.UpdateKnights(KNIGHTS_JOIN, pUser->m_id, knightsId, 0);
+	result = _dbAgent.UpdateKnights(KNIGHTS_JOIN, pUser->m_id, knightsId, 0);
 
 	TRACE(_T("JoinKnights - nid=%d, name=%hs, index=%d, result=%d \n"), userId, pUser->m_id, knightsId, result);
 
@@ -1195,11 +1188,11 @@ void CAujardDlg::WithdrawKnights(char* buffer)
 		|| userId >= MAX_USER)
 		return;
 
-	_USER_DATA* pUser = DBAgent.UserData[userId];
+	_USER_DATA* pUser = _dbAgent.UserData[userId];
 	if (pUser == nullptr)
 		return;
 
-	result = DBAgent.UpdateKnights(KNIGHTS_WITHDRAW, pUser->m_id, knightsId, 0);
+	result = _dbAgent.UpdateKnights(KNIGHTS_WITHDRAW, pUser->m_id, knightsId, 0);
 	TRACE(_T("WithDrawKnights - nid=%d, index=%d, result=%d \n"), userId, knightsId, result);
 
 	SetByte(sendBuff, KNIGHTS_WITHDRAW, sendIndex);
@@ -1247,7 +1240,7 @@ void CAujardDlg::ModifyKnightsMember(char* buffer, BYTE command)
 		return;
 	}	*/
 
-	result = DBAgent.UpdateKnights(command, charId, knightsId, removeFlag);
+	result = _dbAgent.UpdateKnights(command, charId, knightsId, removeFlag);
 	TRACE(_T("ModifyKnights - command=%d, nid=%d, index=%d, result=%d \n"), command, userId, knightsId, result);
 
 	//SetByte( send_buff, WIZ_KNIGHTS_PROCESS, send_index );
@@ -1317,7 +1310,7 @@ void CAujardDlg::DestroyKnights(char* buffer)
 		|| userId >= MAX_USER)
 		return;
 
-	result = DBAgent.DeleteKnights(knightsId);
+	result = _dbAgent.DeleteKnights(knightsId);
 	TRACE(_T("DestroyKnights - userId=%d, knightsId=%d, result=%d \n"), userId, knightsId, result);
 
 	SetByte(sendBuff, KNIGHTS_DESTROY, sendIndex);
@@ -1358,7 +1351,7 @@ void CAujardDlg::AllKnightsMember(char* buffer)
 
 	//if( page < 0 )  return;
 
-	count = DBAgent.LoadKnightsAllMembers(knightsId, 0, dbBuff, dbIndex);
+	count = _dbAgent.LoadKnightsAllMembers(knightsId, 0, dbBuff, dbIndex);
 	//count = m_DBAgent.LoadKnightsAllMembers( knightindex, page*10, temp_buff, buff_index );
 
 	SetByte(sendBuff, KNIGHTS_MEMBER_REQ, sendIndex);
@@ -1397,7 +1390,7 @@ void CAujardDlg::KnightsList(char* buffer)
 		|| userId >= MAX_USER)
 		return;
 
-	DBAgent.LoadKnightsInfo(knightsId, dbBuff, dbIndex);
+	_dbAgent.LoadKnightsInfo(knightsId, dbBuff, dbIndex);
 
 	SetByte(sendBuff, KNIGHTS_LIST_REQ, sendIndex);
 	SetShort(sendBuff, userId, sendIndex);
@@ -1441,9 +1434,9 @@ void CAujardDlg::SetLogInInfo(char* buffer)
 	GetString(clientIp, buffer, clientIpLen, index);
 	
 	// init: 0x01 to insert, 0x02 to update CURRENTUSER
-	byte init = GetByte(buffer, index);
+	BYTE init = GetByte(buffer, index);
 
-	if (!DBAgent.SetLogInInfo(accountId, charId, serverIp, serverId, clientIp, init))
+	if (!_dbAgent.SetLogInInfo(accountId, charId, serverIp, serverId, clientIp, init))
 	{
 		SetByte(sendBuff, WIZ_LOGIN_INFO, sendIndex);
 		SetShort(sendBuff, userId, sendIndex);
@@ -1477,7 +1470,7 @@ void CAujardDlg::UserKickOut(char* buffer)
 	accountIdLen = GetShort(buffer, index);
 	GetString(accountId, buffer, accountIdLen, index);
 
-	DBAgent.AccountLogout(accountId);
+	_dbAgent.AccountLogout(accountId);
 }
 
 /// \brief writes a packet summary line to the log file
@@ -1485,7 +1478,7 @@ void CAujardDlg::WritePacketLog()
 {
 	CTime t = CTime::GetCurrentTime();
 	char logStr[256] = {};
-	sprintf(logStr, "* Packet Count : recv=%d, send=%d, realsend=%d , time = %02d:%02d\r\n", RecvPacketCount, PacketCount, SendPacketCount, t.GetHour(), t.GetMinute());
+	sprintf(logStr, "* Packet Count : recv=%d, send=%d, realsend=%d , time = %02d:%02d\r\n", _recvPacketCount, _packetCount, _sendPacketCount, t.GetHour(), t.GetMinute());
 	WriteLogFile(logStr);
 	//m_LogFile.Write(logstr, strlen(logstr));
 }
@@ -1502,7 +1495,7 @@ void CAujardDlg::SaveUserData()
 
 	for (int userId = 0; userId < MAX_USER; userId++)
 	{
-		_USER_DATA* user = DBAgent.UserData[userId];
+		_USER_DATA* user = _dbAgent.UserData[userId];
 		// skip user slots that aren't in use
 		if (user == nullptr || strlen(user->m_id) == 0)
 			continue;
@@ -1532,16 +1525,16 @@ void CAujardDlg::WriteLogFile(char* data)
 	char strLog[1024] = {};
 	int nDay = cur.GetDay();
 
-	if (LogFileDay != nDay)
+	if (_logFileDay != nDay)
 	{
-		if (LogFile.m_hFile != CFile::hFileNull)
-			LogFile.Close();
+		if (_logFile.m_hFile != CFile::hFileNull)
+			_logFile.Close();
 
 		CString filename;
 		filename.Format(_T("AujardLog-%d-%d-%d.txt"), cur.GetYear(), cur.GetMonth(), cur.GetDay());
-		LogFile.Open(filename, CFile::modeWrite | CFile::modeCreate | CFile::modeNoTruncate | CFile::shareDenyNone);
-		LogFile.SeekToEnd();
-		LogFileDay = nDay;
+		_logFile.Open(filename, CFile::modeWrite | CFile::modeCreate | CFile::modeNoTruncate | CFile::shareDenyNone);
+		_logFile.SeekToEnd();
+		_logFileDay = nDay;
 	}
 
 	sprintf(strLog, "%d-%d-%d %d:%d, %s\r\n", cur.GetYear(), cur.GetMonth(), cur.GetDay(), cur.GetHour(), cur.GetMinute(), data);
@@ -1552,7 +1545,7 @@ void CAujardDlg::WriteLogFile(char* data)
 		return;
 	}
 
-	LogFile.Write(strLog, nLen);
+	_logFile.Write(strLog, nLen);
 }
 
 /// \brief handles WIZ_BATTLE_EVENT requests
@@ -1571,7 +1564,7 @@ void CAujardDlg::BattleEventResult(char* data)
 	{
 		GetString(charId, data, charIdLen, index);
 		TRACE(_T("--> BattleEventResult : The user who killed the enemy commander is %hs, _type=%d, nation=%d \n"), charId, _type, result);
-		DBAgent.UpdateBattleEvent(charId, result);
+		_dbAgent.UpdateBattleEvent(charId, result);
 	}
 }
 
@@ -1597,7 +1590,7 @@ void CAujardDlg::CouponEvent(char* data)
 		// 비러머글 대사문 >.<
 		nMessageNum = GetDWORD(data, index);
 		// TODO: Not implemented. Allow nResult to default to 0
-		// nResult = DBAgent.CheckCouponEvent(strAccountName);
+		// nResult = _dbAgent.CheckCouponEvent(strAccountName);
 
 		SetByte(send_buff, DB_COUPON_EVENT, send_index);
 		SetShort(send_buff, nSid, send_index);
@@ -1632,6 +1625,6 @@ void CAujardDlg::CouponEvent(char* data)
 		nItemCount = GetDWORD(data, index);
 
 		// TODO: not implemented.  Allow nResult to default to 0
-		// nResult = DBAgent.UpdateCouponEvent(strAccountName, strCharName, strCouponID, nItemID, nItemCount);
+		// nResult = _dbAgent.UpdateCouponEvent(strAccountName, strCharName, strCouponID, nItemID, nItemCount);
 	}
 }
