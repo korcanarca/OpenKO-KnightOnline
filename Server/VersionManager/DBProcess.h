@@ -36,7 +36,7 @@ public:
 
 	/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
 	/// \throws nanodbc::database_error
-	void ReConnectODBC();
+	void ReconnectIfDisconnected();
 
 	/// \brief Deletes Version table entry tied to the specified key
 	/// \return TRUE on success, FALSE on failure

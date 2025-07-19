@@ -67,7 +67,7 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 
 /// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
 /// \throws nanodbc::database_error
-void CDBProcess::ReConnectODBC() noexcept(false)
+void CDBProcess::ReconnectIfDisconnected() noexcept(false)
 {
 	try
 	{
@@ -83,13 +83,13 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 		if (result == 1)
 		{
 			CTime t = CTime::GetCurrentTime();
-			LogFileWrite(std::format("ReConnectODBC(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
+			LogFileWrite(std::format("ReconnectIfDisconnected(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
 				t.GetMonth(), t.GetDay(), t.GetYear(), t.GetHour(), t.GetMinute(), t.GetSecond()));
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.ReConnectODBC()");
+		LogDatabaseError(dbErr, "DBProcess.ReconnectIfDisconnected()");
 		throw;
 	}
 }
@@ -121,7 +121,7 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	
 	try
 	{
-		ReConnectODBC();
+		ReconnectIfDisconnected();
 
 		auto stmt = std::make_shared<nanodbc::statement>(*conn->Conn, sql.SelectString());
 		stmt->bind(0, accountId);
@@ -130,15 +130,15 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 
 		recordSet.open(stmt);
 		if (!recordSet.next())
-		{
 			return AUTH_NOT_FOUND;
-		}
 
-		model::TbUser user;
+		model::TbUser user = {};
 		recordSet.get_ref(user);
 
 		if (user.Password != password)
 		{
+			// Use AUTH_NOT_FOUND here instead of AUTH_INVALID_PW
+			// to ensure attackers have no way of identifying real accounts to bruteforce passwords on.
 			return AUTH_NOT_FOUND;
 		}
 
@@ -164,7 +164,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	std::string insert = sql.InsertString();
 	try
 	{
-		ReConnectODBC();
+		ReconnectIfDisconnected();
 
 		nanodbc::statement stmt(*conn->Conn, insert);
 		stmt.bind(0, &version);
@@ -174,9 +174,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
-		{
 			return TRUE;
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -195,16 +193,14 @@ BOOL CDBProcess::DeleteVersion(int version)
 	std::string deleteQuery = sql.DeleteByIdString();
 	try
 	{
-		ReConnectODBC();
+		ReconnectIfDisconnected();
 
 		nanodbc::statement stmt(*conn->Conn, deleteQuery);
 		stmt.bind(0, &version);
 
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
-		{
 			return TRUE;
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -222,7 +218,7 @@ BOOL CDBProcess::LoadUserCountList()
 	db::ModelRecordSet<model::Concurrent> recordSet;
 	try
 	{
-		ReConnectODBC();
+		ReconnectIfDisconnected();
 
 		recordSet.open();
 		while (recordSet.next())
@@ -257,7 +253,7 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	sql.IsWherePK = true;
 	try
 	{
-		ReConnectODBC();
+		ReconnectIfDisconnected();
 
 		auto stmt = std::make_shared<nanodbc::statement>(*conn->Conn, sql.SelectString());
 		stmt->bind(0, accountId);
@@ -265,9 +261,7 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 		db::ModelRecordSet<model::CurrentUser> recordSet;
 		recordSet.open(stmt);
 		if (!recordSet.next())
-		{
 			return FALSE;
-		}
 
 		model::CurrentUser user = recordSet.get();
 		serverId = user.ServerId;
@@ -293,7 +287,7 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 	int32_t daysRemaining = 0;
 	try
 	{
-		ReConnectODBC();
+		ReconnectIfDisconnected();
 
 		storedProc::LoadPremiumServiceUser premium(conn->Conn);
 		premium.execute(accountId, &premiumType, &daysRemaining);

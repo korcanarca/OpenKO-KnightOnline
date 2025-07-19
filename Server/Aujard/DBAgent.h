@@ -146,7 +146,7 @@ public:
 	/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
 	/// \param conn the connection to attempt a reconnect on
 	/// \throws nanodbc::database_error
-	void ReConnectODBC(db::Connection* conn);
+	void ReconnectIfDisconnected(db::Connection* conn);
 	
 	/// \brief attempts connections with db::ConnectionManager to needed dbTypes
 	/// \returns true is successful, false otherwise

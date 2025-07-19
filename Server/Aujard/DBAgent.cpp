@@ -106,7 +106,7 @@ bool CDBAgent::InitDatabase()
 /// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
 /// \param conn the connection to attempt a reconnect on
 /// \throws nanodbc::database_error
-void CDBAgent::ReConnectODBC(db::Connection* conn) noexcept(false)
+void CDBAgent::ReconnectIfDisconnected(db::Connection* conn) noexcept(false)
 {
 	try
 	{
@@ -120,13 +120,13 @@ void CDBAgent::ReConnectODBC(db::Connection* conn) noexcept(false)
 		if (result == 1)
 		{
 			CTime t = CTime::GetCurrentTime();
-			LogFileWrite(std::format("ReConnectODBC(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
+			LogFileWrite(std::format("ReconnectIfDisconnected(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
 				t.GetMonth(), t.GetDay(), t.GetYear(), t.GetHour(), t.GetMinute(), t.GetSecond()));
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBAgent.ReConnectODBC()");
+		LogDatabaseError(dbErr, "DBAgent.ReconnectIfDisconnected()");
 		throw;
 	}
 }
@@ -174,7 +174,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	try
 	{
 		_main->DBProcessNumber(2);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::LoadUserData proc(_gameConn1->Conn);
 		auto weak_result = proc.execute(accountId, charId, &rowCount);
@@ -531,7 +531,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	try
 	{
 		_main->DBProcessNumber(3);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::UpdateUserData proc(_gameConn1->Conn);
 
@@ -580,7 +580,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	try
 	{
 		_main->DBProcessNumber(4);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::AccountLogin proc(_gameConn1->Conn);
 		proc.execute(accountId, password, &retCode);
@@ -603,7 +603,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	try
 	{
 		_main->DBProcessNumber(5);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::NationSelect proc(_gameConn1->Conn);
 		proc.execute(&retCode, accountId, nation);
@@ -632,7 +632,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	try
 	{
 		_main->DBProcessNumber(6);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::CreateNewChar proc(_gameConn1->Conn);
 		proc.execute(
@@ -673,7 +673,7 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 	try
 	{
 		_main->DBProcessNumber(8);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::LoadCharInfo proc(_gameConn1->Conn);
 
@@ -758,7 +758,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1_, char* charId2
 	try
 	{
 		_main->DBProcessNumber(9);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::LoadAccountCharid proc(_gameConn1->Conn);
 
@@ -818,7 +818,7 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	try
 	{
 		_main->DBProcessNumber(10);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::CreateKnights proc(_gameConn1->Conn);
 		proc.execute(&retCode, knightsId, nation, flag, name, chief);
@@ -846,7 +846,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	try
 	{
 		_main->DBProcessNumber(11);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::UpdateKnights proc(_gameConn1->Conn);
 		proc.execute(&retCode, type, charId, knightsId, domination);
@@ -868,7 +868,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 	try
 	{
 		_main->DBProcessNumber(12);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::DeleteKnights proc(_gameConn1->Conn);
 		proc.execute(&retCode, knightsId);
@@ -899,7 +899,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	try
 	{
 		_main->DBProcessNumber(13);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::LoadKnightsMembers proc(_gameConn1->Conn);
 		auto weak_result = proc.execute(knightsId);
@@ -959,7 +959,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	try
 	{
 		_main->DBProcessNumber(14);
-		ReConnectODBC(_accountConn2.get());
+		ReconnectIfDisconnected(_accountConn2.get());
 
 		nanodbc::statement stmt(*_accountConn2->Conn, updateQuery);
 		stmt.bind(0, &userCount);
@@ -996,7 +996,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	try
 	{
 		_main->DBProcessNumber(15);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
 		stmt->bind(0, accountId);
@@ -1107,7 +1107,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	try
 	{
 		_main->DBProcessNumber(16);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		storedProc::UpdateWarehouse proc(_gameConn1->Conn);
 
@@ -1150,7 +1150,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	try
 	{
 		_main->DBProcessNumber(17);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
 		stmt->bind(0, &knightsId);
@@ -1217,7 +1217,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	try
 	{
 		_main->DBProcessNumber(18);
-		ReConnectODBC(_accountConn1.get());
+		ReconnectIfDisconnected(_accountConn1.get());
 
 		nanodbc::statement stmt(*_accountConn1->Conn, query);
 		nanodbc::result result = stmt.execute();
@@ -1246,7 +1246,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	try
 	{
 		_main->DBProcessNumber(19);
-		ReConnectODBC(_accountConn1.get());
+		ReconnectIfDisconnected(_accountConn1.get());
 
 		storedProc::AccountLogout proc(_accountConn1->Conn);
 
@@ -1303,7 +1303,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	try
 	{
 		_main->DBProcessNumber(20);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		nanodbc::statement stmt(*_gameConn1->Conn, query);
 		nanodbc::result result = stmt.execute();
@@ -1365,7 +1365,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 		db::ModelRecordSet<model::Knights> recordSet;
 
 		_main->DBProcessNumber(21);
-		ReConnectODBC(_gameConn1.get());
+		ReconnectIfDisconnected(_gameConn1.get());
 
 		recordSet.open(sql);
 		while (recordSet.next())
@@ -1446,7 +1446,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	try
 	{
 		_main->DBProcessNumber(22);
-		ReConnectODBC(_accountConn1.get());
+		ReconnectIfDisconnected(_accountConn1.get());
 
 		nanodbc::statement stmt(*_accountConn1->Conn, query);
 		stmt.bind(0, &nation);
@@ -1510,7 +1510,7 @@ BOOL CDBAgent::CheckCouponEvent(const char* accountId)
 			accountConn1.Close();
 			if (!accountConn1.IsOpen())
 			{
-				ReConnectODBC(&accountConn1, _main->m_strAccountDSN, _main->m_strAccountUID, _main->m_strAccountPWD);
+				ReconnectIfDisconnected(&accountConn1, _main->m_strAccountDSN, _main->m_strAccountUID, _main->m_strAccountPWD);
 				return FALSE;
 			}
 		}
@@ -1556,7 +1556,7 @@ BOOL CDBAgent::UpdateCouponEvent(const char* accountId, char* charId, char* cpid
 			accountConn1.Close();
 			if (!accountConn1.IsOpen())
 			{
-				ReConnectODBC(&accountConn1, _main->m_strAccountDSN, _main->m_strAccountUID, _main->m_strAccountPWD);
+				ReconnectIfDisconnected(&accountConn1, _main->m_strAccountDSN, _main->m_strAccountUID, _main->m_strAccountPWD);
 				return FALSE;
 			}
 		}
@@ -1597,7 +1597,7 @@ BOOL CDBAgent::DeleteChar(int index, char* id, char* charId, char* socno)
 
 					if (!gameConn1.IsOpen())
 					{
-						ReConnectODBC(&gameConn1, _main->m_strGameDSN, _main->m_strGameUID, _main->m_strGamePWD);
+						ReconnectIfDisconnected(&gameConn1, _main->m_strGameDSN, _main->m_strGameUID, _main->m_strGamePWD);
 						return FALSE;
 					}
 				}
