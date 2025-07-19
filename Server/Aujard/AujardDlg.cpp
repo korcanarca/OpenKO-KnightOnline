@@ -519,7 +519,7 @@ void CAujardDlg::UserLogOut(char* buffer)
 /// \see UserLogOut(), AllSaveRoutine(), HandleUserUpdate()
 bool CAujardDlg::HandleUserLogout(int userId, BYTE saveType, bool forceLogout)
 {
-	int logoutResult = 1;
+	bool logoutResult = false;
 
 	// make sure UserData[userId] value is valid
 	_USER_DATA* pUser = _dbAgent.UserData[userId];
@@ -532,27 +532,32 @@ bool CAujardDlg::HandleUserLogout(int userId, BYTE saveType, bool forceLogout)
 	// only call AccountLogout for non-zone change logouts
 	if (pUser->m_bLogout != 2 || forceLogout)
 		logoutResult = _dbAgent.AccountLogout(pUser->m_Accountid);
+	else
+		logoutResult = true;
 
 	// update UserData (USERDATA/WAREHOUSE)
 	bool userdataSuccess = HandleUserUpdate(userId, *pUser, saveType);
 	
-	// reset the object stored in UserData[userId] 
-	_dbAgent.ResetUserData(userId);
-	
 	// Log results
-	if (!userdataSuccess || !logoutResult)
+	bool success = userdataSuccess && logoutResult;
+	if (!success)
 	{
-		LogFileWrite(std::format("Invalid Logout : {}, {} (UserData: {}, Logout: {}) \r\n",
+		LogFileWrite(std::format("Invalid Logout: {}, {} (UserData: {}, Logout: {}) \r\n",
 			pUser->m_Accountid, pUser->m_id, userdataSuccess, logoutResult));
 		return false;
 	}
 
 #if defined(_DEBUG)
-	LogFileWrite(std::format("Logout : {}, {} (UserData: {}, Logout: {})\r\n",
+	LogFileWrite(std::format("Logout: {}, {} (UserData: {}, Logout: {})\r\n",
 		pUser->m_Accountid, pUser->m_id, userdataSuccess, logoutResult));
 #endif
 
-	return true;
+	// reset the object stored in UserData[userId] before returning
+	// this will reset data like accountId/charId, so logging must
+	// occur beforehand
+	_dbAgent.ResetUserData(userId);
+	
+	return success;
 }
 
 /// \brief handles user update functions and retry logic

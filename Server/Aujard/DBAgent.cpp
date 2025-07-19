@@ -107,24 +107,31 @@ bool CDBAgent::DatabaseInit()
 /// \throws nanodbc::database_error
 void CDBAgent::ReConnectODBC(std::shared_ptr<db::ConnectionManager::Connection> conn) noexcept(false)
 {
-	CString logstr;
-	CTime t = CTime::GetCurrentTime();
-	logstr.Format(_T("Try ReConnectODBC... %02d/%02d %02d:%02d\r\n"), t.GetMonth(), t.GetDay(), t.GetHour(), t.GetMinute());
-	LogFileWrite(logstr);
 	try
 	{
-		conn->Reconnect();
+		uint8_t result = conn->Reconnect();
+		if (result == -1)
+		{
+			LogFileWrite("ReConnectODBC(): failed to connect. This usually means the connection is null.\r\n");
+			throw nanodbc::database_error(nullptr, 0, "application error");
+		}
+
+		// reconnect was necessary and successful
+		if (result == 1)
+		{
+			CTime t = CTime::GetCurrentTime();
+			LogFileWrite(std::format("ReConnectODBC(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
+				t.GetMonth(), t.GetDay(), t.GetYear(), t.GetHour(), t.GetMinute(), t.GetSecond()));
+		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.ReConnectODBC(): ";
+		std::string logLine = "DBAgent.ReConnectODBC(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		throw;
 	}
-	logstr = _T("ReConnectODBC Success\r\n");
-	LogFileWrite(logstr);
 }
 
 /// \brief resets a UserData[userId] record.  Called after logout actions
@@ -239,7 +246,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	{
 		std::string logLine = "_dbAgent.LoadUserData(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -247,7 +254,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	// data successfully loaded from the database, copy to UserData record
 	if (strcpy_s(user->m_id, charId))
 	{
-		LogFileWrite(std::format("LoadUserData(): failed to write charId(len: {}, val: {}) to user->m_id",
+		LogFileWrite(std::format("LoadUserData(): failed to write charId(len: {}, val: {}) to user->m_id\r\n",
 			std::strlen(charId), charId));
 		return false;
 	}
@@ -288,7 +295,8 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 
 #ifdef _DEBUG
 	CTime t = CTime::GetCurrentTime();
-	LogFileWrite(std::format("[LoadUserData {:02}-{:02}-{:02}]: name={}, nation={}, zone={}, level={}, exp={}, money={}\r\n", t.GetHour(), t.GetMinute(), t.GetSecond(), charId, Nation, Zone, Level, Exp, Gold));
+	LogFileWrite(std::format("[LoadUserData {:02}-{:02}-{:02}]: name={}, nation={}, zone={}, level={}, exp={}, money={}\r\n",
+		t.GetHour(), t.GetMinute(), t.GetSecond(), charId, Nation, Zone, Level, Exp, Gold));
 #endif	
 
 	int index = 0, serial_index = 0;
@@ -341,7 +349,8 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 
 #ifdef _DEBUG
 			TRACE(_T("%hs : %d slot (%d : %I64d)\n"), user->m_id, i, user->m_sItemArray[i].nNum, user->m_sItemArray[i].nSerialNum);
-			LogFileWrite(std::format("{} : {} slot ({} : {})\n", user->m_id, i, user->m_sItemArray[i].nNum, user->m_sItemArray[i].nSerialNum));
+			LogFileWrite(std::format("{} : {} slot ({} : {})\r\n",
+				user->m_id, i, user->m_sItemArray[i].nNum, user->m_sItemArray[i].nSerialNum));
 #endif
 		}
 		else
@@ -542,7 +551,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result->affected_rows() == 0)
 		{
-			LogFileWrite(std::format("UpdateUser(): No rows affected for charId={}", charId));
+			LogFileWrite(std::format("UpdateUser(): No rows affected for charId={}\r\n", charId));
 			return false;
 		}
 	}
@@ -550,7 +559,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	{
 		std::string logLine = "_dbAgent.LoadUserData(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -575,7 +584,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	{
 		std::string logLine = "_dbAgent.AccountLogInReq(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -601,7 +610,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	{
 		std::string logLine = "_dbAgent.NationSelect(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -634,7 +643,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	{
 		std::string logLine = "_dbAgent.CreateNewChar(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return -1;
 	}
@@ -692,7 +701,7 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 	{
 		std::string logLine = "_dbAgent.LoadCharInfo(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -773,7 +782,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 		}
 		else
 		{
-			LogFileWrite(std::format("GetAllCharID(): No rows selected for accountId={}", accountId));
+			LogFileWrite(std::format("GetAllCharID(): No rows selected for accountId={}\r\n", accountId));
 			return false;
 		}
 	}
@@ -781,26 +790,26 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 	{
 		std::string logLine = "_dbAgent.GetAllCharID(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
 
 	if (strcpy_s(charId1, MAX_ID_SIZE+1, _charId1))
 	{
-		LogFileWrite(std::format("GetAllCharID(): failed to write _charId1(len: {}, val: {}) to charId1",
+		LogFileWrite(std::format("GetAllCharID(): failed to write _charId1(len: {}, val: {}) to charId1\r\n",
 			std::strlen(_charId1), _charId1));
 		return false;
 	}
 	if (strcpy_s(charId2, MAX_ID_SIZE+1, _charId2))
 	{
-		LogFileWrite(std::format("GetAllCharID(): failed to write _charId2(len: {}, val: {}) to charId2",
+		LogFileWrite(std::format("GetAllCharID(): failed to write _charId2(len: {}, val: {}) to charId2\r\n",
 			std::strlen(_charId2), _charId2));
 		return false;
 	}
 	if (strcpy_s(charId3, MAX_ID_SIZE+1, _charId3))
 	{
-		LogFileWrite(std::format("GetAllCharID(): failed to write _charId3(len: {}, val: {}) to charId3",
+		LogFileWrite(std::format("GetAllCharID(): failed to write _charId3(len: {}, val: {}) to charId3\r\n",
 			std::strlen(_charId3), _charId3));
 		return false;
 	}
@@ -825,14 +834,14 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	{
 		std::string logLine = "_dbAgent.CreateKnights(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return 6;
 	}
 
 	if (retCode == 6)
 	{
-		LogFileWrite(std::format("CreateKnights(): database error creating knights (knightsId={}, nation={}, name={}, chief={}, flag={}",
+		LogFileWrite(std::format("CreateKnights(): database error creating knights (knightsId={}, nation={}, name={}, chief={}, flag={}\r\n",
 			knightsId, nation, name, chief, flag));
 	}
 
@@ -856,7 +865,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	{
 		std::string logLine = "_dbAgent.UpdateKnights(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return 2;
 	}
@@ -881,7 +890,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 	{
 		std::string logLine = "_dbAgent.DeleteKnights(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return 7;
 	}
@@ -948,14 +957,14 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	{
 		std::string logLine = "_dbAgent.LoadKnightsAllMembers(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return 0;
 	}
 
 	if (rowCount == 0)
 	{
-		LogFileWrite(std::format("LoadKnightsAllMembers(): No rows selected for knightsId={}", knightsId));
+		LogFileWrite(std::format("LoadKnightsAllMembers(): No rows selected for knightsId={}\r\n", knightsId));
 	}
 
 	// clamp result so that start doesn't send rowCount negative
@@ -980,7 +989,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	{
 		std::string logLine = "DBProcess.UpdateConCurrentUserCount(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -997,7 +1006,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	_USER_DATA* user = UserData[userId];
 	if (user == nullptr || strlen(user->m_id) == 0)
 	{
-		LogFileWrite(std::format("LoadWarehouseData(): called for inactive userId={}", userId));
+		LogFileWrite(std::format("LoadWarehouseData(): called for inactive userId={}\r\n", userId));
 		return false;
 	}
 	
@@ -1016,7 +1025,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 		recordSet.open(prepStmt);
 		if (!recordSet.next())
 		{
-			LogFileWrite(std::format("LoadWarehouseData(): No rows selected for accountId={}", accountId));
+			LogFileWrite(std::format("LoadWarehouseData(): No rows selected for accountId={}\r\n", accountId));
 			return false;
 		}
 		model::Warehouse warehouse = recordSet.get();
@@ -1034,7 +1043,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	{
 		std::string logLine = "DBProcess.LoadWarehouseData(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -1075,7 +1084,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 
 			if (itemId > 0)
 			{
-				LogFileWrite(std::format("LoadWarehouseData(): item dropped itemId={} accountId={}",
+				LogFileWrite(std::format("LoadWarehouseData(): item dropped itemId={} accountId={}\r\n",
 					itemId, accountId));
 			}
 		}
@@ -1094,14 +1103,14 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	_USER_DATA* pUser = UserData[userId];
 	if (pUser == nullptr || strlen(accountId) == 0)
 	{
-		LogFileWrite(std::format("UpdateWarehouseData(): called with inactive userId={} accountId={}",
+		LogFileWrite(std::format("UpdateWarehouseData(): called with inactive userId={} accountId={}\r\n",
 					userId, accountId));
 		return false;
 	}
 
 	if (_strnicmp(pUser->m_Accountid, accountId, MAX_ID_SIZE) != 0)
 	{
-		LogFileWrite(std::format("UpdateWarehouseData(): accountId mismatch user.accountId={} accountId={}",
+		LogFileWrite(std::format("UpdateWarehouseData(): accountId mismatch user.accountId={} accountId={}\r\n",
 					pUser->m_Accountid, accountId));
 		return false;
 	}
@@ -1134,7 +1143,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result->affected_rows() == 0)
 		{
-			LogFileWrite(std::format("UpdateWarehouseData(): No rows affected for accountId={}", accountId));
+			LogFileWrite(std::format("UpdateWarehouseData(): No rows affected for accountId={}\r\n", accountId));
 			return false;
 		}
 	}
@@ -1142,7 +1151,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	{
 		std::string logLine = "_dbAgent.UpdateWarehouseData(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -1173,14 +1182,14 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 		recordSet.open(prepStmt);
 		if (!recordSet.next())
 		{
-			LogFileWrite(std::format("LoadKnightsInfo(): No rows selected for knightsId={}", knightsId));
+			LogFileWrite(std::format("LoadKnightsInfo(): No rows selected for knightsId={}\r\n", knightsId));
 			return false;
 		}
 
 		model::Knights knights = recordSet.get();
 		if (strcpy_s(knightsName, MAX_ID_SIZE+1, knights.Name.c_str()))
 		{
-			LogFileWrite(std::format("LoadKnightsInfo(): failed to write knights.Name(len: {}, val: {}) to knightsName",
+			LogFileWrite(std::format("LoadKnightsInfo(): failed to write knights.Name(len: {}, val: {}) to knightsName\r\n",
 			knights.Name.length(), knights.Name));
 			return false;
 		}
@@ -1195,7 +1204,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	{
 		std::string logLine = "DBProcess.LoadKnightsInfo(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -1226,7 +1235,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	}
 	else
 	{
-		LogFileWrite(std::format("SetLogInInfo(): invalid init code specified (init: {}) for accountId={}",
+		LogFileWrite(std::format("SetLogInInfo(): invalid init code specified (init: {}) for accountId={}\r\n",
 			init, accountId));
 		return false;
 	}
@@ -1240,7 +1249,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result.affected_rows() == 0)
 		{
-			LogFileWrite(std::format("SetLogInInfo(): No rows affected for accountId={}", accountId));
+			LogFileWrite(std::format("SetLogInInfo(): No rows affected for accountId={}\r\n", accountId));
 			return false;
 		}
 	}
@@ -1248,7 +1257,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	{
 		std::string logLine = "DBProcess.SetLogInInfo(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -1273,20 +1282,21 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result->affected_rows() == 0)
 		{
-			LogFileWrite(std::format("AccountLogout(): No rows affected for accountId={}", accountId));
+			LogFileWrite(std::format("AccountLogout(): No rows affected for accountId={}\r\n", accountId));
 			return false;
 		}
 		if (ret1 != 1)
 		{
-			LogFileWrite(std::format("AccountLogout(): ret1 not updated by proc for accountId={}", accountId));
-			return false;
+			LogFileWrite(std::format("AccountLogout(): ret1 not updated by proc for accountId={}\r\n", accountId));
+			// rows are affected and CURRENTUSER is clean; the value just doesn't seem to be bound?
+			//return false;
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
 		std::string logLine = "_dbAgent.AccountLogout(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -1327,7 +1337,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 		}
 		else
 		{
-			LogFileWrite(std::format("CheckUserData(): No rows affected for accountId={} charId={}", accountId, charId));
+			LogFileWrite(std::format("CheckUserData(): No rows affected for accountId={} charId={}\r\n", accountId, charId));
 			return false;
 		}
 	}
@@ -1335,7 +1345,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	{
 		std::string logLine = "DBProcess.CheckUserData(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}
@@ -1343,7 +1353,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	if (dbTime != userUpdateTime ||
 		dbData != compareData)
 	{
-		LogFileWrite(std::format("CheckUserData(): data mismatch dbTime(expected: {}, actual: {}) dbData(expected: {}, actual: {})",
+		LogFileWrite(std::format("CheckUserData(): data mismatch dbTime(expected: {}, actual: {}) dbData(expected: {}, actual: {})\r\n",
 			userUpdateTime, dbTime,
 			compareData, dbData));
 		return false;
@@ -1426,7 +1436,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	{
 		std::string logLine = "DBProcess.LoadKnightsAllList(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return;
 	}
@@ -1491,7 +1501,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	{
 		std::string logLine = "DBProcess.UpdateBattleEvent(): ";
 		logLine += dbErr.what();
-		logLine += "\n";
+		logLine += "\r\n";
 		LogFileWrite(logLine);
 		return false;
 	}

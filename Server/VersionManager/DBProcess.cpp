@@ -65,13 +65,23 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 /// \throws nanodbc::database_error
 void CDBProcess::ReConnectODBC() noexcept(false)
 {
-	CString logstr;
-	CTime t = CTime::GetCurrentTime();
-	logstr.Format(_T("Try ReConnectODBC... %02d/%02d %02d:%02d\r\n"), t.GetMonth(), t.GetDay(), t.GetHour(), t.GetMinute());
-	LogFileWrite(logstr);
 	try
 	{
-		conn->Reconnect();
+		uint8_t result = conn->Reconnect();
+		// general error
+		if (result == -1)
+		{
+			LogFileWrite("ReConnectODBC(): failed to connect. This usually means the connection is null.\r\n");
+			throw nanodbc::database_error(nullptr, 0, "application error");
+		}
+
+		// reconnect was necessary and successful
+		if (result == 1)
+		{
+			CTime t = CTime::GetCurrentTime();
+			LogFileWrite(std::format("ReConnectODBC(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
+				t.GetMonth(), t.GetDay(), t.GetYear(), t.GetHour(), t.GetMinute(), t.GetSecond()));
+		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -81,8 +91,6 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 		LogFileWrite(logLine);
 		throw;
 	}
-	logstr = _T("ReConnectODBC Success\r\n");
-	LogFileWrite(logstr);
 }
 
 /// \brief loads the VERSION table into VersionManagerDlg.VersionList

@@ -132,11 +132,14 @@ namespace db
 		s_instance = nullptr;
 	}
 
-	bool ConnectionManager::Connection::Reconnect() noexcept(false)
+	/// \brief Checks to see if the connection is disconnected, and attempts
+	/// to reconnect if appropriate.
+	/// \returns -1 for failed connection, 0 for no-op, 1 for successful reconnect
+	uint8_t ConnectionManager::Connection::Reconnect() noexcept(false)
 	{
 		if (Conn == nullptr)
 		{
-			return false;
+			return -1;
 		}
 
 		// only calling connect if we're currently disconnected/timed out
@@ -146,8 +149,9 @@ namespace db
 		{
 			// this can throw an exception
 			Conn->connect(Config->DatasourceName, Config->DatasourceUsername, Config->DatasourcePassword, Timeout);
+			return 1;
 		}
 
-		return true;
+		return 0;
 	}
 }

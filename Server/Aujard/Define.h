@@ -336,29 +336,6 @@ inline void LogFileWrite(const std::string& logStr)
 	LogFileWrite(clog);
 }
 
-inline int DisplayErrorMsg(SQLHANDLE hstmt)
-{
-	SQLTCHAR      SqlState[6], Msg[4096];
-	SQLINTEGER    NativeError;
-	SQLSMALLINT   i, MsgLen;
-	SQLRETURN     rc2;
-	TCHAR		  logstr[4096] = {};
-
-	i = 1;
-	while ((rc2 = SQLGetDiagRec(SQL_HANDLE_STMT, hstmt, i, SqlState, &NativeError, Msg, _countof(Msg), &MsgLen)) != SQL_NO_DATA)
-	{
-		_stprintf(logstr, _T("*** %s, %d, %s, %d ***\r\n"), SqlState, NativeError, Msg, MsgLen);
-		LogFileWrite(logstr);
-
-		i++;
-	}
-
-	if (_tcscmp((TCHAR*) SqlState, _T("08S01")) == 0)
-		return -1;
-	else
-		return 0;
-}
-
 namespace ini
 {
 	// ODBC Config Section

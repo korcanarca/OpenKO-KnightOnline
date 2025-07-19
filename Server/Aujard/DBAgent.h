@@ -28,7 +28,7 @@ public:
 	bool UpdateBattleEvent(const char* charId, int nation);
 
 	/// \brief Updates the IDC_DB_PROCESS text with the DB Process Number
-	/// \note I don't actually see this on the UI, and I'm not sure how practical it is under load.
+	/// \note I'm not sure how practical this is under load
 	void DBProcessNumber(int number);
 
 	/// \brief loads knights ranking data by nation to handle KNIGHTS_ALLLIST_REQ
@@ -129,7 +129,7 @@ public:
 
 	/// \brief attempts to login a character to the game server
 	/// \returns -1 for failure, 0 for unselected nation, 1 for karus, 2 for elmorad
-	int	 AccountLogInReq(char* accountId, char* password);	// return Nation value
+	int	AccountLogInReq(char* accountId, char* password);	// return Nation value
 
 	/// \brief updates the database with the data from UserData[userId]
 	/// \param charId

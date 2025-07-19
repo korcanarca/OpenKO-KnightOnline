@@ -224,7 +224,7 @@ protected:
 
 	// Generated message map functions
 	//{{AFX_MSG(CAujardDlg)
-	virtual BOOL OnInitDialog();
+	BOOL OnInitDialog() override;
 	afx_msg void OnPaint();
 
 	/// \brief The system calls this to obtain the cursor to display while the user drags

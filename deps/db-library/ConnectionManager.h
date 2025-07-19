@@ -55,7 +55,10 @@ namespace db
 			{
 			}
 
-			bool Reconnect();
+			/// \brief Checks to see if the connection is disconnected, and attempts
+			/// to reconnect if appropriate.
+			/// \returns -1 for failed connection, 0 for no-op, 1 for successful reconnect
+			uint8_t Reconnect();
 		};
 
 		/// \brief fetch the associated previously stored database config using the code-generated dbType
