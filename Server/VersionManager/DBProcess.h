@@ -70,7 +70,7 @@ private:
 	/// \brief reference back to the main VersionManagerDlg instance
 	CVersionManagerDlg* _main;
 
-	std::shared_ptr<db::Connection> conn;
+	std::shared_ptr<db::Connection> _conn;
 };
 
 #endif // !defined(AFX_DBPROCESS_H__D7F54E57_B37F_40C8_9E76_8C9F083842BF__INCLUDED_)

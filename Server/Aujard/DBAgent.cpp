@@ -998,7 +998,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 		_main->DBProcessNumber(15);
 		ReconnectIfDisconnected(_gameConn1.get());
 
-		db::ModelRecordSet<model::Warehouse> recordSet;
+		db::ModelRecordSet<model::Warehouse> recordSet(_gameConn1);
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
@@ -1158,7 +1158,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 		_main->DBProcessNumber(17);
 		ReconnectIfDisconnected(_gameConn1.get());
 
-		db::ModelRecordSet<model::Knights> recordSet;
+		db::ModelRecordSet<model::Knights> recordSet(_gameConn1);
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
@@ -1374,12 +1374,12 @@ void CDBAgent::LoadKnightsAllList(int nation)
 
 	try
 	{
-		db::ModelRecordSet<model::Knights> recordSet;
-
 		_main->DBProcessNumber(21);
 		ReconnectIfDisconnected(_gameConn1.get());
 
+		db::ModelRecordSet<model::Knights> recordSet(_gameConn1);
 		recordSet.open(sql);
+
 		while (recordSet.next())
 		{
 			count++;

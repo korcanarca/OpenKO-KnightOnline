@@ -21,6 +21,14 @@ namespace db
 	class ModelRecordSet
 	{
 	public:
+		// TODO: Remove this.
+		// The connections should just be pooled, but for now they should at least be using the connection we expect, rather than opening a new connection.
+		// This just ensures we're using the expected connection for now.
+		ModelRecordSet(const std::shared_ptr<Connection>& conn, bool fetchRowCount = false)
+			: _conn(conn), _fetchRowCount(fetchRowCount)
+		{
+		}
+
 		ModelRecordSet(bool fetchRowCount = false)
 			: _fetchRowCount(fetchRowCount)
 		{
@@ -122,7 +130,8 @@ namespace db
 			_columnCount = 0;
 			_rowCount.reset();
 
-			_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
+			if (_conn == nullptr)
+				_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
 
 			if (_fetchRowCount)
 				_selectCountQuery = filterObj.SelectCountString();

@@ -51,8 +51,8 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 	try
 	{
 		// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
-		conn = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
-		if (conn == nullptr)
+		_conn = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
+		if (_conn == nullptr)
 		{
 			return FALSE;
 		}
@@ -71,7 +71,7 @@ void CDBProcess::ReconnectIfDisconnected() noexcept(false)
 {
 	try
 	{
-		int8_t result = conn->Reconnect();
+		int8_t result = _conn->Reconnect();
 
 		// general error
 		if (result == -1)
@@ -171,7 +171,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	{
 		ReconnectIfDisconnected();
 
-		nanodbc::statement stmt(*conn->Conn, insert);
+		nanodbc::statement stmt(*_conn->Conn, insert);
 		stmt.bind(0, &version);
 		stmt.bind(1, fileName);
 		stmt.bind(2, compressName);
@@ -200,7 +200,7 @@ BOOL CDBProcess::DeleteVersion(int version)
 	{
 		ReconnectIfDisconnected();
 
-		nanodbc::statement stmt(*conn->Conn, deleteQuery);
+		nanodbc::statement stmt(*_conn->Conn, deleteQuery);
 		stmt.bind(0, &version);
 
 		nanodbc::result result = stmt.execute();
@@ -220,12 +220,13 @@ BOOL CDBProcess::DeleteVersion(int version)
 /// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::LoadUserCountList()
 {
-	db::ModelRecordSet<model::Concurrent> recordSet;
 	try
 	{
 		ReconnectIfDisconnected();
 
+		db::ModelRecordSet<model::Concurrent> recordSet(_conn);
 		recordSet.open();
+
 		while (recordSet.next())
 		{
 			model::Concurrent concurrent = recordSet.get();
@@ -260,7 +261,7 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	{
 		ReconnectIfDisconnected();
 
-		db::ModelRecordSet<model::CurrentUser> recordSet;
+		db::ModelRecordSet<model::CurrentUser> recordSet(_conn);
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
@@ -300,7 +301,7 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 	{
 		ReconnectIfDisconnected();
 
-		storedProc::LoadPremiumServiceUser premium(conn->Conn);
+		storedProc::LoadPremiumServiceUser premium(_conn->Conn);
 		premium.execute(accountId, &premiumType, &daysRemaining);
 
 		*premiumDaysRemaining = static_cast<short>(daysRemaining);
