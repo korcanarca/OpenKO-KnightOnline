@@ -15,6 +15,7 @@
 #include <db-library/SqlBuilder.h>
 
 #include <shared/StringUtils.h>
+#include <shared/ByteBuffer.h>
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -477,17 +478,14 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 		|| updateType == UPDATE_ALL_SAVE)
 		user->m_dwTime = 0;
 
-	char skills[10] = {},
-		items[400] = {},
-		serial[400] = {},
-		quests[400] = {};
+	ByteBuffer skills(10),
+		items(400),
+		serials(400),
+		quests(400);
 	short questTotal = 0;
 
-	int index = 0, serialIndex = 0;
-	for (int i = 0; i < 9; i++)
-		SetByte(skills, user->m_bstrSkill[i], index);
+	skills.append(user->m_bstrSkill, sizeof(user->m_bstrSkill));
 
-	index = 0;
 	for (int i = 0; i < MAX_QUEST; i++)
 	{
 		_USER_QUEST& quest = user->m_quests[i];
@@ -503,29 +501,31 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 				++questTotal;
 		}
 
-		SetShort(quests, quest.sQuestID, index);
-		SetByte(quests, quest.byQuestState, index);
+		quests
+			<< int16_t(quest.sQuestID)
+			<< uint8_t(quest.byQuestState);
 	}
 
 	if (questTotal != user->m_sQuestCount)
 		user->m_sQuestCount = questTotal;
 
-	index = 0;
-
 	// Equip slots + inventory slots (14+28=42)
 	for (int i = 0; i < HAVE_MAX + SLOT_MAX; i++)
 	{
-		if (user->m_sItemArray[i].nNum > 0)
+		const _ITEM_DATA& item = user->m_sItemArray[i];
+		if (item.nNum > 0)
 		{
-			if (_main->ItemArray.GetData(user->m_sItemArray[i].nNum) == nullptr)
-				TRACE(_T("Item Drop Saved({}) : %d (%hs)\n"), i, user->m_sItemArray[i].nNum, user->m_id);
+			if (_main->ItemArray.GetData(item.nNum) == nullptr)
+				TRACE(_T("Item Drop Saved({}) : %d (%hs)\n"), i, item.nNum, user->m_id);
 		}
 
-		SetDWORD(items, user->m_sItemArray[i].nNum, index);
-		SetShort(items, user->m_sItemArray[i].sDuration, index);
-		SetShort(items, user->m_sItemArray[i].sCount, index);
+		items
+			<< int32_t(item.nNum)
+			<< int16_t(item.sDuration)
+			<< int16_t(item.sCount);
 
-		SetInt64(serial, user->m_sItemArray[i].nSerialNum, serialIndex);
+		serials
+			<< int64_t(item.nSerialNum);
 	}
 	
 	try
@@ -545,8 +545,9 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 			static_cast<int>(user->m_curx * 100),
 			static_cast<int>(user->m_curz * 100),
 			static_cast<int>(user->m_cury * 100),
-			user->m_dwTime, questTotal, skills, items, serial,
-			quests, user->m_iMannerPoint, user->m_iLoyaltyMonthly);
+			user->m_dwTime,
+			questTotal, skills.storage(), items.storage(), serials.storage(),
+			quests.storage(), user->m_iMannerPoint, user->m_iLoyaltyMonthly);
 
 		auto result = weak_result.lock();
 		if (result == nullptr)
@@ -1094,16 +1095,20 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 		|| updateType == UPDATE_ALL_SAVE)
 		pUser->m_dwTime = 0;
 
-	char items[1600] = {},
-		serials[1600] = {};
+	ByteBuffer items(1600),
+		serials(1600);
 
-	int index = 0, serialIndex = 0;
 	for (int i = 0; i < WAREHOUSE_MAX; i++)
 	{
-		SetDWORD(items, pUser->m_sWarehouseArray[i].nNum, index);
-		SetShort(items, pUser->m_sWarehouseArray[i].sDuration, index);
-		SetShort(items, pUser->m_sWarehouseArray[i].sCount, index);
-		SetInt64(serials, pUser->m_sWarehouseArray[i].nSerialNum, serialIndex);
+		const _WAREHOUSE_ITEM_DATA& item = pUser->m_sWarehouseArray[i];
+
+		items
+			<< int32_t(item.nNum)
+			<< int16_t(item.sDuration)
+			<< int16_t(item.sCount);
+
+		serials
+			<< int64_t(item.nSerialNum);
 	}
 
 	try
@@ -1115,7 +1120,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 
 		auto weak_result = proc.execute(
 			accountId, pUser->m_iBank, pUser->m_dwTime,
-			items, serials);
+			items.storage(), serials.storage());
 
 		auto result = weak_result.lock();
 		if (result == nullptr)

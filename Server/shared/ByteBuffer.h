@@ -155,8 +155,20 @@ public:
 			read(&dest[0], len);
 	}
 
-	const uint8_t *contents() const { return &_storage[0]; }
-	size_t size() const { return _storage.size(); }
+	const std::vector<uint8_t>& storage() const
+	{
+		return _storage;
+	}
+
+	const uint8_t* contents() const
+	{
+		return &_storage[0];
+	}
+
+	size_t size() const
+	{
+		return _storage.size();
+	}
 
 	// one should never use resize
 	void resize(size_t newsize) 
