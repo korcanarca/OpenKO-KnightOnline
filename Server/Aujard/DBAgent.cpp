@@ -14,6 +14,8 @@
 #include <db-library/ModelRecordSet.h>
 #include <db-library/SqlBuilder.h>
 
+#include <shared/StringUtils.h>
+
 #ifdef _DEBUG
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
@@ -151,6 +153,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		LogFileWrite(std::format("LoadUserData(): UserData[{}] not found for charId={}\r\n", userId, charId));
 		return false;
 	}
+
 	if (user->m_bLogout)
 	{
 		LogFileWrite(std::format("LoadUserData(): logout error: charId={}, logout={} \r\n", charId, user->m_bLogout));
@@ -159,9 +162,9 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 
 	uint8_t Nation, Race, HairColor, Rank, Title, Level;
 	uint32_t Exp, Loyalty, Gold, PX, PZ, PY, dwTime, MannerPoint, LoyaltyMonthly;
-	SQLCHAR Face, City, Fame, Authority, Points;
-	SQLSMALLINT Hp, Mp, Sp, Class, Bind, Knights, QuestCount;
-	SQLCHAR Str, Sta, Dex, Intel, Cha, Zone;
+	uint8_t Face, City, Fame, Authority, Points;
+	int16_t Hp, Mp, Sp, Class, Bind, Knights, QuestCount;
+	uint8_t Str, Sta, Dex, Intel, Cha, Zone;
 	char strSkill[10] = {},
 		strItem[400] = {},
 		strSerial[400] = {},
@@ -172,70 +175,73 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	{
 		DBProcessNumber(2);
 		ReConnectODBC(_gameConn1.get());
-		storedProc::LoadUserData proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(accountId, charId, &rowCount);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
-		if (result != nullptr && result->next())
-		{
-			// THIS IS WHERE THE FUN STARTS
-			Nation = static_cast<uint8_t>(result->get<int16_t>(0));
-			Race = static_cast<uint8_t>(result->get<int16_t>(1));
-			Class = result->get<int16_t>(2);
-			HairColor = static_cast<uint8_t>(result->get<int16_t>(3));
-			Rank = static_cast<uint8_t>(result->get<int16_t>(4));
-			Title = static_cast<uint8_t>(result->get<int16_t>(5));
-			Level = static_cast<uint8_t>(result->get<int16_t>(6));
-			Exp = result->get<uint32_t>(7);
-			Loyalty = result->get<uint32_t>(8);
-			Face = static_cast<uint8_t>(result->get<int16_t>(9));
-			City = static_cast<uint8_t>(result->get<int16_t>(10));
-			Knights = result->get<int16_t>(11);
-			Fame = static_cast<uint8_t>(result->get<int16_t>(12));
-			Hp = result->get<int16_t>(13);
-			Mp = result->get<int16_t>(14);
-			Sp = result->get<int16_t>(15);
-			Str = static_cast<uint8_t>(result->get<int16_t>(16));
-			Sta = static_cast<uint8_t>(result->get<int16_t>(17));
-			Dex = static_cast<uint8_t>(result->get<int16_t>(18));
-			Intel = static_cast<uint8_t>(result->get<int16_t>(19));
-			Cha = static_cast<uint8_t>(result->get<int16_t>(20));
-			Authority = static_cast<uint8_t>(result->get<int16_t>(21));
-			Points = static_cast<uint8_t>(result->get<int16_t>(22));
-			Gold = result->get<uint32_t>(23);
-			Zone = static_cast<uint8_t>(result->get<int16_t>(24));
-			Bind = result->get<int16_t>(25);
-			PX = result->get<uint32_t>(26);
-			PZ = result->get<uint32_t>(27);
-			PY = result->get<uint32_t>(28);
-			dwTime = result->get<uint32_t>(29);
-			// not entirely sure why this would be a log-only error
-			if (dwTime != 0)
-			{
-				LogFileWrite(std::format("[LoadUserData dwTime Error : name={}, dwTime={}\r\n", charId, dwTime));
-			}
-			
-			std::vector<uint8_t> temp(sizeof(strSkill));
-			result->get_ref(30, temp);
-			std::ranges::copy(temp, strSkill);
-			temp.clear();
 
-			result->get_ref(31, temp);
-			std::ranges::copy(temp, strItem);
-			temp.clear();
-			
-			result->get_ref(32, temp);
-			std::ranges::copy(temp, strSerial);
-			temp.clear();
-			
-			QuestCount = result->get<int16_t>(33);
-			
-			result->get_ref(34, temp);
-			std::ranges::copy(temp, strQuest);
-			temp.clear();
-			
-			MannerPoint = result->get<uint32_t>(35);
-			LoyaltyMonthly = result->get<uint32_t>(36);
+		storedProc::LoadUserData proc(_gameConn1->Conn);
+		auto weak_result = proc.execute(accountId, charId, &rowCount);
+		auto result = weak_result.lock();
+		if (result == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
 		}
+
+		if (!result->next())
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] expected row in result set");
+		}
+
+		// THIS IS WHERE THE FUN STARTS
+		Nation = static_cast<uint8_t>(result->get<int16_t>(0));
+		Race = static_cast<uint8_t>(result->get<int16_t>(1));
+		Class = result->get<int16_t>(2);
+		HairColor = static_cast<uint8_t>(result->get<int16_t>(3));
+		Rank = static_cast<uint8_t>(result->get<int16_t>(4));
+		Title = static_cast<uint8_t>(result->get<int16_t>(5));
+		Level = static_cast<uint8_t>(result->get<int16_t>(6));
+		Exp = result->get<uint32_t>(7);
+		Loyalty = result->get<uint32_t>(8);
+		Face = static_cast<uint8_t>(result->get<int16_t>(9));
+		City = static_cast<uint8_t>(result->get<int16_t>(10));
+		Knights = result->get<int16_t>(11);
+		Fame = static_cast<uint8_t>(result->get<int16_t>(12));
+		Hp = result->get<int16_t>(13);
+		Mp = result->get<int16_t>(14);
+		Sp = result->get<int16_t>(15);
+		Str = static_cast<uint8_t>(result->get<int16_t>(16));
+		Sta = static_cast<uint8_t>(result->get<int16_t>(17));
+		Dex = static_cast<uint8_t>(result->get<int16_t>(18));
+		Intel = static_cast<uint8_t>(result->get<int16_t>(19));
+		Cha = static_cast<uint8_t>(result->get<int16_t>(20));
+		Authority = static_cast<uint8_t>(result->get<int16_t>(21));
+		Points = static_cast<uint8_t>(result->get<int16_t>(22));
+		Gold = result->get<uint32_t>(23);
+		Zone = static_cast<uint8_t>(result->get<int16_t>(24));
+		Bind = result->get<int16_t>(25);
+		PX = result->get<uint32_t>(26);
+		PZ = result->get<uint32_t>(27);
+		PY = result->get<uint32_t>(28);
+		dwTime = result->get<uint32_t>(29);
+			
+		std::vector<uint8_t> temp(sizeof(strSkill));
+		result->get_ref(30, temp);
+		std::ranges::copy(temp, strSkill);
+		temp.clear();
+
+		result->get_ref(31, temp);
+		std::ranges::copy(temp, strItem);
+		temp.clear();
+			
+		result->get_ref(32, temp);
+		std::ranges::copy(temp, strSerial);
+		temp.clear();
+			
+		QuestCount = result->get<int16_t>(33);
+			
+		result->get_ref(34, temp);
+		std::ranges::copy(temp, strQuest);
+		temp.clear();
+			
+		MannerPoint = result->get<uint32_t>(35);
+		LoyaltyMonthly = result->get<uint32_t>(36);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -250,6 +256,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 			std::strlen(charId), charId));
 		return false;
 	}
+
 	user->m_bZone = Zone;
 	user->m_curx = static_cast<float>(PX / 100);
 	user->m_curz = static_cast<float>(PZ / 100);
@@ -267,7 +274,6 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	user->m_bFace = Face;
 	user->m_bCity = City;
 	user->m_bKnights = Knights;
-	//pUser->m_sClan = clan;
 	user->m_bFame = Fame;
 	user->m_sHp = Hp;
 	user->m_sMp = Mp;
@@ -526,8 +532,10 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	{
 		DBProcessNumber(3);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::UpdateUserData proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+
+		auto weak_result = proc.execute(
 			user->m_id, user->m_bNation, user->m_bRace, user->m_sClass,
 			user->m_bHairColor,user->m_bRank, user->m_bTitle, user->m_bLevel,
 			user->m_iExp, user->m_iLoyalty, user->m_bFace, user->m_bCity,
@@ -539,7 +547,15 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 			static_cast<int>(user->m_cury * 100),
 			user->m_dwTime, questTotal, skills, items, serial,
 			quests, user->m_iMannerPoint, user->m_iLoyaltyMonthly);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+
+		nanodbc::statement stmt;
+
+		auto result = weak_result.lock();
+		if (result == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+		}
+
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result->affected_rows() == 0)
 		{
@@ -565,6 +581,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	{
 		DBProcessNumber(4);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::AccountLogin proc(_gameConn1->Conn);
 		proc.execute(accountId, password, &retCode);
 	}
@@ -574,7 +591,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 		return false;
 	}
 	
-	return retCode-1;
+	return retCode - 1;
 }
 
 /// \brief ensures that database records are created in ACCOUNT_CHAR
@@ -587,6 +604,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	{
 		DBProcessNumber(5);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::NationSelect proc(_gameConn1->Conn);
 		proc.execute(&retCode, accountId, nation);
 	}
@@ -615,6 +633,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	{
 		DBProcessNumber(6);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::CreateNewChar proc(_gameConn1->Conn);
 		proc.execute(
 			&retCode, accountId, index, charId, race, Class, hair,
@@ -634,13 +653,17 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 /// \param[out] buff buffer to write character info to
 /// \param[out] buffIndex
 /// /// \see AllCharInfoReq(), WIZ_ALLCHAR_INFO_REQ
-bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
+bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 {
 	// trim charId
-	CString	_charId;
-	_charId = charId;
-	_charId.TrimRight();
-	strcpy(charId, CT2A(_charId));
+	std::string charId = charId_;
+	rtrim(charId);
+
+	// This attempts to request all 3 of the account's characters.
+	// This includes characters that don't exist/aren't set.
+	// These should be skipped.
+	if (charId.empty())
+		return false;
 
 	uint8_t Race = 0, HairColor = 0, Level = 0, Face = 0, Zone = 0;
 	int16_t Class = 0;
@@ -651,28 +674,36 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 	{
 		DBProcessNumber(8);
 		ReConnectODBC(_gameConn1.get());
-		storedProc::LoadCharInfo proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(charId, &rowCount);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
-		if (result != nullptr && result->next())
-		{
-			Race = static_cast<uint8_t>(result->get<int16_t>(0));
-			Class = result->get<int16_t>(1);
-			HairColor = static_cast<uint8_t>(result->get<int16_t>(2));
-			Level = static_cast<uint8_t>(result->get<int16_t>(3));
-			Face = static_cast<uint8_t>(result->get<int16_t>(4));
-			Zone = static_cast<uint8_t>(result->get<int16_t>(5));
 
-			if (!result->is_null(6))
-			{
-				std::vector<uint8_t> itemData(sizeof(strItem));
-				result->get_ref(6, itemData);
-				std::ranges::copy(itemData, strItem);
-			}
-		}
-		else
+		storedProc::LoadCharInfo proc(_gameConn1->Conn);
+
+		auto weak_result = proc.execute(charId.c_str(), &rowCount);
+		auto result = weak_result.lock();
+
+		// Officially this requests all 3, but we pre-emptively skip the NULL/empty character names,
+		// so at this point we're only requesting character names that we expect to exist.
+		if (result == nullptr)
 		{
-			return false;
+			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+		}
+
+		if (!result->next())
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] expected row in result set");
+		}
+
+		Race = static_cast<uint8_t>(result->get<int16_t>(0));
+		Class = result->get<int16_t>(1);
+		HairColor = static_cast<uint8_t>(result->get<int16_t>(2));
+		Level = static_cast<uint8_t>(result->get<int16_t>(3));
+		Face = static_cast<uint8_t>(result->get<int16_t>(4));
+		Zone = static_cast<uint8_t>(result->get<int16_t>(5));
+
+		if (!result->is_null(6))
+		{
+			std::vector<uint8_t> itemData(sizeof(strItem));
+			result->get_ref(6, itemData);
+			std::ranges::copy(itemData, strItem);
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
@@ -681,8 +712,7 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 		return false;
 	}
 
-	SetShort(buff, strlen(charId), buffIndex);
-	SetString(buff, (char*) charId, strlen(charId), buffIndex);
+	SetString2(buff, charId.c_str(), static_cast<short>(charId.length()), buffIndex);
 	SetByte(buff, Race, buffIndex);
 	SetShort(buff, Class, buffIndex);
 	SetByte(buff, Level, buffIndex);
@@ -720,46 +750,35 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 /// \param[out] charId2
 /// \param[out] charId3
 /// \returns true if charIds were successfully loaded, false otherwise
-bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2, char* charId3)
+bool CDBAgent::GetAllCharID(const char* accountId, char* charId1_, char* charId2_, char* charId3_)
 {
-	char _charId1[MAX_ID_SIZE + 1] = {},
-		_charId2[MAX_ID_SIZE + 1] = {},
-		_charId3[MAX_ID_SIZE + 1] = {};
+	std::string charId1, charId2, charId3;
 	
 	int32_t rowCount = 0;
 	try
 	{
 		DBProcessNumber(9);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::LoadAccountCharid proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(&rowCount, accountId);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
-		if (result != nullptr && result->next())
-		{
-			std::vector<uint8_t> charId(sizeof(_charId1));
-			if (!result->is_null(0))
-			{
-				result->get_ref(0, charId);
-				std::ranges::copy(charId, _charId1);
-				charId.clear();
-			}
-			if (!result->is_null(1))
-			{
-				result->get_ref(1, charId);
-				std::ranges::copy(charId, _charId2);
-				charId.clear();
-			}
-			if (!result->is_null(2))
-			{
-				result->get_ref(2, charId);
-				std::ranges::copy(charId, _charId3);
-			}
-		}
-		else
+
+		auto weak_result = proc.execute(&rowCount, accountId);
+		auto result = weak_result.lock();
+		if (result == nullptr
+			|| !result->next())
 		{
 			LogFileWrite(std::format("GetAllCharID(): No rows selected for accountId={}\r\n", accountId));
 			return false;
 		}
+
+		if (!result->is_null(0))
+			result->get_ref(0, charId1);
+
+		if (!result->is_null(1))
+			result->get_ref(1, charId2);
+
+		if (!result->is_null(2))
+			result->get_ref(2, charId3);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -767,22 +786,24 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 		return false;
 	}
 
-	if (strcpy_s(charId1, MAX_ID_SIZE+1, _charId1))
+	if (strcpy_s(charId1_, MAX_ID_SIZE + 1, charId1.c_str()))
 	{
-		LogFileWrite(std::format("GetAllCharID(): failed to write _charId1(len: {}, val: {}) to charId1\r\n",
-			std::strlen(_charId1), _charId1));
+		LogFileWrite(std::format("GetAllCharID(): failed to write charId1(len: {}, val: {}) to charId1\r\n",
+			charId1.length(), charId1));
 		return false;
 	}
-	if (strcpy_s(charId2, MAX_ID_SIZE+1, _charId2))
+
+	if (strcpy_s(charId2_, MAX_ID_SIZE + 1, charId2.c_str()))
 	{
-		LogFileWrite(std::format("GetAllCharID(): failed to write _charId2(len: {}, val: {}) to charId2\r\n",
-			std::strlen(_charId2), _charId2));
+		LogFileWrite(std::format("GetAllCharID(): failed to write charId2(len: {}, val: {}) to charId2\r\n",
+			charId2.length(), charId2));
 		return false;
 	}
-	if (strcpy_s(charId3, MAX_ID_SIZE+1, _charId3))
+
+	if (strcpy_s(charId3_, MAX_ID_SIZE + 1, charId3.c_str()))
 	{
-		LogFileWrite(std::format("GetAllCharID(): failed to write _charId3(len: {}, val: {}) to charId3\r\n",
-			std::strlen(_charId3), _charId3));
+		LogFileWrite(std::format("GetAllCharID(): failed to write charId3(len: {}, val: {}) to charId3\r\n",
+			charId3.length(), charId3));
 		return false;
 	}
 
@@ -798,6 +819,7 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	{
 		DBProcessNumber(10);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::CreateKnights proc(_gameConn1->Conn);
 		proc.execute(&retCode, knightsId, nation, flag, name, chief);
 	}
@@ -825,6 +847,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	{
 		DBProcessNumber(11);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::UpdateKnights proc(_gameConn1->Conn);
 		proc.execute(&retCode, type, charId, knightsId, domination);
 	}
@@ -846,9 +869,9 @@ int CDBAgent::DeleteKnights(int knightsId)
 	{
 		DBProcessNumber(12);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::DeleteKnights proc(_gameConn1->Conn);
-		proc.execute(
-			&retCode, knightsId);
+		proc.execute(&retCode, knightsId);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -869,9 +892,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int& buffIndex)
 {
 	int				tempIndex = 0, userId = 0;
-	CString			tempId;
 
-	char charId[MAX_ID_SIZE + 1] = {};
 	uint8_t Fame, Level;
 	int16_t	Class;
 	int32_t rowCount = 0;
@@ -879,39 +900,40 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	{
 		DBProcessNumber(13);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::LoadKnightsMembers proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(knightsId);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
-		while (result != nullptr && result->next())
+		auto weak_result = proc.execute(knightsId);
+		auto result = weak_result.lock();
+		if (result != nullptr)
 		{
-			std::vector<uint8_t> temp(sizeof(charId));
-			result->get_ref(0, temp);
-			std::ranges::copy(temp, charId);
-			Fame = static_cast<uint8_t>(result->get<int16_t>(1));
-			Level = static_cast<uint8_t>(result->get<int16_t>(2));
-			Class = result->get<int16_t>(3);
+			while (result->next())
+			{
+				std::string charId;
+				result->get_ref(0, charId);
 
-			tempId = charId;
-			tempId.TrimRight();
-			strcpy_s(charId, CT2A(tempId));
-			SetShort(buffOut, static_cast<int16_t>(strlen(charId)), tempIndex);
-			SetString(buffOut, charId, static_cast<int32_t>(strlen(charId)), tempIndex);
-			SetByte(buffOut, Fame, tempIndex);
-			SetByte(buffOut, Level, tempIndex);
-			SetShort(buffOut, Class, tempIndex);
+				Fame = static_cast<uint8_t>(result->get<int16_t>(1));
+				Level = static_cast<uint8_t>(result->get<int16_t>(2));
+				Class = result->get<int16_t>(3);
 
-			// check if the user is online
-			userId = -1;
-			_USER_DATA* pUser = _main->GetUserPtr(charId, userId);
-			if (pUser != nullptr)
-				SetByte(buffOut, 1, tempIndex);
-			else
-				SetByte(buffOut, 0, tempIndex);
+				rtrim(charId);
+				SetString2(buffOut, charId.c_str(), static_cast<short>(charId.length()), tempIndex);
+				SetByte(buffOut, Fame, tempIndex);
+				SetByte(buffOut, Level, tempIndex);
+				SetShort(buffOut, Class, tempIndex);
 
-			// pagination:
-			//if( count >= start + 10 )
-			//	break;
-			rowCount++;
+				// check if the user is online
+				userId = -1;
+				_USER_DATA* pUser = _main->GetUserPtr(charId.c_str(), userId);
+				if (pUser != nullptr)
+					SetByte(buffOut, 1, tempIndex);
+				else
+					SetByte(buffOut, 0, tempIndex);
+
+				// pagination:
+				//if (count >= start + 10)
+				//	break;
+				rowCount++;
+			}
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
@@ -926,7 +948,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	}
 
 	// clamp result so that start doesn't send rowCount negative
-	return max(rowCount-start, 0);
+	return std::max(rowCount - start, 0);
 }
 
 /// \brief updates concurrent zone count
@@ -938,10 +960,11 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	{
 		DBProcessNumber(14);
 		ReConnectODBC(_accountConn2.get());
-		nanodbc::statement stmt = nanodbc::statement(*_accountConn2->Conn, updateQuery);
+
+		nanodbc::statement stmt(*_accountConn2->Conn, updateQuery);
 		stmt.bind(0, &userCount);
 		stmt.bind(1, &serverId);
-		nanodbc::result result = stmt.execute();
+		stmt.execute();
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -959,7 +982,8 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	char items[1600] = {}, serial[1600] = {};
 
 	_USER_DATA* user = UserData[userId];
-	if (user == nullptr || strlen(user->m_id) == 0)
+	if (user == nullptr
+		|| strlen(user->m_id) == 0)
 	{
 		LogFileWrite(std::format("LoadWarehouseData(): called for inactive userId={}\r\n", userId));
 		return false;
@@ -973,26 +997,26 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	{
 		DBProcessNumber(15);
 		ReConnectODBC(_gameConn1.get());
-		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, sql.SelectString());
-		stmt.bind(0, accountId);
+
+		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
+		stmt->bind(0, accountId);
+
 		db::ModelRecordSet<model::Warehouse> recordSet;
-		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
-		recordSet.open(prepStmt);
+		recordSet.open(stmt);
 		if (!recordSet.next())
 		{
 			LogFileWrite(std::format("LoadWarehouseData(): No rows selected for accountId={}\r\n", accountId));
 			return false;
 		}
+
 		model::Warehouse warehouse = recordSet.get();
 		user->m_iBank = warehouse.Money;
+
 		if (warehouse.ItemData.has_value())
-		{
 			std::ranges::copy(warehouse.ItemData.value(), items);
-		}
+
 		if (warehouse.Serial.has_value())
-		{
 			std::ranges::copy(warehouse.Serial.value(), serial);
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -1001,19 +1025,15 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	}
 
 	int index = 0, serialIndex = 0;
-	DWORD itemId = 0;
-	short count = 0, durability = 0;
-	int64_t serialNumber = 0;
-	model::Item* itemData = nullptr;
 	for (int i = 0; i < WAREHOUSE_MAX; i++)
 	{
-		itemId = GetDWORD(items, index);
-		durability = GetShort(items, index);
-		count = GetShort(items, index);
+		int itemId = GetDWORD(items, index);
+		short durability = GetShort(items, index);
+		short count = GetShort(items, index);
 
-		serialNumber = GetInt64(serial, serialIndex);
+		int64_t serialNumber = GetInt64(serial, serialIndex);
 
-		itemData = _main->ItemArray.GetData(itemId);
+		model::Item* itemData = _main->ItemArray.GetData(itemId);
 		if (itemData != nullptr)
 		{
 			user->m_sWarehouseArray[i].nNum = itemId;
@@ -1053,7 +1073,8 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int updateType)
 {
 	_USER_DATA* pUser = UserData[userId];
-	if (pUser == nullptr || strlen(accountId) == 0)
+	if (pUser == nullptr
+		|| strlen(accountId) == 0)
 	{
 		LogFileWrite(std::format("UpdateWarehouseData(): called with inactive userId={} accountId={}\r\n",
 					userId, accountId));
@@ -1087,11 +1108,19 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	{
 		DBProcessNumber(16);
 		ReConnectODBC(_gameConn1.get());
+
 		storedProc::UpdateWarehouse proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+
+		auto weak_result = proc.execute(
 			accountId, pUser->m_iBank, pUser->m_dwTime,
 			items, serial);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+
+		auto result = weak_result.lock();
+		if (result == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+		}
+
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result->affected_rows() == 0)
 		{
@@ -1115,8 +1144,6 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 /// \returns true if data was successfully loaded to the buffer, otherwise false
 bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 {
-	char knightsName[MAX_ID_SIZE + 1] = {};
-	
 	db::SqlBuilder<model::Knights> sql;
 	sql.SetSelectColumns({"IDNum", "Nation", "IDName", "Members", "Points"});
 	sql.IsWherePK = true;
@@ -1124,11 +1151,12 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	{
 		DBProcessNumber(17);
 		ReConnectODBC(_gameConn1.get());
-		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, sql.SelectString());
-		stmt.bind(0, &knightsId);
+
+		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
+		stmt->bind(0, &knightsId);
+
 		db::ModelRecordSet<model::Knights> recordSet;
-		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
-		recordSet.open(prepStmt);
+		recordSet.open(stmt);
 		if (!recordSet.next())
 		{
 			LogFileWrite(std::format("LoadKnightsInfo(): No rows selected for knightsId={}\r\n", knightsId));
@@ -1136,16 +1164,16 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 		}
 
 		model::Knights knights = recordSet.get();
-		if (strcpy_s(knightsName, MAX_ID_SIZE+1, knights.Name.c_str()))
+		if (knights.Name.length() > MAX_ID_SIZE)
 		{
-			LogFileWrite(std::format("LoadKnightsInfo(): failed to write knights.Name(len: {}, val: {}) to knightsName\r\n",
-			knights.Name.length(), knights.Name));
+			LogFileWrite(std::format("LoadKnightsInfo(): knights.Name(len: {}, val: {}) exceeds length\r\n",
+				knights.Name.length(), knights.Name));
 			return false;
 		}
+
 		SetShort(buffOut, knights.ID, buffIndex);
 		SetByte(buffOut, knights.Nation, buffIndex);
-		SetShort(buffOut, static_cast<uint8_t>(strlen(knightsName)), buffIndex);
-		SetString(buffOut, knightsName, static_cast<int32_t>(strlen(knightsName)), buffIndex);
+		SetString2(buffOut, knights.Name.c_str(), static_cast<short>(knights.Name.length()), buffIndex);
 		SetShort(buffOut, knights.Members, buffIndex);
 		SetDWORD(buffOut, knights.Points, buffIndex);
 	}
@@ -1190,7 +1218,8 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	{
 		DBProcessNumber(18);
 		ReConnectODBC(_accountConn1.get());
-		nanodbc::statement stmt = nanodbc::statement(*_accountConn1->Conn, query);
+
+		nanodbc::statement stmt(*_accountConn1->Conn, query);
 		nanodbc::result result = stmt.execute();
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result.affected_rows() == 0)
@@ -1218,7 +1247,9 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	{
 		DBProcessNumber(19);
 		ReConnectODBC(_accountConn1.get());
+
 		storedProc::AccountLogout proc(_accountConn1->Conn);
+
 		auto weak_result = proc.execute(accountId, logoutCode, &ret1, &ret2);
 
 		auto result = weak_result.lock();
@@ -1273,18 +1304,18 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	{
 		DBProcessNumber(20);
 		ReConnectODBC(_gameConn1.get());
-		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, query);
+
+		nanodbc::statement stmt(*_gameConn1->Conn, query);
 		nanodbc::result result = stmt.execute();
-		if (result.next())
-		{
-			dbTime = result.get<uint32_t>(0);
-			dbData = result.get<uint32_t>(1);
-		}
-		else
+
+		if (!result.next())
 		{
 			LogFileWrite(std::format("CheckUserData(): No rows affected for accountId={} charId={}\r\n", accountId, charId));
 			return false;
 		}
+
+		dbTime = result.get<uint32_t>(0);
+		dbData = result.get<uint32_t>(1);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -1329,11 +1360,13 @@ void CDBAgent::LoadKnightsAllList(int nation)
 		sql.Where = std::format("[Nation] = {} AND [Points] <> 0", nation);
 	}
 
-	db::ModelRecordSet<model::Knights> recordSet;
 	try
 	{
+		db::ModelRecordSet<model::Knights> recordSet;
+
 		DBProcessNumber(21);
 		ReConnectODBC(_gameConn1.get());
+
 		recordSet.open(sql);
 		while (recordSet.next())
 		{
@@ -1425,9 +1458,11 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	{
 		DBProcessNumber(22);
 		ReConnectODBC(_accountConn1.get());
-		nanodbc::statement stmt = nanodbc::statement(*_accountConn1->Conn, query);
+
+		nanodbc::statement stmt(*_accountConn1->Conn, query);
 		stmt.bind(0, &nation);
 		stmt.bind(1, charId);
+
 		nanodbc::result result = stmt.execute();
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result.affected_rows() == 0)
