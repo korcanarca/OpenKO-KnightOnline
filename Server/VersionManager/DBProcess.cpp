@@ -295,22 +295,21 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 /// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDaysRemaining)
 {
-	int32_t premiumType = 0; // NOTE: we don't need this in the login server
-	int32_t daysRemaining = 0;
+	int32_t premiumType = 0, // NOTE: we don't need this in the login server
+		daysRemaining = 0;
 	try
 	{
 		ReconnectIfDisconnected();
 
 		storedProc::LoadPremiumServiceUser premium(_conn->Conn);
 		premium.execute(accountId, &premiumType, &daysRemaining);
-
-		*premiumDaysRemaining = static_cast<short>(daysRemaining);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
 		LogDatabaseError(dbErr, "DBProcess.LoadPremiumServiceUser()");
 		return FALSE;
 	}
-	
+
+	*premiumDaysRemaining = static_cast<short>(daysRemaining);
 	return TRUE;
 }

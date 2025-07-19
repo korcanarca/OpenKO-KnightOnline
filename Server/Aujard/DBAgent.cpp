@@ -537,7 +537,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 
 		auto weak_result = proc.execute(
 			user->m_id, user->m_bNation, user->m_bRace, user->m_sClass,
-			user->m_bHairColor,user->m_bRank, user->m_bTitle, user->m_bLevel,
+			user->m_bHairColor, user->m_bRank, user->m_bTitle, user->m_bLevel,
 			user->m_iExp, user->m_iLoyalty, user->m_bFace, user->m_bCity,
 			user->m_bKnights, user->m_bFame, user->m_sHp, user->m_sMp, user->m_sSp,
 			user->m_bStr, user->m_bSta, user->m_bDex, user->m_bIntel, user->m_bCha,
@@ -547,8 +547,6 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 			static_cast<int>(user->m_cury * 100),
 			user->m_dwTime, questTotal, skills, items, serial,
 			quests, user->m_iMannerPoint, user->m_iLoyaltyMonthly);
-
-		nanodbc::statement stmt;
 
 		auto result = weak_result.lock();
 		if (result == nullptr)
@@ -891,10 +889,8 @@ int CDBAgent::DeleteKnights(int knightsId)
 /// \returns rowCount - start
 int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int& buffIndex)
 {
-	int				tempIndex = 0, userId = 0;
+	int tempIndex = 0, userId = 0;
 
-	uint8_t Fame, Level;
-	int16_t	Class;
 	int32_t rowCount = 0;
 	try
 	{
@@ -911,9 +907,9 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 				std::string charId;
 				result->get_ref(0, charId);
 
-				Fame = static_cast<uint8_t>(result->get<int16_t>(1));
-				Level = static_cast<uint8_t>(result->get<int16_t>(2));
-				Class = result->get<int16_t>(3);
+				uint8_t Fame = static_cast<uint8_t>(result->get<int16_t>(1));
+				uint8_t Level = static_cast<uint8_t>(result->get<int16_t>(2));
+				int16_t Class = result->get<int16_t>(3);
 
 				rtrim(charId);
 				SetString2(buffOut, charId.c_str(), static_cast<short>(charId.length()), tempIndex);
@@ -979,7 +975,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 /// \returns true if successful, otherwise false
 bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 {
-	char items[1600] = {}, serial[1600] = {};
+	char items[1600] = {}, serials[1600] = {};
 
 	_USER_DATA* user = UserData[userId];
 	if (user == nullptr
@@ -1022,7 +1018,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 			std::ranges::copy(warehouse.ItemData.value(), items);
 
 		if (warehouse.Serial.has_value())
-			std::ranges::copy(warehouse.Serial.value(), serial);
+			std::ranges::copy(warehouse.Serial.value(), serials);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
@@ -1037,7 +1033,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 		short durability = GetShort(items, index);
 		short count = GetShort(items, index);
 
-		int64_t serialNumber = GetInt64(serial, serialIndex);
+		int64_t serialNumber = GetInt64(serials, serialIndex);
 
 		model::Item* itemData = _main->ItemArray.GetData(itemId);
 		if (itemData != nullptr)
@@ -1099,7 +1095,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 		pUser->m_dwTime = 0;
 
 	char items[1600] = {},
-		serial[1600] = {};
+		serials[1600] = {};
 
 	int index = 0, serialIndex = 0;
 	for (int i = 0; i < WAREHOUSE_MAX; i++)
@@ -1107,7 +1103,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 		SetDWORD(items, pUser->m_sWarehouseArray[i].nNum, index);
 		SetShort(items, pUser->m_sWarehouseArray[i].sDuration, index);
 		SetShort(items, pUser->m_sWarehouseArray[i].sCount, index);
-		SetInt64(serial, pUser->m_sWarehouseArray[i].nSerialNum, serialIndex);
+		SetInt64(serials, pUser->m_sWarehouseArray[i].nSerialNum, serialIndex);
 	}
 
 	try
@@ -1119,7 +1115,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 
 		auto weak_result = proc.execute(
 			accountId, pUser->m_iBank, pUser->m_dwTime,
-			items, serial);
+			items, serials);
 
 		auto result = weak_result.lock();
 		if (result == nullptr)
@@ -1151,7 +1147,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 {
 	db::SqlBuilder<model::Knights> sql;
-	sql.SetSelectColumns({"IDNum", "Nation", "IDName", "Members", "Points"});
+	sql.SetSelectColumns({ "IDNum", "Nation", "IDName", "Members", "Points" });
 	sql.IsWherePK = true;
 	try
 	{
@@ -1276,17 +1272,17 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 			LogFileWrite(std::format("AccountLogout(): No rows affected for accountId={}\r\n", accountId));
 			return false;
 		}
-		if (ret1 != 1)
-		{
-			LogFileWrite(std::format("AccountLogout(): ret1 not updated by proc for accountId={}\r\n", accountId));
-			// rows are affected and CURRENTUSER is clean; the value just doesn't seem to be bound?
-			//return false;
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
 		LogDatabaseError(dbErr, "DBProcess.AccountLogout()");
 		return false;
+	}
+
+	if (ret1 != 1)
+	{
+		LogFileWrite(std::format("AccountLogout(): ret1 not updated by proc for accountId={}\r\n", accountId));
+		//return false;
 	}
 
 	return true;
@@ -1388,7 +1384,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 			SetDWORD(dbBuff, knights.Points, dbIndex);
 			SetByte(dbBuff, knights.Ranking, dbIndex);
 
-			// publish batch
+			// send this batch
 			if (count >= maxBatchSize)
 			{
 				SetByte(sendBuff, KNIGHTS_ALLLIST_REQ, sendIndex);
