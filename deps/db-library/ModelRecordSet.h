@@ -106,6 +106,17 @@ namespace db
 		///
 		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
+		std::shared_ptr<nanodbc::statement> prepare() noexcept(false)
+		{
+			SqlBuilder<ModelType> filterObj {};
+			return prepare(filterObj);
+		}
+
+		/// \brief opens a connection to the model's database, resets the recordset's state,
+		/// and prepares a new statement for the pending lookup.
+		///
+		/// \throws db::DatasourceConfigNotFoundException
+		/// \throws nanodbc::database_error
 		std::shared_ptr<nanodbc::statement> prepare(SqlBuilder<ModelType>& filterObj) noexcept(false)
 		{
 			_columnCount = 0;
