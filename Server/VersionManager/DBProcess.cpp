@@ -122,20 +122,26 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	try
 	{
 		ReConnectODBC();
-		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
-		stmt.bind(0, accountId);
+
+		auto stmt = std::make_shared<nanodbc::statement>(*conn->Conn, sql.SelectString());
+		stmt->bind(0, accountId);
+
 		db::ModelRecordSet<model::TbUser> recordSet;
-		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
-		recordSet.open(prepStmt);
+
+		recordSet.open(stmt);
 		if (!recordSet.next())
 		{
 			return AUTH_NOT_FOUND;
 		}
-		model::TbUser user = recordSet.get();
+
+		model::TbUser user;
+		recordSet.get_ref(user);
+
 		if (user.Password != password)
 		{
 			return AUTH_NOT_FOUND;
 		}
+
 		if (user.Authority == AUTHORITY_BLOCK_USER)
 		{
 			return AUTH_BANNED;
@@ -159,11 +165,13 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	try
 	{
 		ReConnectODBC();
-		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, insert);
+
+		nanodbc::statement stmt(*conn->Conn, insert);
 		stmt.bind(0, &version);
 		stmt.bind(1, fileName);
 		stmt.bind(2, compressName);
 		stmt.bind(3, &historyVersion);
+
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
 		{
@@ -188,8 +196,10 @@ BOOL CDBProcess::DeleteVersion(int version)
 	try
 	{
 		ReConnectODBC();
-		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, deleteQuery);
+
+		nanodbc::statement stmt(*conn->Conn, deleteQuery);
 		stmt.bind(0, &version);
+
 		nanodbc::result result = stmt.execute();
 		if (result.affected_rows() > 0)
 		{
@@ -213,6 +223,7 @@ BOOL CDBProcess::LoadUserCountList()
 	try
 	{
 		ReConnectODBC();
+
 		recordSet.open();
 		while (recordSet.next())
 		{
@@ -247,15 +258,17 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	try
 	{
 		ReConnectODBC();
-		nanodbc::statement stmt = nanodbc::statement(*conn->Conn, sql.SelectString());
-		stmt.bind(0, accountId);
+
+		auto stmt = std::make_shared<nanodbc::statement>(*conn->Conn, sql.SelectString());
+		stmt->bind(0, accountId);
+
 		db::ModelRecordSet<model::CurrentUser> recordSet;
-		std::shared_ptr<nanodbc::statement> prepStmt = std::make_shared<nanodbc::statement>(stmt);
-		recordSet.open(prepStmt);
+		recordSet.open(stmt);
 		if (!recordSet.next())
 		{
 			return FALSE;
 		}
+
 		model::CurrentUser user = recordSet.get();
 		serverId = user.ServerId;
 		strcpy(serverIp, user.ServerIP.c_str());
@@ -278,11 +291,13 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 {
 	int32_t premiumType = 0; // NOTE: we don't need this in the login server
 	int32_t daysRemaining = 0;
-	storedProc::LoadPremiumServiceUser premium(conn->Conn);
 	try
 	{
 		ReConnectODBC();
+
+		storedProc::LoadPremiumServiceUser premium(conn->Conn);
 		premium.execute(accountId, &premiumType, &daysRemaining);
+
 		*premiumDaysRemaining = static_cast<short>(daysRemaining);
 	}
 	catch (const nanodbc::database_error& dbErr)
