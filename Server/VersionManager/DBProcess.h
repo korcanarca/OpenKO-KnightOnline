@@ -10,7 +10,8 @@
 #endif // _MSC_VER > 1000
 #include <memory>
 
-#include <db-library/ConnectionManager.h>
+#include <db-library/fwd.h>
+#include "Define.h"
 
 class CVersionManagerDlg;
 
@@ -54,7 +55,7 @@ public:
 	/// \returns AUTH_OK on success, AUTH_NOT_FOUND on failure, AUTH_BANNED for banned accounts
 	int AccountLogin(const char* accountId, const char* password);
 
-	/// \brief loads the VERSION table into VersionManagerDlg.VersionList
+	/// \brief loads the VERSION table into versionList
 	/// \returns TRUE if successful, FALSE otherwise
 	BOOL LoadVersionList(VersionInfoList* versionList);
 
@@ -69,7 +70,7 @@ private:
 	/// \brief reference back to the main VersionManagerDlg instance
 	CVersionManagerDlg* _main;
 
-	std::shared_ptr<db::ConnectionManager::Connection> conn;
+	std::shared_ptr<db::Connection> conn;
 };
 
 #endif // !defined(AFX_DBPROCESS_H__D7F54E57_B37F_40C8_9E76_8C9F083842BF__INCLUDED_)

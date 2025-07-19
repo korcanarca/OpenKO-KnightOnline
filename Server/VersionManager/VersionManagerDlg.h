@@ -14,6 +14,8 @@
 #include <vector>
 #include <string>
 
+#include "resource.h"
+
 /////////////////////////////////////////////////////////////////////////////
 // CVersionManagerDlg dialog
 typedef std::vector<_SERVER_INFO*>	ServerInfoList;

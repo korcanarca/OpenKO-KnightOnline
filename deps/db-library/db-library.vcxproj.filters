@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="DatabaseConnManager.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelRecordSet.h" />
     <ClInclude Include="SqlBuilder.h" />
@@ -15,9 +14,16 @@
     <ClInclude Include="RecordsetLoader_Vector.h">
       <Filter>helpers</Filter>
     </ClInclude>
+    <ClInclude Include="ConnectionManager.h" />
+    <ClInclude Include="Connection.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="DatasourceConfig.h" />
+    <ClInclude Include="fwd.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DatabaseConnManager.cpp" />
+    <ClCompile Include="ConnectionManager.cpp" />
+    <ClCompile Include="Connection.cpp" />
+    <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="helpers">

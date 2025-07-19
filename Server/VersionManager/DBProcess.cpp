@@ -3,10 +3,10 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-#include "versionmanager.h"
-#include "Define.h"
 #include "DBProcess.h"
+#include "Define.h"
 
+#include <db-library/Connection.h>
 #include <nanodbc/nanodbc.h>
 
 #include "VersionManagerDlg.h"
@@ -67,7 +67,8 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 {
 	try
 	{
-		uint8_t result = conn->Reconnect();
+		int8_t result = conn->Reconnect();
+
 		// general error
 		if (result == -1)
 		{

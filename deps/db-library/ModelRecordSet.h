@@ -5,6 +5,7 @@
 #include <string>
 
 #include "ConnectionManager.h"
+#include "Connection.h"
 #include "Model.h"
 #include "SqlBuilder.h"
 
@@ -180,7 +181,7 @@ namespace db
 		}
 
 	private:
-		std::shared_ptr<ConnectionManager::Connection> _conn {};
+		std::shared_ptr<Connection> _conn {};
 		std::shared_ptr<nanodbc::statement> _stmt {};
 		nanodbc::result _result {};
 		Model::BindingIndex<BoundModelType> _bindingIndex {};

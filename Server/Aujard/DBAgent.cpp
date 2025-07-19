@@ -10,6 +10,7 @@
 #include <nanodbc/nanodbc.h>
 
 #include "AujardDlg.h"
+#include <db-library/Connection.h>
 #include <db-library/ModelRecordSet.h>
 #include <db-library/SqlBuilder.h>
 
@@ -105,11 +106,11 @@ bool CDBAgent::DatabaseInit()
 /// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
 /// \param conn the connection to attempt a reconnect on
 /// \throws nanodbc::database_error
-void CDBAgent::ReConnectODBC(std::shared_ptr<db::ConnectionManager::Connection> conn) noexcept(false)
+void CDBAgent::ReConnectODBC(db::Connection* conn) noexcept(false)
 {
 	try
 	{
-		uint8_t result = conn->Reconnect();
+		int8_t result = conn->Reconnect();
 		if (result == -1)
 		{
 			LogFileWrite("ReConnectODBC(): failed to connect. This usually means the connection is null.\r\n");
@@ -176,7 +177,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	try
 	{
 		DBProcessNumber(2);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::LoadUserData proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(accountId, charId, &rowCount);
 		std::shared_ptr<nanodbc::result> result = weak_result.lock();
@@ -533,7 +534,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	try
 	{
 		DBProcessNumber(3);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::UpdateUserData proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			user->m_id, user->m_bNation, user->m_bRace, user->m_sClass,
@@ -575,7 +576,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	try
 	{
 		DBProcessNumber(4);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::AccountLogin proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			accountId, password, &retCode);
@@ -601,7 +602,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	try
 	{
 		DBProcessNumber(5);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::NationSelect proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, accountId, nation);
@@ -633,7 +634,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	try
 	{
 		DBProcessNumber(6);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::CreateNewChar proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, accountId, index, charId, race, Class, hair,
@@ -672,7 +673,7 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 	try
 	{
 		DBProcessNumber(8);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::LoadCharInfo proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(charId, &rowCount);
 		std::shared_ptr<nanodbc::result> result = weak_result.lock();
@@ -755,7 +756,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 	try
 	{
 		DBProcessNumber(9);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::LoadAccountCharid proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(&rowCount, accountId);
 		std::shared_ptr<nanodbc::result> result = weak_result.lock();
@@ -825,7 +826,7 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	try
 	{
 		DBProcessNumber(10);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::CreateKnights proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, knightsId, nation, flag, name, chief);
@@ -856,7 +857,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	try
 	{
 		DBProcessNumber(11);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::UpdateKnights proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, type, charId, knightsId, domination);
@@ -881,7 +882,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 	try
 	{
 		DBProcessNumber(12);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::DeleteKnights proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			&retCode, knightsId);
@@ -917,7 +918,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	try
 	{
 		DBProcessNumber(13);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::LoadKnightsMembers proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(knightsId);
 		std::shared_ptr<nanodbc::result> result = weak_result.lock();
@@ -979,7 +980,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	try
 	{
 		DBProcessNumber(14);
-		ReConnectODBC(_accountConn2);
+		ReConnectODBC(_accountConn2.get());
 		nanodbc::statement stmt = nanodbc::statement(*_accountConn2->Conn, updateQuery);
 		stmt.bind(0, &userCount);
 		stmt.bind(1, &serverId);
@@ -1017,7 +1018,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	try
 	{
 		DBProcessNumber(15);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, sql.SelectString());
 		stmt.bind(0, accountId);
 		db::ModelRecordSet<model::Warehouse> recordSet;
@@ -1134,7 +1135,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	try
 	{
 		DBProcessNumber(16);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		storedProc::UpdateWarehouse proc(_gameConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			accountId, pUser->m_iBank, pUser->m_dwTime,
@@ -1174,7 +1175,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	try
 	{
 		DBProcessNumber(17);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, sql.SelectString());
 		stmt.bind(0, &knightsId);
 		db::ModelRecordSet<model::Knights> recordSet;
@@ -1243,7 +1244,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	try
 	{
 		DBProcessNumber(18);
-		ReConnectODBC(_accountConn1);
+		ReConnectODBC(_accountConn1.get());
 		nanodbc::statement stmt = nanodbc::statement(*_accountConn1->Conn, query);
 		nanodbc::result result = stmt.execute();
 		// affected_rows will be -1 if unavailable should be 1 if available
@@ -1274,7 +1275,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	try
 	{
 		DBProcessNumber(19);
-		ReConnectODBC(_accountConn1);
+		ReConnectODBC(_accountConn1.get());
 		storedProc::AccountLogout proc(_accountConn1->Conn);
 		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
 			accountId, logoutCode, &ret1, &ret2);
@@ -1327,7 +1328,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	try
 	{
 		DBProcessNumber(20);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		nanodbc::statement stmt = nanodbc::statement(*_gameConn1->Conn, query);
 		nanodbc::result result = stmt.execute();
 		if (result.next())
@@ -1391,7 +1392,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	try
 	{
 		DBProcessNumber(21);
-		ReConnectODBC(_gameConn1);
+		ReConnectODBC(_gameConn1.get());
 		recordSet.open(sql);
 		while (recordSet.next())
 		{
@@ -1485,7 +1486,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	try
 	{
 		DBProcessNumber(22);
-		ReConnectODBC(_accountConn1);
+		ReConnectODBC(_accountConn1.get());
 		nanodbc::statement stmt = nanodbc::statement(*_accountConn1->Conn, query);
 		stmt.bind(0, &nation);
 		stmt.bind(1, charId);

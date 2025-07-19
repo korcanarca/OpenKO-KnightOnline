@@ -17,49 +17,15 @@ namespace nanodbc
 namespace db
 {
 
+	class Connection;
+	struct DatasourceConfig;
+
 	/// \brief manages connections to the database via nanodbc
 	class ConnectionManager
 	{
-	protected:
-		struct DatasourceConfig
-		{
-			std::string DatasourceName;
-			std::string DatasourceUsername;
-			std::string DatasourcePassword;
-
-			// NOTE: This is only used internally, so no reason not to forward along the views here.
-			DatasourceConfig(
-				const std::string_view& name,
-				const std::string_view& username,
-				const std::string_view& password)
-				: DatasourceName(name), DatasourceUsername(username), DatasourcePassword(password)
-			{
-			}
-		};
-
 	public:
 		static void Create();
 		static void Destroy();
-
-		struct Connection
-		{
-			std::shared_ptr<nanodbc::connection> Conn;
-			std::shared_ptr<const DatasourceConfig> Config;
-			long Timeout;
-			
-			Connection(
-				const std::shared_ptr<nanodbc::connection>& conn,
-				const std::shared_ptr<const DatasourceConfig>& config,
-				long timeout = 0)
-					: Conn(conn), Config(config), Timeout(timeout)
-			{
-			}
-
-			/// \brief Checks to see if the connection is disconnected, and attempts
-			/// to reconnect if appropriate.
-			/// \returns -1 for failed connection, 0 for no-op, 1 for successful reconnect
-			uint8_t Reconnect();
-		};
 
 		/// \brief fetch the associated previously stored database config using the code-generated dbType
 		static void SetDatasourceConfig(modelUtil::DbType dbType, const std::string_view datasourceName, const std::string_view datasourceUserName, const std::string_view datasourcePassword);

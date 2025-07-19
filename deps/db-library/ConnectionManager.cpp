@@ -1,8 +1,8 @@
-﻿#include "ConnectionManager.h"
+﻿#include "pch.h"
+#include "ConnectionManager.h"
+#include "Connection.h"
+#include "DatasourceConfig.h"
 #include "Exceptions.h"
-
-#include <nanodbc/nanodbc.h>
-#include <assert.h>
 
 namespace db
 {
@@ -40,7 +40,7 @@ namespace db
 	}
 
 	/// \brief fetch the associated previously stored database config using the code-generated dbType
-	std::shared_ptr<const ConnectionManager::DatasourceConfig>
+	std::shared_ptr<const DatasourceConfig>
 		ConnectionManager::GetDatasourceConfig(modelUtil::DbType dbType)
 	{
 		return GetInstance().GetDatasourceConfigImpl(dbType);
@@ -49,7 +49,7 @@ namespace db
 	/// \brief attempt a connection to the database using the code-generated dbType
 	/// \throws std::runtime_error
 	/// \throws nanodbc::database_error
-	std::shared_ptr<ConnectionManager::Connection> ConnectionManager::GetConnectionTo(modelUtil::DbType dbType, long timeout) noexcept(false)
+	std::shared_ptr<Connection> ConnectionManager::GetConnectionTo(modelUtil::DbType dbType, long timeout) noexcept(false)
 	{
 		return GetInstance().GetConnectionToImpl(dbType, timeout);
 	}
@@ -96,7 +96,7 @@ namespace db
 	}
 
 	/// \brief fetch the associated previously stored database config using the code-generated dbType
-	std::shared_ptr<const ConnectionManager::DatasourceConfig>
+	std::shared_ptr<const DatasourceConfig>
 	ConnectionManager::GetDatasourceConfigImpl(modelUtil::DbType dbType) const
 	{
 		std::lock_guard<std::mutex> lock(_configLock);
@@ -111,7 +111,7 @@ namespace db
 	/// \brief attempt a connection to the database using the code-generated dbType
 	/// \throws std::runtime_error
 	/// \throws nanodbc::database_error
-	std::shared_ptr<ConnectionManager::Connection> ConnectionManager::GetConnectionToImpl(modelUtil::DbType dbType, long timeout) noexcept(false)
+	std::shared_ptr<Connection> ConnectionManager::GetConnectionToImpl(modelUtil::DbType dbType, long timeout) noexcept(false)
 	{
 		std::shared_ptr<const DatasourceConfig> config = GetDatasourceConfig(dbType);
 		if (config == nullptr)
@@ -130,28 +130,5 @@ namespace db
 	{
 		assert(s_instance != nullptr);
 		s_instance = nullptr;
-	}
-
-	/// \brief Checks to see if the connection is disconnected, and attempts
-	/// to reconnect if appropriate.
-	/// \returns -1 for failed connection, 0 for no-op, 1 for successful reconnect
-	uint8_t ConnectionManager::Connection::Reconnect() noexcept(false)
-	{
-		if (Conn == nullptr)
-		{
-			return -1;
-		}
-
-		// only calling connect if we're currently disconnected/timed out
-		// calling connect while connected would likely refresh a timeout, however
-		// it also deallocs/allocs resources and may cause unknown side effects
-		if (!Conn->connected())
-		{
-			// this can throw an exception
-			Conn->connect(Config->DatasourceName, Config->DatasourceUsername, Config->DatasourcePassword, Timeout);
-			return 1;
-		}
-
-		return 0;
 	}
 }
