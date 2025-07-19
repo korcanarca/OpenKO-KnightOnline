@@ -27,6 +27,13 @@ import StoredProc;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
+static void LogDatabaseError(const nanodbc::database_error& dbErr, const char* source)
+{
+	CString logLine;
+	logLine.Format(_T("%hs: %hs\r\n"), source, dbErr.what());
+	LogFileWrite(logLine);
+}
+
 CDBProcess::CDBProcess(CVersionManagerDlg* main)
 	: _main(main)
 {
@@ -52,10 +59,7 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.InitDatabase(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.InitDatabase()");
 		return FALSE;
 	}
 	return TRUE;
@@ -72,8 +76,7 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 		// general error
 		if (result == -1)
 		{
-			LogFileWrite("ReConnectODBC(): failed to connect. This usually means the connection is null.\r\n");
-			throw nanodbc::database_error(nullptr, 0, "application error");
+			throw nanodbc::database_error(nullptr, 0, "[application error] failed to connect. this usually means the connection is null.");
 		}
 
 		// reconnect was necessary and successful
@@ -86,10 +89,7 @@ void CDBProcess::ReConnectODBC() noexcept(false)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.ReConnectODBC(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.ReConnectODBC()");
 		throw;
 	}
 }
@@ -143,10 +143,7 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.AccountLogin(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.AccountLogin()");
 		return AUTH_FAILED;
 	}
 	
@@ -175,10 +172,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.InsertVersion(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.InsertVersion()");
 		return FALSE;
 	}
 	
@@ -204,10 +198,7 @@ BOOL CDBProcess::DeleteVersion(int version)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.DeleteVersion(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.DeleteVersion()");
 		return FALSE;
 	}
 	
@@ -236,10 +227,7 @@ BOOL CDBProcess::LoadUserCountList()
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.LoadUserCountList(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadUserCountList()");
 		return FALSE;
 	}
 	
@@ -274,10 +262,7 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.IsCurrentUser(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.IsCurrentUser()");
 		return FALSE;
 	}
 
@@ -297,16 +282,12 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 	try
 	{
 		ReConnectODBC();
-		std::weak_ptr<nanodbc::result> weak_result = premium.execute(accountId, &premiumType, &daysRemaining);
-		short sDays = static_cast<short>(daysRemaining);
-		premiumDaysRemaining = &sDays;
+		premium.execute(accountId, &premiumType, &daysRemaining);
+		*premiumDaysRemaining = static_cast<short>(daysRemaining);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.LoadPremiumServiceUser(): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadPremiumServiceUser()");
 		return FALSE;
 	}
 	

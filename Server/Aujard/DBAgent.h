@@ -154,7 +154,7 @@ public:
 	
 	/// \brief attempts connections with db::ConnectionManager to needed dbTypes
 	/// \returns true is successful, false otherwise
-	bool DatabaseInit();
+	bool InitDatabase();
 
 	/// \brief resets a UserData[userId] record.  Called after logout actions
 	/// \see UserData

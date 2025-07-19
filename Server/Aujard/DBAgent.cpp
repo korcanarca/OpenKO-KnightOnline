@@ -29,6 +29,13 @@ import StoredProc;
 
 extern CRITICAL_SECTION g_LogFileWrite;
 
+static void LogDatabaseError(const nanodbc::database_error& dbErr, const char* source)
+{
+	CString logLine;
+	logLine.Format(_T("%hs: %hs\r\n"), source, dbErr.what());
+	LogFileWrite(logLine);
+}
+
 CDBAgent::CDBAgent()
 {
 }
@@ -39,7 +46,7 @@ CDBAgent::~CDBAgent()
 
 /// \brief attempts connections with db::ConnectionManager for the needed dbTypes
 /// \returns true is successful, false otherwise
-bool CDBAgent::DatabaseInit()
+bool CDBAgent::InitDatabase()
 {
 	//	_main DB Connecting..
 	/////////////////////////////////////////////////////////////////////////////////////
@@ -57,10 +64,7 @@ bool CDBAgent::DatabaseInit()
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.InitDatabase(_gameConn1): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.InitDatabase(_gameConn1)");
 		return false;
 	}
 
@@ -75,10 +79,7 @@ bool CDBAgent::DatabaseInit()
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.InitDatabase(_accountConn1): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.InitDatabase(_accountConn1)");
 		return false;
 	}
 
@@ -93,10 +94,7 @@ bool CDBAgent::DatabaseInit()
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.InitDatabase(_accountConn2): ";
-		logLine += dbErr.what();
-		logLine += "\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.InitDatabase(_accountConn2)");
 		return false;
 	}
 
@@ -113,8 +111,7 @@ void CDBAgent::ReConnectODBC(db::Connection* conn) noexcept(false)
 		int8_t result = conn->Reconnect();
 		if (result == -1)
 		{
-			LogFileWrite("ReConnectODBC(): failed to connect. This usually means the connection is null.\r\n");
-			throw nanodbc::database_error(nullptr, 0, "application error");
+			throw nanodbc::database_error(nullptr, 0, "[application error] failed to connect. This usually means the connection is null");
 		}
 
 		// reconnect was necessary and successful
@@ -127,10 +124,7 @@ void CDBAgent::ReConnectODBC(db::Connection* conn) noexcept(false)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBAgent.ReConnectODBC(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBAgent.ReConnectODBC()");
 		throw;
 	}
 }
@@ -245,10 +239,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.LoadUserData(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadUserData()");
 		return false;
 	}
 	
@@ -558,10 +549,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.LoadUserData(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadUserData()");
 		return false;
 	}
 	
@@ -578,15 +566,11 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 		DBProcessNumber(4);
 		ReConnectODBC(_gameConn1.get());
 		storedProc::AccountLogin proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
-			accountId, password, &retCode);
+		proc.execute(accountId, password, &retCode);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.AccountLogInReq(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.AccountLogInReq()");
 		return false;
 	}
 	
@@ -604,15 +588,11 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 		DBProcessNumber(5);
 		ReConnectODBC(_gameConn1.get());
 		storedProc::NationSelect proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
-			&retCode, accountId, nation);
+		proc.execute(&retCode, accountId, nation);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.NationSelect(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.NationSelect()");
 		return false;
 	}
 
@@ -636,16 +616,13 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 		DBProcessNumber(6);
 		ReConnectODBC(_gameConn1.get());
 		storedProc::CreateNewChar proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+		proc.execute(
 			&retCode, accountId, index, charId, race, Class, hair,
 			face, str, sta, dex, intel, cha);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.CreateNewChar(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.CreateNewChar()");
 		return -1;
 	}
 
@@ -700,10 +677,7 @@ bool CDBAgent::LoadCharInfo(char* charId, char* buff, int& buffIndex)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.LoadCharInfo(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadCharInfo()");
 		return false;
 	}
 
@@ -789,10 +763,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1, char* charId2,
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.GetAllCharID(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.GetAllCharID()");
 		return false;
 	}
 
@@ -828,16 +799,12 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 		DBProcessNumber(10);
 		ReConnectODBC(_gameConn1.get());
 		storedProc::CreateKnights proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
-			&retCode, knightsId, nation, flag, name, chief);
+		proc.execute(&retCode, knightsId, nation, flag, name, chief);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.CreateKnights(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
-		return 6;
+		LogDatabaseError(dbErr, "DBProcess.CreateKnights()");
+		retCode = 6;
 	}
 
 	if (retCode == 6)
@@ -859,15 +826,11 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 		DBProcessNumber(11);
 		ReConnectODBC(_gameConn1.get());
 		storedProc::UpdateKnights proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
-			&retCode, type, charId, knightsId, domination);
+		proc.execute(&retCode, type, charId, knightsId, domination);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.UpdateKnights(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.UpdateKnights()");
 		return 2;
 	}
 
@@ -884,15 +847,12 @@ int CDBAgent::DeleteKnights(int knightsId)
 		DBProcessNumber(12);
 		ReConnectODBC(_gameConn1.get());
 		storedProc::DeleteKnights proc(_gameConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
+		proc.execute(
 			&retCode, knightsId);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.DeleteKnights(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.DeleteKnights()");
 		return 7;
 	}
 
@@ -956,10 +916,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.LoadKnightsAllMembers(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadKnightsAllMembers()");
 		return 0;
 	}
 
@@ -988,10 +945,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.UpdateConCurrentUserCount(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.UpdateConCurrentUserCount()");
 		return false;
 	}
 
@@ -1042,10 +996,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.LoadWarehouseData(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadWarehouseData()");
 		return false;
 	}
 
@@ -1150,10 +1101,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.UpdateWarehouseData(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.UpdateWarehouseData()");
 		return false;
 	}
 
@@ -1203,10 +1151,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.LoadKnightsInfo(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadKnightsInfo()");
 		return false;
 	}
 
@@ -1256,10 +1201,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.SetLogInInfo(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.SetLogInInfo()");
 		return false;
 	}
 
@@ -1277,9 +1219,14 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 		DBProcessNumber(19);
 		ReConnectODBC(_accountConn1.get());
 		storedProc::AccountLogout proc(_accountConn1->Conn);
-		std::weak_ptr<nanodbc::result> weak_result = proc.execute(
-			accountId, logoutCode, &ret1, &ret2);
-		std::shared_ptr<nanodbc::result> result = weak_result.lock();
+		auto weak_result = proc.execute(accountId, logoutCode, &ret1, &ret2);
+
+		auto result = weak_result.lock();
+		if (result == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "expected result set");
+		}
+
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result->affected_rows() == 0)
 		{
@@ -1295,10 +1242,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "_dbAgent.AccountLogout(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.AccountLogout()");
 		return false;
 	}
 
@@ -1344,15 +1288,12 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.CheckUserData(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.CheckUserData()");
 		return false;
 	}
 
-	if (dbTime != userUpdateTime ||
-		dbData != compareData)
+	if (dbTime != userUpdateTime
+		|| dbData != compareData)
 	{
 		LogFileWrite(std::format("CheckUserData(): data mismatch dbTime(expected: {}, actual: {}) dbData(expected: {}, actual: {})\r\n",
 			userUpdateTime, dbTime,
@@ -1435,10 +1376,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.LoadKnightsAllList(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.LoadKnightsAllList()");
 		return;
 	}
 
@@ -1500,10 +1438,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		std::string logLine = "DBProcess.UpdateBattleEvent(): ";
-		logLine += dbErr.what();
-		logLine += "\r\n";
-		LogFileWrite(logLine);
+		LogDatabaseError(dbErr, "DBProcess.UpdateBattleEvent()");
 		return false;
 	}
 

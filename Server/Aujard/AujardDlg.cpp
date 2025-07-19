@@ -229,7 +229,7 @@ BOOL CAujardDlg::OnInitDialog()
 	// Trigger a save to flush defaults to file.
 	ini.Save();
 
-	if (!_dbAgent.DatabaseInit())
+	if (!_dbAgent.InitDatabase())
 	{
 		AfxPostQuitMessage(0);
 		return FALSE;
