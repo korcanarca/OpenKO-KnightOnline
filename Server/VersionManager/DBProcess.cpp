@@ -123,12 +123,17 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	{
 		ReconnectIfDisconnected();
 
-		auto stmt = std::make_shared<nanodbc::statement>(*conn->Conn, sql.SelectString());
-		stmt->bind(0, accountId);
-
 		db::ModelRecordSet<model::TbUser> recordSet;
 
-		recordSet.open(stmt);
+		auto stmt = recordSet.prepare(sql);
+		if (stmt == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+		}
+
+		stmt->bind(0, accountId);
+		recordSet.execute();
+
 		if (!recordSet.next())
 			return AUTH_NOT_FOUND;
 
@@ -255,11 +260,17 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	{
 		ReconnectIfDisconnected();
 
-		auto stmt = std::make_shared<nanodbc::statement>(*conn->Conn, sql.SelectString());
-		stmt->bind(0, accountId);
-
 		db::ModelRecordSet<model::CurrentUser> recordSet;
-		recordSet.open(stmt);
+
+		auto stmt = recordSet.prepare(sql);
+		if (stmt == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+		}
+
+		stmt->bind(0, accountId);
+		recordSet.execute();
+
 		if (!recordSet.next())
 			return FALSE;
 

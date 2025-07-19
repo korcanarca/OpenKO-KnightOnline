@@ -998,11 +998,17 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 		_main->DBProcessNumber(15);
 		ReconnectIfDisconnected(_gameConn1.get());
 
-		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
-		stmt->bind(0, accountId);
-
 		db::ModelRecordSet<model::Warehouse> recordSet;
-		recordSet.open(stmt);
+
+		auto stmt = recordSet.prepare(sql);
+		if (stmt == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+		}
+
+		stmt->bind(0, accountId);
+		recordSet.execute();
+
 		if (!recordSet.next())
 		{
 			LogFileWrite(std::format("LoadWarehouseData(): No rows selected for accountId={}\r\n", accountId));
@@ -1152,11 +1158,17 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 		_main->DBProcessNumber(17);
 		ReconnectIfDisconnected(_gameConn1.get());
 
-		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
-		stmt->bind(0, &knightsId);
-
 		db::ModelRecordSet<model::Knights> recordSet;
-		recordSet.open(stmt);
+
+		auto stmt = recordSet.prepare(sql);
+		if (stmt == nullptr)
+		{
+			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+		}
+
+		stmt->bind(0, &knightsId);
+		recordSet.execute();
+
 		if (!recordSet.next())
 		{
 			LogFileWrite(std::format("LoadKnightsInfo(): No rows selected for knightsId={}\r\n", knightsId));

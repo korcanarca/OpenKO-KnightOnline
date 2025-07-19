@@ -54,14 +54,14 @@ namespace db
 		BoundModelType get()
 		{
 			BoundModelType model {};
-			Model::BindResult(_result, model, _bindingIndex);
+			Model::BindResult<BoundModelType>(_result, model, _bindingIndex);
 			return std::move(model);
 		}
 
 		/// \brief binds the current result record to an associated model object and returns it
 		void get_ref(BoundModelType& model)
 		{
-			Model::BindResult(_result, model, _bindingIndex);
+			Model::BindResult<BoundModelType>(_result, model, _bindingIndex);
 		}
 
 		/// \brief attempts to move the result iterator one forward
@@ -83,7 +83,8 @@ namespace db
 		void open() noexcept(false)
 		{
 			SqlBuilder<ModelType> filterObj {};
-			open(filterObj);
+			prepare(filterObj);
+			execute();
 		}
 
 		/// \brief opens a connection to the model's database and queries its table using 
@@ -96,82 +97,64 @@ namespace db
 		/// \throws nanodbc::database_error
 		void open(SqlBuilder<ModelType>& filterObj) noexcept(false)
 		{
-			std::string query;
-
-			_columnCount = 0;
-			_rowCount.reset();
-
-			_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
-
-			if (_fetchRowCount)
-			{
-				std::string query = filterObj.SelectCountString();
-
-				nanodbc::statement stmt(*_conn->Conn, query);
-				nanodbc::result result = nanodbc::execute(stmt);
-
-				int64_t rowCount = 0;
-				if (result.next())
-				{
-					rowCount = result.get<int64_t>(0);
-					if (filterObj.Limit > 0)
-						rowCount = (std::min)(rowCount, filterObj.Limit); // NOTE: allow for Windows.h defining min
-
-					_rowCount = rowCount;
-				}
-			}
-
-			query = filterObj.SelectString();
-			_stmt = std::make_shared<nanodbc::statement>(*_conn->Conn, query);
-			_result = nanodbc::execute(*_stmt);
-
-			_columnCount = _result.columns();
-
-			Model::IndexColumnNameBindings<BoundModelType>(
-				_result,
-				_columnCount,
-				_bindingIndex);
+			prepare(filterObj);
+			execute();
 		}
 
-		/// \brief opens a connection to the model's database and queries its table using 
-		/// a prepared statement (bindings already set)
-		/// Results are accessed by iterating with next() and requesting a bound model object
-		/// with get()
+		/// \brief opens a connection to the model's database, resets the recordset's state,
+		/// and prepares a new statement for the pending lookup.
 		///
-		/// \see next(), get()
 		/// \throws db::DatasourceConfigNotFoundException
 		/// \throws nanodbc::database_error
-		void open(std::shared_ptr<nanodbc::statement> prepStmt) noexcept(false)
+		std::shared_ptr<nanodbc::statement> prepare(SqlBuilder<ModelType>& filterObj) noexcept(false)
 		{
-			std::string query;
-			SqlBuilder<ModelType> filterObj {};
-
 			_columnCount = 0;
 			_rowCount.reset();
 
 			_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
 
 			if (_fetchRowCount)
-			{
-				std::string query = filterObj.SelectCountString();
+				_selectCountQuery = filterObj.SelectCountString();
+			else
+				_selectCountQuery.clear();
 
-				nanodbc::statement stmt(*_conn->Conn, query);
-				nanodbc::result result = nanodbc::execute(stmt);
+			std::string query = filterObj.SelectString();
+
+			_selectLimit = filterObj.Limit;
+			_stmt = std::make_shared<nanodbc::statement>(*_conn->Conn, query);
+
+			return _stmt;
+		}
+
+		/// \brief executes the existing prepared statement using the existing connection.
+		///
+		/// \see next(), get()
+		/// \throws std::logic_error
+		/// \throws nanodbc::database_error
+		void execute() noexcept(false)
+		{
+			if (_stmt == nullptr)
+			{
+				throw std::logic_error("Statement not initialized");
+			}
+
+			if (_fetchRowCount)
+			{
+				nanodbc::statement stmt(*_conn->Conn, _selectCountQuery);
+				nanodbc::result result = stmt.execute();
 
 				int64_t rowCount = 0;
 				if (result.next())
 				{
 					rowCount = result.get<int64_t>(0);
-					if (filterObj.Limit > 0)
-						rowCount = (std::min)(rowCount, filterObj.Limit); // NOTE: allow for Windows.h defining min
+					if (_selectLimit > 0)
+						rowCount = (std::min)(rowCount, _selectLimit); // NOTE: allow for Windows.h defining min
 
 					_rowCount = rowCount;
 				}
 			}
 
-			_stmt = prepStmt;
-			_result = nanodbc::execute(*_stmt);
-
+			_result = _stmt->execute();
 			_columnCount = _result.columns();
 
 			Model::IndexColumnNameBindings<BoundModelType>(
@@ -188,6 +171,8 @@ namespace db
 		bool _fetchRowCount {};
 		std::optional<int64_t> _rowCount {};
 		short _columnCount {};
+		std::string _selectCountQuery {};
+		int64_t _selectLimit {};
 	};
 
 }
