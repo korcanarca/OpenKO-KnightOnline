@@ -33,6 +33,10 @@ public:
 		return _instance;
 	}
 
+	/// \brief Updates the IDC_DB_PROCESS text with the DB Process Number
+	/// \note I'm not sure how practical this is under load
+	void DBProcessNumber(int number);
+
 	/// \brief handles DB_COUPON_EVENT requests
 	/// \todo related stored procedures are not implemented
 	/// \see DB_COUPON_EVENT
@@ -69,7 +73,6 @@ public:
 	void KnightsList(char* buffer);
 
 	/// \brief Called by OnTimer if __SAMMA is defined
-	/// \todo safe to remove?
 	void ConCurrentUserCount();
 
 	/// \brief attempts to return a list of all knights members
@@ -170,7 +173,7 @@ public:
 	//{{AFX_DATA(CAujardDlg)
 	enum { IDD = IDD_AUJARD_DIALOG };
 	CListBox	OutputList;
-	CString	    DBProcessNum;
+	CStatic	    DBProcessNum;
 	//}}AFX_DATA
 
 protected:

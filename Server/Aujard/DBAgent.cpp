@@ -173,7 +173,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	int16_t rowCount = 0;
 	try
 	{
-		DBProcessNumber(2);
+		_main->DBProcessNumber(2);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::LoadUserData proc(_gameConn1->Conn);
@@ -530,7 +530,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	
 	try
 	{
-		DBProcessNumber(3);
+		_main->DBProcessNumber(3);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::UpdateUserData proc(_gameConn1->Conn);
@@ -579,7 +579,7 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	int16_t retCode = 0;
 	try
 	{
-		DBProcessNumber(4);
+		_main->DBProcessNumber(4);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::AccountLogin proc(_gameConn1->Conn);
@@ -602,7 +602,7 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	int16_t retCode = 0;
 	try
 	{
-		DBProcessNumber(5);
+		_main->DBProcessNumber(5);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::NationSelect proc(_gameConn1->Conn);
@@ -631,7 +631,7 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	int16_t retCode = 0;
 	try
 	{
-		DBProcessNumber(6);
+		_main->DBProcessNumber(6);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::CreateNewChar proc(_gameConn1->Conn);
@@ -672,7 +672,7 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 	int16_t rowCount = 0;
 	try
 	{
-		DBProcessNumber(8);
+		_main->DBProcessNumber(8);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::LoadCharInfo proc(_gameConn1->Conn);
@@ -757,7 +757,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1_, char* charId2
 	int32_t rowCount = 0;
 	try
 	{
-		DBProcessNumber(9);
+		_main->DBProcessNumber(9);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::LoadAccountCharid proc(_gameConn1->Conn);
@@ -817,7 +817,7 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	int16_t retCode = 0;
 	try
 	{
-		DBProcessNumber(10);
+		_main->DBProcessNumber(10);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::CreateKnights proc(_gameConn1->Conn);
@@ -845,7 +845,7 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	int16_t retCode = 0;
 	try
 	{
-		DBProcessNumber(11);
+		_main->DBProcessNumber(11);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::UpdateKnights proc(_gameConn1->Conn);
@@ -867,7 +867,7 @@ int CDBAgent::DeleteKnights(int knightsId)
 	int16_t retCode = 0;
 	try
 	{
-		DBProcessNumber(12);
+		_main->DBProcessNumber(12);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::DeleteKnights proc(_gameConn1->Conn);
@@ -898,7 +898,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	int32_t rowCount = 0;
 	try
 	{
-		DBProcessNumber(13);
+		_main->DBProcessNumber(13);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::LoadKnightsMembers proc(_gameConn1->Conn);
@@ -958,7 +958,7 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	std::string updateQuery = std::format("UPDATE CONCURRENT SET [zone{}_count] = ? WHERE [serverid] = ?", zoneId);
 	try
 	{
-		DBProcessNumber(14);
+		_main->DBProcessNumber(14);
 		ReConnectODBC(_accountConn2.get());
 
 		nanodbc::statement stmt(*_accountConn2->Conn, updateQuery);
@@ -995,7 +995,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	sql.IsWherePK = true;
 	try
 	{
-		DBProcessNumber(15);
+		_main->DBProcessNumber(15);
 		ReConnectODBC(_gameConn1.get());
 
 		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
@@ -1106,7 +1106,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 
 	try
 	{
-		DBProcessNumber(16);
+		_main->DBProcessNumber(16);
 		ReConnectODBC(_gameConn1.get());
 
 		storedProc::UpdateWarehouse proc(_gameConn1->Conn);
@@ -1149,7 +1149,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	sql.IsWherePK = true;
 	try
 	{
-		DBProcessNumber(17);
+		_main->DBProcessNumber(17);
 		ReConnectODBC(_gameConn1.get());
 
 		auto stmt = std::make_shared<nanodbc::statement>(*_gameConn1->Conn, sql.SelectString());
@@ -1216,7 +1216,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 
 	try
 	{
-		DBProcessNumber(18);
+		_main->DBProcessNumber(18);
 		ReConnectODBC(_accountConn1.get());
 
 		nanodbc::statement stmt(*_accountConn1->Conn, query);
@@ -1245,7 +1245,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	int16_t ret1 = 0, ret2 = 0;
 	try
 	{
-		DBProcessNumber(19);
+		_main->DBProcessNumber(19);
 		ReConnectODBC(_accountConn1.get());
 
 		storedProc::AccountLogout proc(_accountConn1->Conn);
@@ -1302,7 +1302,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	
 	try
 	{
-		DBProcessNumber(20);
+		_main->DBProcessNumber(20);
 		ReConnectODBC(_gameConn1.get());
 
 		nanodbc::statement stmt(*_gameConn1->Conn, query);
@@ -1364,7 +1364,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	{
 		db::ModelRecordSet<model::Knights> recordSet;
 
-		DBProcessNumber(21);
+		_main->DBProcessNumber(21);
 		ReConnectODBC(_gameConn1.get());
 
 		recordSet.open(sql);
@@ -1438,17 +1438,6 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	}
 }
 
-/// \brief Updates the IDC_DB_PROCESS text with the DB Process Number
-/// \note I don't actually see this on the UI, and I'm not sure how practical it is under load.
-void CDBAgent::DBProcessNumber(int number)
-{
-	CString strDBNum;
-	strDBNum.Format(_T(" %4d "), number);
-
-	_main->GetDlgItem(IDC_DB_PROCESS)->SetWindowText(strDBNum);
-	_main->GetDlgItem(IDC_DB_PROCESS)->UpdateWindow();
-}
-
 /// \brief updates which nation won the war and which charId killed the commander
 /// \returns true if update successful, otherwise false
 bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
@@ -1456,7 +1445,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	std::string query = "UPDATE BATTLE SET byNation = ?, strUserName = ? WHERE sIndex = 1";
 	try
 	{
-		DBProcessNumber(22);
+		_main->DBProcessNumber(22);
 		ReConnectODBC(_accountConn1.get());
 
 		nanodbc::statement stmt(*_accountConn1->Conn, query);
@@ -1591,7 +1580,7 @@ BOOL CDBAgent::DeleteChar(int index, char* id, char* charId, char* socno)
 
 	wsprintf(szSQL, TEXT("{ call DELETE_CHAR ( \'%hs\', %d, \'%hs\', \'%hs\', ? )}"), id, index, charId, socno);
 
-	DBProcessNumber(7);
+	_main->DBProcessNumber(7);
 
 	retcode = SQLAllocHandle(SQL_HANDLE_STMT, gameConn1.m_hdbc, &hstmt);
 	if (retcode == SQL_SUCCESS)

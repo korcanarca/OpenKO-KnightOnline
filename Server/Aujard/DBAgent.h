@@ -27,10 +27,6 @@ public:
 	/// \returns true if update successful, otherwise false
 	bool UpdateBattleEvent(const char* charId, int nation);
 
-	/// \brief Updates the IDC_DB_PROCESS text with the DB Process Number
-	/// \note I'm not sure how practical this is under load
-	void DBProcessNumber(int number);
-
 	/// \brief loads knights ranking data by nation to handle KNIGHTS_ALLLIST_REQ
 	/// \param nation 1 = karus, 2 = elmorad, 3 = battlezone
 	/// \see KNIGHTS_ALLLIST_REQ

@@ -147,7 +147,7 @@ void CAujardDlg::DoDataExchange(CDataExchange* data)
 	CDialog::DoDataExchange(data);
 	//{{AFX_DATA_MAP(CAujardDlg)
 	DDX_Control(data, IDC_OUT_LIST, OutputList);
-	DDX_Text(data, IDC_DB_PROCESS, DBProcessNum);
+	DDX_Control(data, IDC_DB_PROCESS, DBProcessNum);
 	//}}AFX_DATA_MAP
 }
 
@@ -948,7 +948,6 @@ void CAujardDlg::AllSaveRoutine()
 }
 
 /// \brief Called by OnTimer if __SAMMA is defined
-/// \todo safe to remove?
 void CAujardDlg::ConCurrentUserCount()
 {
 	int t_count = 0;
@@ -1632,4 +1631,15 @@ void CAujardDlg::CouponEvent(char* data)
 		// TODO: not implemented.  Allow nResult to default to 0
 		// nResult = _dbAgent.UpdateCouponEvent(strAccountName, strCharName, strCouponID, nItemID, nItemCount);
 	}
+}
+
+/// \brief Updates the IDC_DB_PROCESS text with the DB Process Number
+/// \note I don't actually see this on the UI, and I'm not sure how practical it is under load.
+void CAujardDlg::DBProcessNumber(int number)
+{
+	CString strDBNum;
+	strDBNum.Format(_T(" %4d "), number);
+
+	DBProcessNum.SetWindowText(strDBNum);
+	DBProcessNum.UpdateWindow();
 }
