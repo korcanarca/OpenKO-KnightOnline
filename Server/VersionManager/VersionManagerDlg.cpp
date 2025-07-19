@@ -224,8 +224,6 @@ BOOL CVersionManagerDlg::LoadVersionList()
 	if (!DbProcess.LoadVersionList(&versionList))
 		return FALSE;
 
-	VersionList.Swap(versionList);
-
 	_lastVersion = 0;
 
 	for (const auto& [_, pInfo] : versionList)
@@ -234,6 +232,7 @@ BOOL CVersionManagerDlg::LoadVersionList()
 			_lastVersion = pInfo->Number;
 	}
 
+	VersionList.Swap(versionList);
 	return TRUE;
 }
 
