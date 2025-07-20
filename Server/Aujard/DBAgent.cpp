@@ -171,7 +171,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		PZ = result->get<uint32_t>(27);
 		PY = result->get<uint32_t>(28);
 		dwTime = result->get<uint32_t>(29);
-			
+
 		std::vector<uint8_t> temp(sizeof(strSkill));
 		result->get_ref(30, temp);
 		std::ranges::copy(temp, strSkill);
@@ -183,14 +183,14 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 			std::ranges::copy(temp, strItem);
 			temp.clear();
 		}
-		
+
 		if (!result->is_null(32))
 		{
 			result->get_ref(32, temp);
-            std::ranges::copy(temp, strSerial);
-            temp.clear();
+			std::ranges::copy(temp, strSerial);
+			temp.clear();
 		}
-			
+
 		QuestCount = result->get<int16_t>(33);
 
 		if (!result->is_null(34))
@@ -199,7 +199,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 			std::ranges::copy(temp, strQuest);
 			temp.clear();
 		}
-			
+
 		MannerPoint = result->get<uint32_t>(35);
 		LoyaltyMonthly = result->get<uint32_t>(36);
 	}
