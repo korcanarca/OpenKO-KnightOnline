@@ -138,31 +138,31 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		}
 
 		// THIS IS WHERE THE FUN STARTS
-		Nation = static_cast<uint8_t>(result->get<int16_t>(0));
-		Race = static_cast<uint8_t>(result->get<int16_t>(1));
+		Nation = result->get<uint8_t>(0);
+		Race = result->get<uint8_t>(1);
 		Class = result->get<int16_t>(2);
-		HairColor = static_cast<uint8_t>(result->get<int16_t>(3));
-		Rank = static_cast<uint8_t>(result->get<int16_t>(4));
-		Title = static_cast<uint8_t>(result->get<int16_t>(5));
-		Level = static_cast<uint8_t>(result->get<int16_t>(6));
+		HairColor = result->get<uint8_t>(3);
+		Rank = result->get<uint8_t>(4);
+		Title = result->get<uint8_t>(5);
+		Level = result->get<uint8_t>(6);
 		Exp = result->get<uint32_t>(7);
 		Loyalty = result->get<uint32_t>(8);
-		Face = static_cast<uint8_t>(result->get<int16_t>(9));
-		City = static_cast<uint8_t>(result->get<int16_t>(10));
+		Face = result->get<uint8_t>(9);
+		City = result->get<uint8_t>(10);
 		Knights = result->get<int16_t>(11);
-		Fame = static_cast<uint8_t>(result->get<int16_t>(12));
+		Fame = result->get<uint8_t>(12);
 		Hp = result->get<int16_t>(13);
 		Mp = result->get<int16_t>(14);
 		Sp = result->get<int16_t>(15);
-		Str = static_cast<uint8_t>(result->get<int16_t>(16));
-		Sta = static_cast<uint8_t>(result->get<int16_t>(17));
-		Dex = static_cast<uint8_t>(result->get<int16_t>(18));
-		Intel = static_cast<uint8_t>(result->get<int16_t>(19));
-		Cha = static_cast<uint8_t>(result->get<int16_t>(20));
-		Authority = static_cast<uint8_t>(result->get<int16_t>(21));
-		Points = static_cast<uint8_t>(result->get<int16_t>(22));
+		Str = result->get<uint8_t>(16);
+		Sta = result->get<uint8_t>(17);
+		Dex = result->get<uint8_t>(18);
+		Intel = result->get<uint8_t>(19);
+		Cha = result->get<uint8_t>(20);
+		Authority = result->get<uint8_t>(21);
+		Points = result->get<uint8_t>(22);
 		Gold = result->get<uint32_t>(23);
-		Zone = static_cast<uint8_t>(result->get<int16_t>(24));
+		Zone = result->get<uint8_t>(24);
 		if (!result->is_null(25))
 		{
 			Bind = result->get<int16_t>(25);
@@ -645,12 +645,12 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 			throw db::ApplicationError("expected row in result set");
 		}
 
-		Race = static_cast<uint8_t>(result->get<int16_t>(0));
+		Race = result->get<uint8_t>(0);
 		Class = result->get<int16_t>(1);
-		HairColor = static_cast<uint8_t>(result->get<int16_t>(2));
-		Level = static_cast<uint8_t>(result->get<int16_t>(3));
-		Face = static_cast<uint8_t>(result->get<int16_t>(4));
-		Zone = static_cast<uint8_t>(result->get<int16_t>(5));
+		HairColor = result->get<uint8_t>(2);
+		Level = result->get<uint8_t>(3);
+		Face = result->get<uint8_t>(4);
+		Zone = result->get<uint8_t>(5);
 
 		if (!result->is_null(6))
 		{
@@ -857,8 +857,8 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 				std::string charId;
 				result->get_ref(0, charId);
 
-				uint8_t Fame = static_cast<uint8_t>(result->get<int16_t>(1));
-				uint8_t Level = static_cast<uint8_t>(result->get<int16_t>(2));
+				uint8_t Fame = result->get<uint8_t>(1);
+				uint8_t Level = result->get<uint8_t>(2);
 				int16_t Class = result->get<int16_t>(3);
 
 				rtrim(charId);
