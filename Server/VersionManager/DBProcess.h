@@ -34,10 +34,6 @@ public:
 	/// \return TRUE on success, FALSE on failure
 	BOOL IsCurrentUser(const char* accountId, char* serverIp, int& serverId);
 
-	/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
-	/// \throws nanodbc::database_error
-	void ReconnectIfDisconnected();
-
 	/// \brief Deletes Version table entry tied to the specified key
 	/// \return TRUE on success, FALSE on failure
 	BOOL DeleteVersion(int version);
@@ -69,8 +65,6 @@ public:
 private:
 	/// \brief reference back to the main VersionManagerDlg instance
 	CVersionManagerDlg* _main;
-
-	std::shared_ptr<db::Connection> _conn;
 };
 
 #endif // !defined(AFX_DBPROCESS_H__D7F54E57_B37F_40C8_9E76_8C9F083842BF__INCLUDED_)

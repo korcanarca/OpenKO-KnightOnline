@@ -143,11 +143,6 @@ public:
 	//BOOL CheckCouponEvent(const char* accountId);
 	//BOOL DeleteChar(int index, char* id, char* charId, char* socno);
 	
-	/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
-	/// \param conn the connection to attempt a reconnect on
-	/// \throws nanodbc::database_error
-	void ReconnectIfDisconnected(db::Connection* conn);
-	
 	/// \brief attempts connections with db::ConnectionManager to needed dbTypes
 	/// \returns true is successful, false otherwise
 	bool InitDatabase();
@@ -164,10 +159,6 @@ public:
 private:
 	/// \brief reference back to the main AujardDlg instance
 	CAujardDlg* _main;
-
-	std::shared_ptr<db::Connection> _gameConn1;
-	std::shared_ptr<db::Connection> _accountConn1;
-	std::shared_ptr<db::Connection> _accountConn2;
 };
 
 #endif // !defined(AFX_DBAGENT_H__C7580B9A_10FF_46DE_93C2_B0C9BA9D0422__INCLUDED_)

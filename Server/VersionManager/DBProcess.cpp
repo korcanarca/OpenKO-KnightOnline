@@ -5,11 +5,13 @@
 #include "stdafx.h"
 #include "DBProcess.h"
 #include "Define.h"
+#include "VersionManagerDlg.h"
 
 #include <db-library/Connection.h>
-#include <nanodbc/nanodbc.h>
+#include <db-library/Exceptions.h>
+#include <db-library/utils.h>
 
-#include "VersionManagerDlg.h"
+#include <nanodbc/nanodbc.h>
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -22,17 +24,11 @@ import StoredProc;
 
 // NOTE: Explicitly handled under DEBUG_NEW override
 #include <db-library/RecordSetLoader_STLMap.h>
+#include <db-library/StoredProc.h>
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
-
-static void LogDatabaseError(const nanodbc::database_error& dbErr, const char* source)
-{
-	CString logLine;
-	logLine.Format(_T("%hs: %hs\r\n"), source, dbErr.what());
-	LogFileWrite(logLine);
-}
 
 CDBProcess::CDBProcess(CVersionManagerDlg* main)
 	: _main(main)
@@ -50,48 +46,17 @@ BOOL CDBProcess::InitDatabase() noexcept(false)
 {
 	try
 	{
-		// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
-		_conn = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
-		if (_conn == nullptr)
-		{
+		auto conn = db::ConnectionManager::CreatePoolConnection(modelUtil::DbType::ACCOUNT, DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
 			return FALSE;
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.InitDatabase()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.InitDatabase()");
 		return FALSE;
 	}
+
 	return TRUE;
-}
-
-/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
-/// \throws nanodbc::database_error
-void CDBProcess::ReconnectIfDisconnected() noexcept(false)
-{
-	try
-	{
-		int8_t result = _conn->Reconnect();
-
-		// general error
-		if (result == -1)
-		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] failed to connect. this usually means the connection is null.");
-		}
-
-		// reconnect was necessary and successful
-		if (result == 1)
-		{
-			CTime t = CTime::GetCurrentTime();
-			LogFileWrite(std::format("ReconnectIfDisconnected(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
-				t.GetMonth(), t.GetDay(), t.GetYear(), t.GetHour(), t.GetMinute(), t.GetSecond()));
-		}
-	}
-	catch (const nanodbc::database_error& dbErr)
-	{
-		LogDatabaseError(dbErr, "DBProcess.ReconnectIfDisconnected()");
-		throw;
-	}
 }
 
 /// \brief loads the VERSION table into VersionManagerDlg.VersionList
@@ -121,14 +86,12 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	
 	try
 	{
-		ReconnectIfDisconnected();
-
 		db::ModelRecordSet<model::TbUser> recordSet;
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+			throw db::ApplicationError("statement could not be allocated");
 		}
 
 		stmt->bind(0, accountId);
@@ -154,7 +117,7 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.AccountLogin()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.AccountLogin()");
 		return AUTH_FAILED;
 	}
 	
@@ -165,13 +128,17 @@ int CDBProcess::AccountLogin(const char* accountId, const char* password)
 /// \returns TRUE on success, FALSE on failure
 BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* compressName, int historyVersion)
 {
-	db::SqlBuilder<model::Version> sql;
+	using ModelType = model::Version;
+
+	db::SqlBuilder<ModelType> sql;
 	std::string insert = sql.InsertString();
 	try
 	{
-		ReconnectIfDisconnected();
+		auto conn = db::ConnectionManager::CreatePoolConnection(ModelType::DbType(), DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
+			return FALSE;
 
-		nanodbc::statement stmt(*_conn->Conn, insert);
+		nanodbc::statement stmt = conn->CreateStatement(insert);
 		stmt.bind(0, &version);
 		stmt.bind(1, fileName);
 		stmt.bind(2, compressName);
@@ -183,7 +150,7 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.InsertVersion()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.InsertVersion()");
 		return FALSE;
 	}
 	
@@ -194,13 +161,17 @@ BOOL CDBProcess::InsertVersion(int version, const char* fileName, const char* co
 /// \return TRUE on success, FALSE on failure
 BOOL CDBProcess::DeleteVersion(int version)
 {
-	db::SqlBuilder<model::Version> sql;
+	using ModelType = model::Version;
+
+	db::SqlBuilder<ModelType> sql;
 	std::string deleteQuery = sql.DeleteByIdString();
 	try
 	{
-		ReconnectIfDisconnected();
+		auto conn = db::ConnectionManager::CreatePoolConnection(ModelType::DbType(), DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
+			return FALSE;
 
-		nanodbc::statement stmt(*_conn->Conn, deleteQuery);
+		nanodbc::statement stmt = conn->CreateStatement(deleteQuery);
 		stmt.bind(0, &version);
 
 		nanodbc::result result = stmt.execute();
@@ -209,8 +180,7 @@ BOOL CDBProcess::DeleteVersion(int version)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.DeleteVersion()");
-		return FALSE;
+		db::utils::LogDatabaseError(dbErr, "DBProcess.DeleteVersion()");
 	}
 	
 	return FALSE;
@@ -222,9 +192,7 @@ BOOL CDBProcess::LoadUserCountList()
 {
 	try
 	{
-		ReconnectIfDisconnected();
-
-		db::ModelRecordSet<model::Concurrent> recordSet(_conn);
+		db::ModelRecordSet<model::Concurrent> recordSet;
 		recordSet.open();
 
 		while (recordSet.next())
@@ -237,14 +205,15 @@ BOOL CDBProcess::LoadUserCountList()
 
 			_main->ServerList[serverId]->sUserCount = concurrent.Zone1Count + concurrent.Zone2Count + concurrent.Zone3Count;
 		}
+
+		return TRUE;
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadUserCountList()");
-		return FALSE;
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadUserCountList()");
 	}
 	
-	return TRUE;
+	return FALSE;
 }
 
 /// \brief Checks to see if a user is present in CURRENTUSER for a particular server
@@ -259,14 +228,12 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 	sql.IsWherePK = true;
 	try
 	{
-		ReconnectIfDisconnected();
-
-		db::ModelRecordSet<model::CurrentUser> recordSet(_conn);
+		db::ModelRecordSet<model::CurrentUser> recordSet;
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+			throw db::ApplicationError("statement could not be allocated");
 		}
 
 		stmt->bind(0, accountId);
@@ -278,14 +245,15 @@ BOOL CDBProcess::IsCurrentUser(const char* accountId, char* serverIp, int& serve
 		model::CurrentUser user = recordSet.get();
 		serverId = user.ServerId;
 		strcpy(serverIp, user.ServerIP.c_str());
+
+		return TRUE;
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.IsCurrentUser()");
-		return FALSE;
+		db::utils::LogDatabaseError(dbErr, "DBProcess.IsCurrentUser()");
 	}
 
-	return TRUE;
+	return FALSE;
 }
 
 /// \brief calls LoadPremiumServiceUser and writes how many days of premium remain
@@ -299,14 +267,12 @@ BOOL CDBProcess::LoadPremiumServiceUser(const char* accountId, short* premiumDay
 		daysRemaining = 0;
 	try
 	{
-		ReconnectIfDisconnected();
-
-		storedProc::LoadPremiumServiceUser premium(_conn->Conn);
+		db::StoredProc<storedProc::LoadPremiumServiceUser> premium;
 		premium.execute(accountId, &premiumType, &daysRemaining);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadPremiumServiceUser()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadPremiumServiceUser()");
 		return FALSE;
 	}
 

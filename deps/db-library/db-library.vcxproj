@@ -24,20 +24,27 @@
     <ClInclude Include="DatasourceConfig.h" />
     <ClInclude Include="Exceptions.h" />
     <ClInclude Include="fwd.h" />
+    <ClInclude Include="hooks.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelRecordSet.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PoolConnection.h" />
     <ClInclude Include="RecordsetLoader_Vector.h" />
     <ClInclude Include="RecordSetLoader_STLMap.h" />
     <ClInclude Include="SqlBuilder.h" />
     <ClInclude Include="RecordSetLoader.h" />
+    <ClInclude Include="StoredProc.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Connection.cpp" />
     <ClCompile Include="ConnectionManager.cpp" />
+    <ClCompile Include="hooks.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="PoolConnection.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

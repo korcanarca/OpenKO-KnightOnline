@@ -1,10 +1,13 @@
 ﻿#pragma once
 
 #include <iostream>
+#include <format>
 #include <string>
 
 #include "ConnectionManager.h"
 #include "SqlBuilder.h"
+#include "utils.h"
+
 #include <nanodbc/nanodbc.h>
 
 namespace db
@@ -27,11 +30,13 @@ namespace db
 		template <typename T>
 		static std::vector<T> BatchSelect(SqlBuilder<T>& sql) noexcept(false)
 		{
-			std::shared_ptr<ConnectionManager::Connection> conn = ConnectionManager::GetConnectionTo(T::DbType());
+			auto conn = ConnectionManager::CreatePoolConnection(T::DbType());
+			if (conn == nullptr)
+				return {};
 
 			std::string query = sql.SelectCountString();
-			nanodbc::statement stmt = nanodbc::statement(*conn->Conn, query);
-			nanodbc::result result = nanodbc::execute(stmt);
+			nanodbc::statement stmt = conn->CreateStatement(query);
+			nanodbc::result result = stmt.execute();
 			int64_t rowCount = 0;
 
 			if (result.next())
@@ -42,8 +47,8 @@ namespace db
 			}
 
 			query = sql.SelectString();
-			stmt = nanodbc::statement(*conn->Conn, query);
-			result = nanodbc::execute(stmt);
+			stmt = nanodbc::statement(*conn, query);
+			result = stmt.execute();
 
 			short columnCount = result.columns();
 
@@ -116,8 +121,7 @@ namespace db
 				if (itr == columnBindingsMap.end())
 				{
 #if defined(_DEBUG)
-					// TODO: logger impl
-					std::cout << "WARN: No binding found for:" << T::TableName() << "." << columnName << "\n";
+					utils::Log(std::format("WARN: No binding found for : {}.{}", T::TableName(), columnName));
 #endif
 
 					bindingsIndex.push_back(nullptr);

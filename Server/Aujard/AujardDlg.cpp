@@ -7,6 +7,7 @@
 #include <process.h>
 #include <shared/Ini.h>
 #include <db-library/ConnectionManager.h>
+#include <db-library/hooks.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -17,10 +18,11 @@ static char THIS_FILE[] = __FILE__;
 // NOTE: Explicitly handled under DEBUG_NEW override
 #include <db-library/RecordSetLoader_STLMap.h>
 
-#define PROCESS_CHECK		100
-#define CONCURRENT_CHECK	200
-#define SERIAL_TIME			300
-#define PACKET_CHECK		400
+constexpr int PROCESS_CHECK		= 100;
+constexpr int CONCURRENT_CHECK	= 200;
+constexpr int SERIAL_TIME		= 300;
+constexpr int PACKET_CHECK		= 400;
+constexpr int DB_POOL_CHECK		= 500;
 
 import AujardBinder;
 import AujardModel;
@@ -117,6 +119,13 @@ DWORD WINAPI ReadQueueThread(LPVOID lp)
 	}
 }
 
+static void LoggerImpl(const std::string& message)
+{
+	CString logLine;
+	logLine.Format(_T("%hs\r\n"), message.c_str());
+	LogFileWrite(logLine);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CAujardDlg dialog
 
@@ -132,6 +141,9 @@ CAujardDlg::CAujardDlg(CWnd* parent /*=nullptr*/)
 	_packetCount = 0;
 	_recvPacketCount = 0;
 
+	db::hooks::Log = &LoggerImpl;
+
+	db::ConnectionManager::DefaultConnectionTimeout = DB_PROCESS_TIMEOUT;
 	db::ConnectionManager::Create();
 }
 
@@ -246,6 +258,7 @@ BOOL CAujardDlg::OnInitDialog()
 	SetTimer(CONCURRENT_CHECK, 300000, nullptr);
 //	SetTimer( SERIAL_TIME, 60000, nullptr );
 	SetTimer(PACKET_CHECK, 120000, nullptr);
+	SetTimer(DB_POOL_CHECK, 60000, nullptr);
 
 	DWORD id;
 	_readQueueThread = ::CreateThread(nullptr, 0, ReadQueueThread, this, 0, &id);
@@ -301,6 +314,7 @@ BOOL CAujardDlg::DestroyWindow()
 	KillTimer(CONCURRENT_CHECK);
 //	KillTimer(SERIAL_TIME);
 	KillTimer(PACKET_CHECK);
+	KillTimer(DB_POOL_CHECK);
 
 	if (_readQueueThread != nullptr)
 		::TerminateThread(_readQueueThread, 0);
@@ -891,6 +905,10 @@ void CAujardDlg::OnTimer(UINT EventId)
 		case PACKET_CHECK:
 			WritePacketLog();
 	//		SaveUserData();
+			break;
+
+		case DB_POOL_CHECK:
+			db::ConnectionManager::ExpireUnusedPoolConnections();
 			break;
 	}
 

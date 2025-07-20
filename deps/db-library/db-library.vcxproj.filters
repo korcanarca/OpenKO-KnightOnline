@@ -19,11 +19,20 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="DatasourceConfig.h" />
     <ClInclude Include="fwd.h" />
+    <ClInclude Include="PoolConnection.h" />
+    <ClInclude Include="StoredProc.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="hooks.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConnectionManager.cpp" />
     <ClCompile Include="Connection.cpp" />
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="PoolConnection.cpp" />
+    <ClCompile Include="hooks.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="helpers">

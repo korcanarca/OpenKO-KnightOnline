@@ -95,6 +95,7 @@ protected:
 	// Generated message map functions
 	//{{AFX_MSG(CVersionManagerDlg)
 	BOOL OnInitDialog() override;
+	afx_msg void OnTimer(UINT EventId);
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnVersionSetting();

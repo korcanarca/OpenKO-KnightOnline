@@ -1,9 +1,12 @@
 ﻿#pragma once
 
+#include <format>
 #include <string>
 #include <unordered_set>
 #include <iostream>
 #include <vector>
+
+#include "utils.h"
 
 namespace db
 {
@@ -228,8 +231,7 @@ namespace db
 				if (!isValidColumnName(col))
 				{
 #if defined(_DEBUG)
-					// TODO:  Logger mechanism
-					std::cout << "WARN: Invalid column name: " << col << "for table " << ModelType::TableName() << "\n";
+					utils::Log(std::format("WARN: Invalid column name: {}.{}", ModelType::TableName(), col));
 #endif
 					continue;
 				}

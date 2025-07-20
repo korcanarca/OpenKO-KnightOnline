@@ -11,11 +11,11 @@
 #include <shared/StringConversion.h>
 #include <shared/STLMap.h>
 
-constexpr int MAX_USER			= 3000;
+constexpr int MAX_USER				= 3000;
 
-#define _LISTEN_PORT			15100
-#define CLIENT_SOCKSIZE			10
-#define DB_PROCESS_TIMEOUT		100
+constexpr int _LISTEN_PORT			= 15100;
+constexpr int CLIENT_SOCKSIZE		= 10;
+constexpr int DB_PROCESS_TIMEOUT	= 100;
 
 ////////////////////////////////////////////////////////////
 // Socket Define

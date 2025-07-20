@@ -11,6 +11,7 @@
 #include <shared/Ini.h>
 
 #include <db-library/ConnectionManager.h>
+#include <db-library/hooks.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -24,6 +25,15 @@ static char THIS_FILE[] = __FILE__;
 import VersionManagerBinder;
 
 CIOCPort CVersionManagerDlg::IocPort;
+
+constexpr int DB_POOL_CHECK = 100;
+
+static void LoggerImpl(const std::string& message)
+{
+	CString logLine;
+	logLine.Format(_T("%hs\r\n"), message.c_str());
+	LogFileWrite(logLine);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // CVersionManagerDlg dialog
@@ -42,6 +52,9 @@ CVersionManagerDlg::CVersionManagerDlg(CWnd* parent)
 
 	_icon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
+	db::hooks::Log = &LoggerImpl;
+
+	db::ConnectionManager::DefaultConnectionTimeout = DB_PROCESS_TIMEOUT;
 	db::ConnectionManager::Create();
 }
 
@@ -60,6 +73,7 @@ void CVersionManagerDlg::DoDataExchange(CDataExchange* data)
 
 BEGIN_MESSAGE_MAP(CVersionManagerDlg, CDialog)
 	//{{AFX_MSG_MAP(CVersionManagerDlg)
+	ON_WM_TIMER()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_SETTING, OnVersionSetting)
@@ -115,6 +129,8 @@ BOOL CVersionManagerDlg::OnInitDialog()
 
 	::ResumeThread(IocPort.m_hAcceptThread);
 
+	SetTimer(DB_POOL_CHECK, 60000, nullptr);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 }
 
@@ -133,7 +149,11 @@ BOOL CVersionManagerDlg::GetInfoFromIni()
 	std::string datasourceUser = ini.GetString(ini::ODBC, ini::UID, "knight");
 	std::string datasourcePass = ini.GetString(ini::ODBC, ini::PWD, "knight");
 
-	// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
+	db::ConnectionManager::SetDatasourceConfig(
+		modelUtil::DbType::ACCOUNT,
+		datasourceName, datasourceUser, datasourcePass);
+
+	// TODO: Remove this - currently all models are assigned to GAME
 	db::ConnectionManager::SetDatasourceConfig(
 		modelUtil::DbType::GAME,
 		datasourceName, datasourceUser, datasourcePass);
@@ -236,6 +256,13 @@ BOOL CVersionManagerDlg::LoadVersionList()
 	return TRUE;
 }
 
+void CVersionManagerDlg::OnTimer(UINT EventId)
+{
+	if (EventId == DB_POOL_CHECK)
+		db::ConnectionManager::ExpireUnusedPoolConnections();
+
+	CDialog::OnTimer(EventId);
+}
 // If you add a minimize button to your dialog, you will need the code below
 //  to draw the icon.  For MFC applications using the document/view model,
 //  this is automatically done for you by the framework.
@@ -286,6 +313,8 @@ BOOL CVersionManagerDlg::PreTranslateMessage(MSG* msg)
 
 BOOL CVersionManagerDlg::DestroyWindow()
 {
+	KillTimer(DB_POOL_CHECK);
+
 	if (!VersionList.IsEmpty())
 		VersionList.DeleteAllData();
 
@@ -328,7 +357,7 @@ void CVersionManagerDlg::ResetOutputList()
 
 	// print the ODBC connection string
 	// TODO: modelUtil::DbType::ACCOUNT;  Currently all models are assigned to GAME
-	std::string odbcString = db::ConnectionManager::OdbcConnString(modelUtil::DbType::GAME);
+	std::string odbcString = db::ConnectionManager::GetOdbcConnectionString(modelUtil::DbType::GAME);
 	CString strConnection(CA2T(odbcString.c_str()));
 	_outputList.AddString(strConnection);
 

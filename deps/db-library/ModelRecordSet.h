@@ -5,8 +5,8 @@
 #include <string>
 
 #include "ConnectionManager.h"
-#include "Connection.h"
 #include "Model.h"
+#include "PoolConnection.h"
 #include "SqlBuilder.h"
 
 #include <nanodbc/nanodbc.h>
@@ -21,14 +21,6 @@ namespace db
 	class ModelRecordSet
 	{
 	public:
-		// TODO: Remove this.
-		// The connections should just be pooled, but for now they should at least be using the connection we expect, rather than opening a new connection.
-		// This just ensures we're using the expected connection for now.
-		ModelRecordSet(const std::shared_ptr<Connection>& conn, bool fetchRowCount = false)
-			: _conn(conn), _fetchRowCount(fetchRowCount)
-		{
-		}
-
 		ModelRecordSet(bool fetchRowCount = false)
 			: _fetchRowCount(fetchRowCount)
 		{
@@ -43,7 +35,7 @@ namespace db
 		void close()
 		{
 			_stmt.reset();
-			_conn.reset();
+			_poolConn.reset();
 		}
 
 		/// \brief fetches the current result set's row count, if requested and available
@@ -130,8 +122,8 @@ namespace db
 			_columnCount = 0;
 			_rowCount.reset();
 
-			if (_conn == nullptr)
-				_conn = ConnectionManager::GetConnectionTo(ModelType::DbType());
+			if (_poolConn == nullptr)
+				_poolConn = ConnectionManager::CreatePoolConnection(ModelType::DbType());
 
 			if (_fetchRowCount)
 				_selectCountQuery = filterObj.SelectCountString();
@@ -141,7 +133,7 @@ namespace db
 			std::string query = filterObj.SelectString();
 
 			_selectLimit = filterObj.Limit;
-			_stmt = std::make_shared<nanodbc::statement>(*_conn->Conn, query);
+			_stmt = std::make_shared<nanodbc::statement>(_poolConn->CreateStatement(query));
 
 			return _stmt;
 		}
@@ -160,7 +152,7 @@ namespace db
 
 			if (_fetchRowCount)
 			{
-				nanodbc::statement stmt(*_conn->Conn, _selectCountQuery);
+				nanodbc::statement stmt = _poolConn->CreateStatement(_selectCountQuery);
 				nanodbc::result result = stmt.execute();
 
 				int64_t rowCount = 0;
@@ -184,7 +176,7 @@ namespace db
 		}
 
 	private:
-		std::shared_ptr<Connection> _conn {};
+		std::shared_ptr<PoolConnection> _poolConn {};
 		std::shared_ptr<nanodbc::statement> _stmt {};
 		nanodbc::result _result {};
 		Model::BindingIndex<BoundModelType> _bindingIndex {};

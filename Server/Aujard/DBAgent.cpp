@@ -3,25 +3,28 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-#include "Aujard.h"
 #include "DBAgent.h"
-
-#include <format>
-#include <nanodbc/nanodbc.h>
-
 #include "AujardDlg.h"
-#include <db-library/Connection.h>
+
+#include <db-library/Exceptions.h>
 #include <db-library/ModelRecordSet.h>
+#include <db-library/PoolConnection.h>
 #include <db-library/SqlBuilder.h>
+#include <db-library/utils.h>
 
 #include <shared/StringUtils.h>
 #include <shared/ByteBuffer.h>
+
+#include <format>
+#include <nanodbc/nanodbc.h>
 
 #ifdef _DEBUG
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
+
+#include <db-library/StoredProc.h>
 
 import AujardBinder;
 import StoredProc;
@@ -31,13 +34,6 @@ import StoredProc;
 //////////////////////////////////////////////////////////////////////
 
 extern CRITICAL_SECTION g_LogFileWrite;
-
-static void LogDatabaseError(const nanodbc::database_error& dbErr, const char* source)
-{
-	CString logLine;
-	logLine.Format(_T("%hs: %hs\r\n"), source, dbErr.what());
-	LogFileWrite(logLine);
-}
 
 CDBAgent::CDBAgent()
 {
@@ -59,77 +55,29 @@ bool CDBAgent::InitDatabase()
 	// exceptions per-connection
 	try
 	{
-		_gameConn1 = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
-		if (_gameConn1 == nullptr)
-		{
+		auto gameConn = db::ConnectionManager::CreatePoolConnection(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
+		if (gameConn == nullptr)
 			return false;
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.InitDatabase(_gameConn1)");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.InitDatabase(gameConn)");
 		return false;
 	}
 
 	try
 	{
-		// TODO: modelUtil::DbType::ACCOUNT; Currently all models are assigned to GAME
-		_accountConn1 = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
-		if (_accountConn1 == nullptr)
-		{
+		auto accountConn = db::ConnectionManager::CreatePoolConnection(modelUtil::DbType::ACCOUNT, DB_PROCESS_TIMEOUT);
+		if (accountConn == nullptr)
 			return false;
-		}
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.InitDatabase(_accountConn1)");
-		return false;
-	}
-
-	try
-	{
-		// TODO: modelUtil::DbType::ACCOUNT; Currently all models are assigned to GAME
-		_accountConn2 = db::ConnectionManager::GetConnectionTo(modelUtil::DbType::GAME, DB_PROCESS_TIMEOUT);
-		if (_accountConn2 == nullptr)
-		{
-			return false;
-		}
-	}
-	catch (const nanodbc::database_error& dbErr)
-	{
-		LogDatabaseError(dbErr, "DBProcess.InitDatabase(_accountConn2)");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.InitDatabase(accountConn)");
 		return false;
 	}
 
 	return true;
-}
-
-/// \brief checks if the managed connection is disconnected and attempts to reconnect if it is
-/// \param conn the connection to attempt a reconnect on
-/// \throws nanodbc::database_error
-void CDBAgent::ReconnectIfDisconnected(db::Connection* conn) noexcept(false)
-{
-	try
-	{
-		int8_t result = conn->Reconnect();
-		if (result == -1)
-		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] failed to connect. This usually means the connection is null");
-		}
-
-		// reconnect was necessary and successful
-		if (result == 1)
-		{
-			CTime t = CTime::GetCurrentTime();
-			LogFileWrite(std::format("ReconnectIfDisconnected(): reconnect successful on {:02}/{:02}/{:04}T{:02}:{:02}:{02}\r\n",
-				t.GetMonth(), t.GetDay(), t.GetYear(), t.GetHour(), t.GetMinute(), t.GetSecond()));
-		}
-	}
-	catch (const nanodbc::database_error& dbErr)
-	{
-		LogDatabaseError(dbErr, "DBAgent.ReconnectIfDisconnected()");
-		throw;
-	}
 }
 
 /// \brief resets a UserData[userId] record.  Called after logout actions
@@ -175,19 +123,18 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	try
 	{
 		_main->DBProcessNumber(2);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::LoadUserData proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::LoadUserData> proc;
 		auto weak_result = proc.execute(accountId, charId, &rowCount);
 		auto result = weak_result.lock();
 		if (result == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+			throw db::ApplicationError("expected result set");
 		}
 
 		if (!result->next())
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] expected row in result set");
+			throw db::ApplicationError("expected row in result set");
 		}
 
 		// THIS IS WHERE THE FUN STARTS
@@ -246,7 +193,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadUserData()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadUserData()");
 		return false;
 	}
 	
@@ -531,9 +478,8 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	try
 	{
 		_main->DBProcessNumber(3);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::UpdateUserData proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::UpdateUserData> proc;
 
 		auto weak_result = proc.execute(
 			user->m_id, user->m_bNation, user->m_bRace, user->m_sClass,
@@ -552,7 +498,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 		auto result = weak_result.lock();
 		if (result == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+			throw db::ApplicationError("expected result set");
 		}
 
 		// affected_rows will be -1 if unavailable should be 1 if available
@@ -564,7 +510,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadUserData()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadUserData()");
 		return false;
 	}
 	
@@ -579,14 +525,13 @@ int CDBAgent::AccountLogInReq(char* accountId, char* password)
 	try
 	{
 		_main->DBProcessNumber(4);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::AccountLogin proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::AccountLogin> proc;
 		proc.execute(accountId, password, &retCode);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.AccountLogInReq()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.AccountLogInReq()");
 		return false;
 	}
 	
@@ -602,14 +547,13 @@ bool CDBAgent::NationSelect(char* accountId, int nation)
 	try
 	{
 		_main->DBProcessNumber(5);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::NationSelect proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::NationSelect> proc;
 		proc.execute(&retCode, accountId, nation);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.NationSelect()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.NationSelect()");
 		return false;
 	}
 
@@ -631,16 +575,15 @@ int CDBAgent::CreateNewChar(char* accountId, int index, char* charId, int race, 
 	try
 	{
 		_main->DBProcessNumber(6);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::CreateNewChar proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::CreateNewChar> proc;
 		proc.execute(
 			&retCode, accountId, index, charId, race, Class, hair,
 			face, str, sta, dex, intel, cha);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.CreateNewChar()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.CreateNewChar()");
 		return -1;
 	}
 
@@ -672,9 +615,8 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 	try
 	{
 		_main->DBProcessNumber(8);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::LoadCharInfo proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::LoadCharInfo> proc;
 
 		auto weak_result = proc.execute(charId.c_str(), &rowCount);
 		auto result = weak_result.lock();
@@ -683,12 +625,12 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 		// so at this point we're only requesting character names that we expect to exist.
 		if (result == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+			throw db::ApplicationError("expected result set");
 		}
 
 		if (!result->next())
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] expected row in result set");
+			throw db::ApplicationError("expected row in result set");
 		}
 
 		Race = static_cast<uint8_t>(result->get<int16_t>(0));
@@ -707,7 +649,7 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadCharInfo()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadCharInfo()");
 		return false;
 	}
 
@@ -757,9 +699,8 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1_, char* charId2
 	try
 	{
 		_main->DBProcessNumber(9);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::LoadAccountCharid proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::LoadAccountCharid> proc;
 
 		auto weak_result = proc.execute(&rowCount, accountId);
 		auto result = weak_result.lock();
@@ -781,7 +722,7 @@ bool CDBAgent::GetAllCharID(const char* accountId, char* charId1_, char* charId2
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.GetAllCharID()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.GetAllCharID()");
 		return false;
 	}
 
@@ -817,14 +758,13 @@ int CDBAgent::CreateKnights(int knightsId, int nation, char* name, char* chief, 
 	try
 	{
 		_main->DBProcessNumber(10);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::CreateKnights proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::CreateKnights> proc;
 		proc.execute(&retCode, knightsId, nation, flag, name, chief);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.CreateKnights()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.CreateKnights()");
 		retCode = 6;
 	}
 
@@ -845,14 +785,13 @@ int CDBAgent::UpdateKnights(int type, char* charId, int knightsId, int dominatio
 	try
 	{
 		_main->DBProcessNumber(11);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::UpdateKnights proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::UpdateKnights> proc;
 		proc.execute(&retCode, type, charId, knightsId, domination);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.UpdateKnights()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.UpdateKnights()");
 		return 2;
 	}
 
@@ -867,14 +806,13 @@ int CDBAgent::DeleteKnights(int knightsId)
 	try
 	{
 		_main->DBProcessNumber(12);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::DeleteKnights proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::DeleteKnights> proc;
 		proc.execute(&retCode, knightsId);
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.DeleteKnights()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.DeleteKnights()");
 		return 7;
 	}
 
@@ -896,9 +834,8 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	try
 	{
 		_main->DBProcessNumber(13);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::LoadKnightsMembers proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::LoadKnightsMembers> proc;
 		auto weak_result = proc.execute(knightsId);
 		auto result = weak_result.lock();
 		if (result != nullptr)
@@ -935,7 +872,7 @@ int CDBAgent::LoadKnightsAllMembers(int knightsId, int start, char* buffOut, int
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadKnightsAllMembers()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadKnightsAllMembers()");
 		return 0;
 	}
 
@@ -956,16 +893,21 @@ bool CDBAgent::UpdateConCurrentUserCount(int serverId, int zoneId, int userCount
 	try
 	{
 		_main->DBProcessNumber(14);
-		ReconnectIfDisconnected(_accountConn2.get());
 
-		nanodbc::statement stmt(*_accountConn2->Conn, updateQuery);
+		auto conn = db::ConnectionManager::CreatePoolConnection(modelUtil::DbType::ACCOUNT, DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
+		{
+			throw db::ApplicationError("failed to allocate pool connection");
+		}
+
+		nanodbc::statement stmt = conn->CreateStatement(updateQuery);
 		stmt.bind(0, &userCount);
 		stmt.bind(1, &serverId);
 		stmt.execute();
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.UpdateConCurrentUserCount()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.UpdateConCurrentUserCount()");
 		return false;
 	}
 
@@ -993,14 +935,13 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	try
 	{
 		_main->DBProcessNumber(15);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		db::ModelRecordSet<model::Warehouse> recordSet(_gameConn1);
+		db::ModelRecordSet<model::Warehouse> recordSet;
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+			throw db::ApplicationError("statement could not be allocated");
 		}
 
 		stmt->bind(0, accountId);
@@ -1023,7 +964,7 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadWarehouseData()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadWarehouseData()");
 		return false;
 	}
 
@@ -1114,9 +1055,8 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	try
 	{
 		_main->DBProcessNumber(16);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		storedProc::UpdateWarehouse proc(_gameConn1->Conn);
+		db::StoredProc<storedProc::UpdateWarehouse> proc;
 
 		auto weak_result = proc.execute(
 			accountId, pUser->m_iBank, pUser->m_dwTime,
@@ -1125,7 +1065,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 		auto result = weak_result.lock();
 		if (result == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] expected result set");
+			throw db::ApplicationError("expected result set");
 		}
 
 		// affected_rows will be -1 if unavailable should be 1 if available
@@ -1137,7 +1077,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.UpdateWarehouseData()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.UpdateWarehouseData()");
 		return false;
 	}
 
@@ -1157,14 +1097,13 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	try
 	{
 		_main->DBProcessNumber(17);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		db::ModelRecordSet<model::Knights> recordSet(_gameConn1);
+		db::ModelRecordSet<model::Knights> recordSet;
 
 		auto stmt = recordSet.prepare(sql);
 		if (stmt == nullptr)
 		{
-			throw nanodbc::database_error(nullptr, 0, "[application error] statement could not be allocated");
+			throw db::ApplicationError("statement could not be allocated");
 		}
 
 		stmt->bind(0, &knightsId);
@@ -1192,7 +1131,7 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadKnightsInfo()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadKnightsInfo()");
 		return false;
 	}
 
@@ -1209,6 +1148,8 @@ bool CDBAgent::LoadKnightsInfo(int knightsId, char* buffOut, int& buffIndex)
 /// \returns true when CURRENTUSER successfully updated, otherwise false
 bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const char* serverIp, int serverId, const char* clientIp, BYTE init)
 {
+	using ModelType = model::CurrentUser;
+
 	std::string query;
 	if (init == 0x01)
 	{
@@ -1230,9 +1171,12 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	try
 	{
 		_main->DBProcessNumber(18);
-		ReconnectIfDisconnected(_accountConn1.get());
 
-		nanodbc::statement stmt(*_accountConn1->Conn, query);
+		auto conn = db::ConnectionManager::CreatePoolConnection(ModelType::DbType(), DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
+			return false;
+
+		nanodbc::statement stmt = conn->CreateStatement(query);
 		nanodbc::result result = stmt.execute();
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result.affected_rows() == 0)
@@ -1243,7 +1187,7 @@ bool CDBAgent::SetLogInInfo(const char* accountId, const char* charId, const cha
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.SetLogInInfo()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.SetLogInInfo()");
 		return false;
 	}
 
@@ -1259,9 +1203,8 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	try
 	{
 		_main->DBProcessNumber(19);
-		ReconnectIfDisconnected(_accountConn1.get());
 
-		storedProc::AccountLogout proc(_accountConn1->Conn);
+		db::StoredProc<storedProc::AccountLogout> proc;
 
 		auto weak_result = proc.execute(accountId, logoutCode, &ret1, &ret2);
 
@@ -1280,7 +1223,7 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.AccountLogout()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.AccountLogout()");
 		return false;
 	}
 
@@ -1302,23 +1245,29 @@ bool CDBAgent::AccountLogout(const char* accountId, int logoutCode)
 bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int checkType, int userUpdateTime, int compareData)
 {
 	uint32_t dbData = 0, dbTime = 0;
+	modelUtil::DbType dbType;
 
 	std::string query;
 	if (checkType == 1)
 	{
 		query = std::format("SELECT [dwTime], [nMoney] FROM [WAREHOUSE] WHERE [strAccountID] = \'{}\'", accountId);
+		dbType = model::Warehouse::DbType();
 	}
 	else
 	{
 		query = std::format("SELECT [dwTime], [Exp] FROM [USERDATA] WHERE [strUserID] = \'{}\'", charId);
+		dbType = model::UserData::DbType();
 	}
 	
 	try
 	{
 		_main->DBProcessNumber(20);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		nanodbc::statement stmt(*_gameConn1->Conn, query);
+		auto conn = db::ConnectionManager::CreatePoolConnection(dbType, DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
+			return false;
+
+		nanodbc::statement stmt = conn->CreateStatement(query);
 		nanodbc::result result = stmt.execute();
 
 		if (!result.next())
@@ -1332,7 +1281,7 @@ bool CDBAgent::CheckUserData(const char* accountId, const char* charId, int chec
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.CheckUserData()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.CheckUserData()");
 		return false;
 	}
 
@@ -1376,9 +1325,8 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	try
 	{
 		_main->DBProcessNumber(21);
-		ReconnectIfDisconnected(_gameConn1.get());
 
-		db::ModelRecordSet<model::Knights> recordSet(_gameConn1);
+		db::ModelRecordSet<model::Knights> recordSet;
 		recordSet.open(sql);
 
 		while (recordSet.next())
@@ -1422,7 +1370,7 @@ void CDBAgent::LoadKnightsAllList(int nation)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.LoadKnightsAllList()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadKnightsAllList()");
 		return;
 	}
 
@@ -1455,17 +1403,23 @@ void CDBAgent::LoadKnightsAllList(int nation)
 /// \returns true if update successful, otherwise false
 bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 {
+	using ModelType = model::Battle;
+
 	std::string query = "UPDATE BATTLE SET byNation = ?, strUserName = ? WHERE sIndex = 1";
 	try
 	{
 		_main->DBProcessNumber(22);
-		ReconnectIfDisconnected(_accountConn1.get());
 
-		nanodbc::statement stmt(*_accountConn1->Conn, query);
+		auto conn = db::ConnectionManager::CreatePoolConnection(ModelType::DbType(), DB_PROCESS_TIMEOUT);
+		if (conn == nullptr)
+			return false;
+
+		nanodbc::statement stmt = conn->CreateStatement(query);
 		stmt.bind(0, &nation);
 		stmt.bind(1, charId);
 
 		nanodbc::result result = stmt.execute();
+
 		// affected_rows will be -1 if unavailable should be 1 if available
 		if (result.affected_rows() == 0)
 		{
@@ -1475,7 +1429,7 @@ bool CDBAgent::UpdateBattleEvent(const char* charId, int nation)
 	}
 	catch (const nanodbc::database_error& dbErr)
 	{
-		LogDatabaseError(dbErr, "DBProcess.UpdateBattleEvent()");
+		db::utils::LogDatabaseError(dbErr, "DBProcess.UpdateBattleEvent()");
 		return false;
 	}
 
