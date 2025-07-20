@@ -112,7 +112,7 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	uint8_t Nation, Race, HairColor, Rank, Title, Level;
 	uint32_t Exp, Loyalty, Gold, PX, PZ, PY, dwTime, MannerPoint, LoyaltyMonthly;
 	uint8_t Face, City, Fame, Authority, Points;
-	int16_t Hp, Mp, Sp, Class, Bind, Knights, QuestCount;
+	int16_t Hp, Mp, Sp, Class, Bind = 0, Knights, QuestCount;
 	uint8_t Str, Sta, Dex, Intel, Cha, Zone;
 	char strSkill[10] = {},
 		strItem[400] = {},
@@ -163,7 +163,10 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		Points = static_cast<uint8_t>(result->get<int16_t>(22));
 		Gold = result->get<uint32_t>(23);
 		Zone = static_cast<uint8_t>(result->get<int16_t>(24));
-		Bind = result->get<int16_t>(25);
+		if (!result->is_null(25))
+		{
+			Bind = result->get<int16_t>(25);
+		}
 		PX = result->get<uint32_t>(26);
 		PZ = result->get<uint32_t>(27);
 		PY = result->get<uint32_t>(28);
@@ -174,19 +177,28 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		std::ranges::copy(temp, strSkill);
 		temp.clear();
 
-		result->get_ref(31, temp);
-		std::ranges::copy(temp, strItem);
-		temp.clear();
-			
-		result->get_ref(32, temp);
-		std::ranges::copy(temp, strSerial);
-		temp.clear();
+		if (!result->is_null(31))
+		{
+			result->get_ref(31, temp);
+			std::ranges::copy(temp, strItem);
+			temp.clear();
+		}
+		
+		if (!result->is_null(32))
+		{
+			result->get_ref(32, temp);
+            std::ranges::copy(temp, strSerial);
+            temp.clear();
+		}
 			
 		QuestCount = result->get<int16_t>(33);
-			
-		result->get_ref(34, temp);
-		std::ranges::copy(temp, strQuest);
-		temp.clear();
+
+		if (!result->is_null(34))
+		{
+			result->get_ref(34, temp);
+			std::ranges::copy(temp, strQuest);
+			temp.clear();
+		}
 			
 		MannerPoint = result->get<uint32_t>(35);
 		LoyaltyMonthly = result->get<uint32_t>(36);
