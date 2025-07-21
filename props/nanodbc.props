@@ -3,6 +3,7 @@
   <ImportGroup Label="PropertySheets" />
   <ItemDefinitionGroup>
     <ClCompile>
+      <PreprocessorDefinitions>NANODBC_USE_UINT8_FOR_TINYINT;NANODBC_DISABLE_MSSQL_TVP;%(PreprocessorDefinitions);</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(DependencyDir)nanodbc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
