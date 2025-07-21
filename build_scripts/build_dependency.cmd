@@ -65,13 +65,6 @@ IF "%CURRENT_COMMIT%"=="" (
 	ECHO [%DEP_NAME%] New submodule detected - initializing dependency.
 ) ELSE (
 	ECHO [%DEP_NAME%] Change detected - updating dependency.
-
-	REM Ensure any pending changes are stored. This is for the sake of devs updating;
-	REM it needs to be added first, or their change will get reset on build.
-	REM For general use this won't do anything.
-	PUSHD "%REPO_ROOT%"
-	"%GitPath%" add "%DEP_PATH%"
-	POPD
 )
 
 ECHO Please note that this may take some time, so please be patient.
