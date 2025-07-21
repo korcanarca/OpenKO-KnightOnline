@@ -603,55 +603,55 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 	std::string charId = charId_;
 	rtrim(charId);
 
-	// This attempts to request all 3 of the account's characters.
-	// This includes characters that don't exist/aren't set.
-	// These should be skipped.
-	if (charId.empty())
-		return false;
-
 	uint8_t Race = 0, HairColor = 0, Level = 0, Face = 0, Zone = 0;
 	int16_t Class = 0;
 	ByteBuffer items(400);
-	
+
 	int16_t rowCount = 0;
-	try
+	// This attempts to request all 3 of the account's characters.
+	// This includes characters that don't exist/aren't set.
+	// These should be skipped.
+	if (!charId.empty())
 	{
-		_main->DBProcessNumber(8);
-
-		db::StoredProc<storedProc::LoadCharInfo> proc;
-
-		auto weak_result = proc.execute(charId.c_str(), &rowCount);
-		auto result = weak_result.lock();
-
-		// Officially this requests all 3, but we pre-emptively skip the NULL/empty character names,
-		// so at this point we're only requesting character names that we expect to exist.
-		if (result == nullptr)
+		try
 		{
-			throw db::ApplicationError("expected result set");
-		}
+			_main->DBProcessNumber(8);
 
-		if (!result->next())
+			db::StoredProc<storedProc::LoadCharInfo> proc;
+
+			auto weak_result = proc.execute(charId.c_str(), &rowCount);
+			auto result = weak_result.lock();
+
+			// Officially this requests all 3, but we pre-emptively skip the NULL/empty character names,
+			// so at this point we're only requesting character names that we expect to exist.
+			if (result == nullptr)
+			{
+				throw db::ApplicationError("expected result set");
+			}
+
+			if (!result->next())
+			{
+				throw db::ApplicationError("expected row in result set");
+			}
+
+			Race = result->get<uint8_t>(0);
+			Class = result->get<int16_t>(1);
+			HairColor = result->get<uint8_t>(2);
+			Level = result->get<uint8_t>(3);
+			Face = result->get<uint8_t>(4);
+			Zone = result->get<uint8_t>(5);
+
+			if (!result->is_null(6))
+			{
+				result->get_ref(6, items.storage());
+				items.sync_for_read();
+			}
+		}
+		catch (const nanodbc::database_error& dbErr)
 		{
-			throw db::ApplicationError("expected row in result set");
+			db::utils::LogDatabaseError(dbErr, "DBProcess.LoadCharInfo()");
+			return false;
 		}
-
-		Race = result->get<uint8_t>(0);
-		Class = result->get<int16_t>(1);
-		HairColor = result->get<uint8_t>(2);
-		Level = result->get<uint8_t>(3);
-		Face = result->get<uint8_t>(4);
-		Zone = result->get<uint8_t>(5);
-
-		if (!result->is_null(6))
-		{
-			result->get_ref(6, items.storage());
-			items.sync_for_read();
-		}
-	}
-	catch (const nanodbc::database_error& dbErr)
-	{
-		db::utils::LogDatabaseError(dbErr, "DBProcess.LoadCharInfo()");
-		return false;
 	}
 
 	SetString2(buff, charId.c_str(), static_cast<short>(charId.length()), buffIndex);
