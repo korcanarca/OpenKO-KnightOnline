@@ -160,6 +160,11 @@ public:
 		return _storage;
 	}
 
+	std::vector<uint8_t>& storage()
+	{
+		return _storage;
+	}
+
 	const uint8_t* contents() const
 	{
 		return &_storage[0];
@@ -174,6 +179,12 @@ public:
 	void resize(size_t newsize) 
 	{
 		_storage.resize(newsize);
+		_rpos = 0;
+		_wpos = size();
+	}
+
+	void sync_for_read()
+	{
 		_rpos = 0;
 		_wpos = size();
 	}

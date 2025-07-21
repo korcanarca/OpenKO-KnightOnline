@@ -114,10 +114,10 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	uint8_t Face, City, Fame, Authority, Points;
 	int16_t Hp, Mp, Sp, Class, Bind = 0, Knights, QuestCount;
 	uint8_t Str, Sta, Dex, Intel, Cha, Zone;
-	char strSkill[10] = {},
-		strItem[400] = {},
-		strSerial[400] = {},
-		strQuest[400] = {};
+	ByteBuffer skills(10),
+		items(400),
+		serials(400),
+		quests(400);
 	
 	int16_t rowCount = 0;
 	try
@@ -172,32 +172,30 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		PY = result->get<uint32_t>(28);
 		dwTime = result->get<uint32_t>(29);
 
-		std::vector<uint8_t> temp(sizeof(strSkill));
-		result->get_ref(30, temp);
-		std::ranges::copy(temp, strSkill);
-		temp.clear();
+		if (!result->is_null(30))
+		{
+			result->get_ref(30, skills.storage());
+			skills.sync_for_read();
+		}
 
 		if (!result->is_null(31))
 		{
-			result->get_ref(31, temp);
-			std::ranges::copy(temp, strItem);
-			temp.clear();
+			result->get_ref(31, items.storage());
+			items.sync_for_read();
 		}
 
 		if (!result->is_null(32))
 		{
-			result->get_ref(32, temp);
-			std::ranges::copy(temp, strSerial);
-			temp.clear();
+			result->get_ref(32, serials.storage());
+			serials.sync_for_read();
 		}
 
 		QuestCount = result->get<int16_t>(33);
 
 		if (!result->is_null(34))
 		{
-			result->get_ref(34, temp);
-			std::ranges::copy(temp, strQuest);
-			temp.clear();
+			result->get_ref(34, quests.storage());
+			quests.sync_for_read();
 		}
 
 		MannerPoint = result->get<uint32_t>(35);
@@ -257,26 +255,19 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 		t.GetHour(), t.GetMinute(), t.GetSecond(), charId, Nation, Zone, Level, Exp, Gold));
 #endif	
 
-	int index = 0, serial_index = 0;
 	for (int i = 0; i < 9; i++)
-		user->m_bstrSkill[i] = GetByte(strSkill, index);
-
-	index = 0;
-	DWORD itemId = 0;
-	short count = 0, duration = 0;
-	int64_t serial = 0;
-	model::Item* pTable = nullptr;
+		user->m_bstrSkill[i] = skills.read<uint8_t>();
 
 	// Equip slots + inventory slots (14+28=42)
 	for (int i = 0; i < HAVE_MAX + SLOT_MAX; i++)
 	{
-		itemId = GetDWORD(strItem, index);
-		duration = GetShort(strItem, index);
-		count = GetShort(strItem, index);
+		int32_t itemId = items.read<int32_t>();
+		int16_t duration = items.read<int16_t>();
+		int16_t count = items.read<int16_t>();
 
-		serial = GetInt64(strSerial, serial_index);		// item serial number
+		int64_t serial = serials.read<int64_t>();		// item serial number
 
-		pTable = _main->ItemArray.GetData(itemId);
+		model::Item* pTable = _main->ItemArray.GetData(itemId);
 
 		if (pTable != nullptr)
 		{
@@ -328,12 +319,11 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	}
 
 	short sQuestTotal = 0;
-	index = 0;
 	for (int i = 0; i < MAX_QUEST; i++)
 	{
 		_USER_QUEST& quest = user->m_quests[i];
-		quest.sQuestID = GetShort(strQuest, index);
-		quest.byQuestState = GetByte(strQuest, index);
+		quest.sQuestID = quests.read<int16_t>();
+		quest.byQuestState = quests.read<uint8_t>();
 
 		if (quest.sQuestID > 100
 			|| quest.byQuestState > 3)
@@ -621,7 +611,7 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 
 	uint8_t Race = 0, HairColor = 0, Level = 0, Face = 0, Zone = 0;
 	int16_t Class = 0;
-	char strItem[400] = {};
+	ByteBuffer items(400);
 	
 	int16_t rowCount = 0;
 	try
@@ -654,9 +644,8 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 
 		if (!result->is_null(6))
 		{
-			std::vector<uint8_t> itemData(sizeof(strItem));
-			result->get_ref(6, itemData);
-			std::ranges::copy(itemData, strItem);
+			result->get_ref(6, items.storage());
+			items.sync_for_read();
 		}
 	}
 	catch (const nanodbc::database_error& dbErr)
@@ -673,12 +662,11 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 	SetByte(buff, HairColor, buffIndex);
 	SetByte(buff, Zone, buffIndex);
 
-	int tempId = 0, count = 0, index = 0, duration = 0;
 	for (int i = 0; i < SLOT_MAX; i++)
 	{
-		tempId = GetDWORD(strItem, index);
-		duration = GetShort(strItem, index);
-		count = GetShort(strItem, index);
+		int32_t itemId = items.read<int32_t>();
+		int16_t duration = items.read<int16_t>();
+		int16_t count = items.read<int16_t>();
 
 		if (i == HEAD
 			|| i == BREAST
@@ -689,7 +677,7 @@ bool CDBAgent::LoadCharInfo(char* charId_, char* buff, int& buffIndex)
 			|| i == LEFTHAND
 			|| i == RIGHTHAND)
 		{
-			SetDWORD(buff, tempId, buffIndex);
+			SetDWORD(buff, itemId, buffIndex);
 			SetShort(buff, duration, buffIndex);
 		}
 	}
