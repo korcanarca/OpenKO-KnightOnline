@@ -105,47 +105,7 @@
   <Target Name="RebuildProject" BeforeTargets="PrepareForBuild">
     <Exec Command="RebuildProject.bat" />
   </Target>
-  <ItemGroup>
-    <ClCompile Include="..\db-modules\AIServer\binder\AIServerBinder.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\AIServer\model\AIServerModel.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\Aujard\binder\AujardBinder.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\Aujard\model\AujardModel.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\BinderUtil\BinderUtil.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\Ebenezer\binder\EbenezerBinder.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\Ebenezer\model\EbenezerModel.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\Full\binder\FullBinder.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\Full\model\FullModel.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\ModelUtil\ModelUtil.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\StoredProc\StoredProc.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\VersionManager\binder\VersionManagerBinder.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-    <ClCompile Include="..\db-modules\VersionManager\model\VersionManagerModel.ixx">
-        <CompileAsCppModule>true</CompileAsCppModule>
-    </ClCompile>
-  </ItemGroup>
+<!-- SOURCE FILES -->
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
