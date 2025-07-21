@@ -8338,7 +8338,6 @@ void CUser::WarehouseProcess(char* pBuf)
 	{
 		SetByte(send_buff, WIZ_WAREHOUSE, send_index);
 		SetByte(send_buff, WAREHOUSE_OPEN, send_index);
-		SetByte(send_buff, 1, send_index); /* success */
 		SetDWORD(send_buff, m_pUserData->m_iBank, send_index);
 
 		for (int i = 0; i < WAREHOUSE_MAX; i++)
