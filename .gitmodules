@@ -21,3 +21,7 @@
 	path = deps/nanodbc
 	url = https://github.com/Open-KO/nanodbc.git
 	branch = OpenKO
+[submodule "deps/db-library"]
+	path = deps/db-library
+	url = https://github.com/Open-KO/OpenKO-db-library.git
+	branch = main
