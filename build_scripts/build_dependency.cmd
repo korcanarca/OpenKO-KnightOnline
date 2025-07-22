@@ -115,14 +115,8 @@ IF NOT "%PROJECT_PATH%"=="" (
 		EXIT /B 1
 	)
 
-	REM Build dependency - when overriding builds for dev use, just invoke a simple build.
-	REM Otherwise, invoke a full rebuild (clean + build)
-	IF "%OVERRIDE_BUILD%"=="1" (
-		"%MSBUILD%" "%PROJECT_PATH%" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%BUILD_PLATFORM%
-	) ELSE (
-		"%MSBUILD%" "%PROJECT_PATH%" /t:Rebuild /p:Configuration=%BUILD_CONFIG% /p:Platform=%BUILD_PLATFORM%
-	)
-
+	REM Build dependency with a full rebuild (clean + build)
+	"%MSBUILD%" "%PROJECT_PATH%" /t:Build /p:Configuration=%BUILD_CONFIG% /p:Platform=%BUILD_PLATFORM%
 	IF ERRORLEVEL 1 (
 		ECHO ERROR: Failed to build dependency: %DEP_NAME%
 		EXIT /B 1
