@@ -1,0 +1,118 @@
+BasedOnStyle: LLVM
+
+# ------------------------------------------------------------------------------
+# Indentation
+# ------------------------------------------------------------------------------
+UseTab: ForIndentation
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+IndentCaseLabels: true
+AlignAfterOpenBracket: DontAlign
+
+# ------------------------------------------------------------------------------
+# Comment Handling
+# ------------------------------------------------------------------------------
+ReflowComments: false # Avoid mangling commented-out code
+
+# ------------------------------------------------------------------------------
+# Braces and Blocks
+# ------------------------------------------------------------------------------
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterControlStatement: true
+  AfterFunction: true
+  AfterEnum: true
+  AfterClass: true
+  AfterNamespace: true
+  AfterStruct: true
+  BeforeElse: true
+  BeforeCatch: true
+  IndentBraces: false
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# ------------------------------------------------------------------------------
+# Pointers and References
+# ------------------------------------------------------------------------------
+PointerAlignment: Left
+DerivePointerAlignment: false
+
+# ------------------------------------------------------------------------------
+# Spacing
+# ------------------------------------------------------------------------------
+SpaceBeforeParens: ControlStatements
+SpaceAfterCStyleCast: true
+SpacesBeforeTrailingComments: 4
+
+# ------------------------------------------------------------------------------
+# Short Constructs
+# ------------------------------------------------------------------------------
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+# ------------------------------------------------------------------------------
+# Function Calls / Arguments
+# ------------------------------------------------------------------------------
+BinPackArguments: true
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: true
+
+# ------------------------------------------------------------------------------
+# Operators
+# ------------------------------------------------------------------------------
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+
+# ------------------------------------------------------------------------------
+# Penalties
+# ------------------------------------------------------------------------------
+PenaltyBreakString: 1000
+PenaltyBreakBeforeFirstCallParameter: 1000
+PenaltyBreakAssignment: 1000
+
+# ------------------------------------------------------------------------------
+# Templates and Includes
+# ------------------------------------------------------------------------------
+AlwaysBreakTemplateDeclarations: Yes
+SortIncludes: false
+
+# ------------------------------------------------------------------------------
+# Alignment
+# ------------------------------------------------------------------------------
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+
+AlignConsecutiveDeclarations:
+  Enabled: false
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: true
+  PadOperators: true
+
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 2
+
+# ------------------------------------------------------------------------------
+# Other
+# ------------------------------------------------------------------------------
+Cpp11BracedListStyle: false
+ColumnLimit: 100
