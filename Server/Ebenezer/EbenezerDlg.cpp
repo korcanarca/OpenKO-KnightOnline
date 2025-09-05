@@ -3099,8 +3099,11 @@ BOOL CEbenezerDlg::LoadServerResourceTable()
 		return FALSE;
 	}
 
+	// NOTE: Not a name, but still falls under the same umbrella - this won't be an issue with DBs not padding these.
+#if defined(DB_COMPAT_PADDED_NAMES)
 	for (auto& [_, serverResource] : tableMap)
 		rtrim(serverResource->Resource);
+#endif
 
 	m_ServerResourceTableMap.Swap(tableMap);
 	return TRUE;
@@ -3137,27 +3140,37 @@ BOOL CEbenezerDlg::LoadAllKnights()
 			pKnights->m_byFlag = row.Flag;
 			pKnights->m_byNation = row.Nation;
 
+#if defined(DB_COMPAT_PADDED_NAMES)
 			rtrim(row.Name);
+#endif
 			strcpy(pKnights->m_strName, row.Name.c_str());
 
+#if defined(DB_COMPAT_PADDED_NAMES)
 			rtrim(row.Chief);
+#endif
 			strcpy(pKnights->m_strChief, row.Chief.c_str());
 
 			if (row.ViceChief1.has_value())
 			{
+#if defined(DB_COMPAT_PADDED_NAMES)
 				rtrim(*row.ViceChief1);
+#endif
 				strcpy(pKnights->m_strViceChief_1, row.ViceChief1->c_str());
 			}
 
 			if (row.ViceChief2.has_value())
 			{
+#if defined(DB_COMPAT_PADDED_NAMES)
 				rtrim(*row.ViceChief2);
+#endif
 				strcpy(pKnights->m_strViceChief_2, row.ViceChief2->c_str());
 			}
 
 			if (row.ViceChief3.has_value())
 			{
+#if defined(DB_COMPAT_PADDED_NAMES)
 				rtrim(*row.ViceChief3);
+#endif
 				strcpy(pKnights->m_strViceChief_3, row.ViceChief3->c_str());
 			}
 
@@ -3208,7 +3221,9 @@ BOOL CEbenezerDlg::LoadAllKnightsUserData()
 			ModelType row = {};
 			recordset.get_ref(row);
 
+#if defined(DB_COMPAT_PADDED_NAMES)
 			rtrim(row.UserId);
+#endif
 			m_KnightsManager.AddKnightsUser(row.KnightsId, row.UserId.c_str());
 		}
 		while (recordset.next());
@@ -3593,11 +3608,12 @@ BOOL CEbenezerDlg::LoadKnightsRankTable()
 			recordset.get_ref(row);
 		
 			CKnights* pKnights = m_KnightsMap.GetData(row.Index);
-
-			rtrim(row.Name);
-
 			if (pKnights == nullptr)
 				continue;
+
+#if defined(DB_COMPAT_PADDED_NAMES)
+			rtrim(row.Name);
+#endif
 
 			if (pKnights->m_byNation == KARUS)
 			{

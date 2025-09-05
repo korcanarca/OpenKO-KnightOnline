@@ -12,12 +12,14 @@
 #include <shared/lzf.h>
 #include <shared/globals.h>
 #include <shared/Ini.h>
+#include <shared/StringConversion.h>
+#include <shared/StringUtils.h>
 
-#include <db-library/ConnectionManager.h>
 #include <spdlog/spdlog.h>
 
+#include <db-library/ConnectionManager.h>
+
 #include <math.h>
-#include <shared/StringConversion.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -617,14 +619,25 @@ BOOL CServerDlg::GetNpcItemTable()
 //	Monster Table Data 를 읽는다.
 BOOL CServerDlg::GetMonsterTableData()
 {
+	NpcTableMap tableMap;
 	recordset_loader::STLMap<
 		NpcTableMap,
-		model::Monster> loader(m_MonTableMap);
+		model::Monster> loader(tableMap);
 	if (!loader.Load_ForbidEmpty())
 	{
 		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
+
+#if defined(DB_COMPAT_PADDED_NAMES)
+	for (const auto& [_, row] : tableMap)
+	{
+		if (row->Name.has_value())
+			rtrim(*row->Name);
+	}
+#endif
+
+	m_MonTableMap.Swap(tableMap);
 
 	spdlog::info("ServerDlg::GetMonsterTableData: K_MONSTER loaded");
 	return TRUE;
@@ -633,12 +646,23 @@ BOOL CServerDlg::GetMonsterTableData()
 //	NPC Table Data 를 읽는다. (경비병 & NPC)
 BOOL CServerDlg::GetNpcTableData()
 {
-	recordset_loader::STLMap loader(m_NpcTableMap);
+	NpcTableMap tableMap;
+	recordset_loader::STLMap loader(tableMap);
 	if (!loader.Load_ForbidEmpty())
 	{
 		ReportTableLoadError(loader.GetError(), __func__);
 		return FALSE;
 	}
+
+#if defined(DB_COMPAT_PADDED_NAMES)
+	for (const auto& [_, row] : tableMap)
+	{
+		if (row->Name.has_value())
+			rtrim(*row->Name);
+	}
+#endif
+
+	m_NpcTableMap.Swap(tableMap);
 
 	spdlog::info("ServerDlg::GetNpcTableData: K_NPC loaded");
 	return TRUE;
